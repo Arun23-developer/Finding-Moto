@@ -3,6 +3,20 @@ import { useNavigate, Link } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 
+// Strict email validation
+const isValidEmail = (email) => {
+  // RFC 5322-like regex: local@domain.tld
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(email)) return false;
+
+  // Block common disposable/fake domains
+  const blockedDomains = ['test.com', 'example.com', 'fake.com', 'temp.com', 'throwaway.com', 'mailinator.com', 'guerrillamail.com', 'yopmail.com', 'tempmail.com', 'trashmail.com'];
+  const domain = email.split('@')[1].toLowerCase();
+  if (blockedDomains.includes(domain)) return false;
+
+  return true;
+};
+
 const Register = () => {
   const [formData, setFormData] = useState({
     firstName: '',
@@ -12,6 +26,7 @@ const Register = () => {
     confirmPassword: ''
   });
   const [error, setError] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register, googleAuth } = useAuth();
   const navigate = useNavigate();
@@ -19,6 +34,12 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setEmailError('');
+
+    if (!isValidEmail(formData.email)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
@@ -64,10 +85,17 @@ const Register = () => {
   };
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+
+    // Live email validation feedback
+    if (name === 'email') {
+      if (value && !isValidEmail(value)) {
+        setEmailError('Please enter a valid email address');
+      } else {
+        setEmailError('');
+      }
+    }
   };
 
   return (
@@ -127,7 +155,9 @@ const Register = () => {
               onChange={handleChange}
               required
               disabled={loading}
+              className={emailError ? 'input-error' : ''}
             />
+            {emailError && <span className="field-error">{emailError}</span>}
           </div>
           <div className="form-group">
             <label htmlFor="password">Password</label>

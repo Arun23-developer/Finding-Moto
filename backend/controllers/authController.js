@@ -1,7 +1,33 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const dns = require('dns');
+const { promisify } = require('util');
 const config = require('../config');
 const { OAuth2Client } = require('google-auth-library');
+
+const resolveMx = promisify(dns.resolveMx);
+
+// Validate email format and domain MX records
+const validateEmail = async (email) => {
+  // Strict format check
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(email)) {
+    return { valid: false, reason: 'Invalid email format' };
+  }
+
+  // Check domain has MX records (can actually receive email)
+  const domain = email.split('@')[1];
+  try {
+    const mxRecords = await resolveMx(domain);
+    if (!mxRecords || mxRecords.length === 0) {
+      return { valid: false, reason: 'Email domain cannot receive emails' };
+    }
+  } catch (err) {
+    return { valid: false, reason: 'Email domain does not exist' };
+  }
+
+  return { valid: true };
+};
 
 const googleClient = new OAuth2Client(config.googleClientId);
 
@@ -31,6 +57,12 @@ exports.register = async (req, res) => {
 
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({ message: 'Please fill in all fields' });
+    }
+
+    // Validate email format and domain
+    const emailCheck = await validateEmail(email);
+    if (!emailCheck.valid) {
+      return res.status(400).json({ message: emailCheck.reason });
     }
 
     // Check if user exists
