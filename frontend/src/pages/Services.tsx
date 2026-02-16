@@ -1,0 +1,281 @@
+import React, { useState } from "react";
+import { Header } from "../components/layout/Header";
+import { Footer } from "../components/layout/Footer";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import {
+  Search,
+  MapPin,
+  Star,
+  Clock,
+  Phone,
+  CheckCircle,
+  Calendar,
+} from "lucide-react";
+
+interface Garage {
+  id: string;
+  name: string;
+  address: string;
+  rating: number;
+  reviewCount: number;
+  hours: string;
+  phone: string;
+  services: string[];
+  image: string;
+  verified: boolean;
+  distance: string;
+}
+
+const garages: Garage[] = [
+  {
+    id: "1", name: "Velocity Moto Works", address: "2847 Sunset Blvd, Los Angeles, CA",
+    rating: 4.9, reviewCount: 312, hours: "Mon-Sat: 8AM-6PM", phone: "(310) 555-0123",
+    services: ["Full Service", "Custom Builds", "Performance Tuning", "Tire Service"],
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&h=400&fit=crop",
+    verified: true, distance: "2.3 mi",
+  },
+  {
+    id: "2", name: "Iron Horse Garage", address: "1523 Main Street, Santa Monica, CA",
+    rating: 4.7, reviewCount: 245, hours: "Mon-Fri: 9AM-5PM", phone: "(310) 555-0456",
+    services: ["Oil Change", "Tire Service", "Diagnostics", "Brake Service"],
+    image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=600&h=400&fit=crop",
+    verified: true, distance: "4.1 mi",
+  },
+  {
+    id: "3", name: "Speed Demons Workshop", address: "789 Harbor Way, Long Beach, CA",
+    rating: 4.8, reviewCount: 189, hours: "Tue-Sun: 10AM-7PM", phone: "(562) 555-0789",
+    services: ["Racing Setup", "Suspension Tuning", "Engine Rebuild", "Dyno Testing"],
+    image: "https://images.unsplash.com/photo-1449426468159-d96dbf08f19f?w=600&h=400&fit=crop",
+    verified: true, distance: "8.5 mi",
+  },
+  {
+    id: "4", name: "Classic Cycles Restoration", address: "456 Vintage Lane, Pasadena, CA",
+    rating: 4.9, reviewCount: 156, hours: "Mon-Sat: 9AM-5PM", phone: "(626) 555-0321",
+    services: ["Vintage Restoration", "Parts Fabrication", "Paint & Body", "Electrics"],
+    image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=600&h=400&fit=crop",
+    verified: true, distance: "12.2 mi",
+  },
+  {
+    id: "5", name: "Quick Fix Moto", address: "321 Express Way, Burbank, CA",
+    rating: 4.5, reviewCount: 203, hours: "Mon-Sun: 7AM-9PM", phone: "(818) 555-0654",
+    services: ["Quick Service", "Oil Change", "Tire Change", "Basic Repairs"],
+    image: "https://images.unsplash.com/photo-1558981852-426c6c22a060?w=600&h=400&fit=crop",
+    verified: false, distance: "6.8 mi",
+  },
+  {
+    id: "6", name: "Adventure Moto Center", address: "789 Trail Road, Glendale, CA",
+    rating: 4.6, reviewCount: 178, hours: "Mon-Sat: 8AM-6PM", phone: "(818) 555-0987",
+    services: ["Adventure Prep", "Suspension Setup", "Luggage Installation", "Navigation"],
+    image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=600&h=400&fit=crop",
+    verified: true, distance: "9.3 mi",
+  },
+];
+
+const serviceTypes: string[] = [
+  "All Services", "Full Service", "Oil Change", "Tire Service", "Brake Service",
+  "Engine Rebuild", "Custom Builds", "Performance Tuning", "Diagnostics",
+];
+
+const Services: React.FC = () => {
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedService, setSelectedService] = useState<string>("All Services");
+
+  const filteredGarages = garages.filter((garage) => {
+    const matchesSearch = garage.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      garage.address.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesService = selectedService === "All Services" ||
+      garage.services.some((s) => s.toLowerCase().includes(selectedService.toLowerCase()));
+    return matchesSearch && matchesService;
+  });
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-1 bg-background">
+        {/* Hero Section */}
+        <section className="hero-gradient py-16 md:py-20">
+          <div className="container">
+            <div className="max-w-3xl mx-auto text-center">
+              <h1 className="text-4xl md:text-5xl font-black text-primary-foreground mb-6">
+                Find Trusted Garages Near You
+              </h1>
+              <p className="text-lg text-primary-foreground/80 mb-8">
+                Connect with certified mechanics and service centers for professional maintenance and repairs
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 max-w-2xl mx-auto">
+                <div className="flex-1 relative">
+                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Enter your location or zip code..."
+                    value={searchQuery}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                    className="pl-12 h-14 bg-background/95 backdrop-blur border-0"
+                  />
+                </div>
+                <Button variant="hero" size="xl">
+                  <Search className="h-5 w-5 mr-2" />
+                  Search
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Filters */}
+        <section className="py-6 bg-secondary border-b border-border">
+          <div className="container">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium text-foreground">Filter by service:</span>
+              <div className="flex flex-wrap gap-2">
+                {serviceTypes.map((service) => (
+                  <button
+                    key={service}
+                    onClick={() => setSelectedService(service)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      selectedService === service
+                        ? "bg-accent text-accent-foreground"
+                        : "bg-background text-muted-foreground hover:text-foreground border border-border"
+                    }`}
+                  >
+                    {service}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Garage Listings */}
+        <section className="py-12">
+          <div className="container">
+            <div className="flex justify-between items-center mb-8">
+              <p className="text-muted-foreground">
+                Showing {filteredGarages.length} garages near you
+              </p>
+              <select className="h-10 px-3 rounded-md border border-input bg-background text-sm">
+                <option>Nearest First</option>
+                <option>Best Rated</option>
+                <option>Most Reviews</option>
+              </select>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredGarages.map((garage, index) => (
+                <div
+                  key={garage.id}
+                  className="group bg-card rounded-xl border border-border shadow-card hover:shadow-hover transition-all duration-300 overflow-hidden animate-fade-in"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <div className="relative h-48 overflow-hidden">
+                    <img
+                      src={garage.image}
+                      alt={garage.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute top-3 left-3 flex items-center gap-2">
+                      {garage.verified && (
+                        <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-600/90 text-white text-xs font-medium">
+                          <CheckCircle className="h-3 w-3" />
+                          Verified
+                        </span>
+                      )}
+                    </div>
+                    <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-background/90 backdrop-blur">
+                      <Star className="h-4 w-4 fill-warning text-warning" />
+                      <span className="text-sm font-semibold">{garage.rating}</span>
+                      <span className="text-xs text-muted-foreground">({garage.reviewCount})</span>
+                    </div>
+                    <div className="absolute bottom-3 right-3 px-2 py-1 rounded-full bg-background/90 backdrop-blur text-xs font-medium">
+                      {garage.distance}
+                    </div>
+                  </div>
+
+                  <div className="p-5">
+                    <h3 className="text-lg font-bold text-foreground mb-2 group-hover:text-accent transition-colors">
+                      {garage.name}
+                    </h3>
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+                        <span>{garage.address}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="h-4 w-4 shrink-0" />
+                        <span>{garage.hours}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Phone className="h-4 w-4 shrink-0" />
+                        <span>{garage.phone}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {garage.services.slice(0, 3).map((service) => (
+                        <span key={service} className="px-2 py-1 text-xs font-medium rounded-full bg-secondary text-secondary-foreground">
+                          {service}
+                        </span>
+                      ))}
+                      {garage.services.length > 3 && (
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-secondary text-muted-foreground">
+                          +{garage.services.length - 3} more
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button variant="accent" className="flex-1">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Book Now
+                      </Button>
+                      <Button variant="outline">
+                        <Phone className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center mt-12">
+              <Button variant="outline" size="lg">Load More Garages</Button>
+            </div>
+          </div>
+        </section>
+
+        {/* Map Section */}
+        <section className="py-12 bg-secondary">
+          <div className="container">
+            <h2 className="text-2xl font-bold text-foreground mb-6">Explore on Map</h2>
+            <div className="rounded-xl overflow-hidden border border-border bg-card h-80 md:h-96 flex items-center justify-center">
+              <div className="text-center">
+                <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-lg font-semibold text-foreground mb-2">Interactive Map Coming Soon</p>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  Explore garages, view their locations, and get directions all from the map view
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="py-16 bg-primary text-primary-foreground">
+          <div className="container text-center">
+            <h2 className="text-3xl font-bold mb-4">Own a Garage?</h2>
+            <p className="text-primary-foreground/80 max-w-xl mx-auto mb-8">
+              Join Finding Moto to reach thousands of riders looking for quality service.
+              Get more bookings and grow your business.
+            </p>
+            <Button variant="hero" size="xl">Register Your Garage</Button>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+export default Services;

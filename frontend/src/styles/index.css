@@ -166,6 +166,554 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ===== 3D HERO — FULL PAGE RACING BIKE ===== */
+
+.hero-3d-section {
+  position: relative;
+  min-height: 150vh; /* extra scroll room for bike motion */
+  display: flex;
+  align-items: flex-start;
+  overflow: hidden;
+  background: hsl(220 25% 6%);
+}
+
+/* ── Layered backgrounds ── */
+.hero-bg-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hero-bg-gradient {
+  background: linear-gradient(
+    145deg,
+    hsl(220 30% 5%) 0%,
+    hsl(220 25% 8%) 30%,
+    hsl(210 30% 10%) 55%,
+    hsl(200 20% 7%) 80%,
+    hsl(220 25% 5%) 100%
+  );
+}
+
+.hero-bg-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: radial-gradient(ellipse 90% 60% at 50% 40%, black, transparent);
+  -webkit-mask-image: radial-gradient(ellipse 90% 60% at 50% 40%, black, transparent);
+}
+
+.hero-bg-radial {
+  background: radial-gradient(ellipse 50% 40% at 60% 45%, hsl(0 100% 50% / .06), transparent);
+}
+
+/* ── FULL-WIDTH BIKE STAGE ── */
+.hero-bike-fullpage {
+  position: absolute;
+  bottom: 8%;
+  left: 0;
+  right: 0;
+  height: 45vh;
+  min-height: 300px;
+  max-height: 480px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.hero-bike-full {
+  position: absolute;
+  bottom: 0;
+  width: 55vw;
+  min-width: 500px;
+  max-width: 900px;
+  opacity: 0;
+  transform: translateX(110%) scale(0.8);
+  transition: left 0.1s linear, transform 0.4s cubic-bezier(.22,1,.36,1), opacity 0.8s ease-out;
+  will-change: left, transform, opacity;
+  transform-style: preserve-3d;
+}
+
+.hero-bike-full.hero-bike-entered {
+  opacity: 1;
+}
+
+.hero-bike-svg-full {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 25px 50px rgba(0,0,0,.6)) drop-shadow(0 5px 15px rgba(0,0,0,.4));
+}
+
+/* Override wheel spin speed via CSS var */
+.hero-bike-full .hero-wheel {
+  animation: heroWheelSpin var(--wheel-speed, 1.2s) linear infinite;
+}
+
+.hero-bike-full .hero-wheel-rear {
+  transform-origin: 240px 390px;
+}
+
+.hero-bike-full .hero-wheel-front {
+  transform-origin: 890px 390px;
+}
+
+/* ── BIKE GLOW ── */
+.hero-bike-glow {
+  position: absolute;
+  bottom: 10%;
+  width: 40vw;
+  min-width: 300px;
+  max-width: 600px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, hsl(0 100% 50% / .12), hsl(0 100% 50% / .04) 50%, transparent 75%);
+  filter: blur(80px);
+  transition: left 0.1s linear, transform 0.5s ease-out, opacity 0.5s ease-out;
+  pointer-events: none;
+}
+
+/* ── GROUND SHADOW ── */
+.hero-ground-shadow {
+  position: absolute;
+  bottom: -5px;
+  width: 45vw;
+  min-width: 400px;
+  max-width: 700px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0,0,0,.5), transparent 70%);
+  transition: left 0.1s linear, transform 0.5s ease-out, opacity 0.5s ease-out;
+  pointer-events: none;
+}
+
+/* ── EXHAUST SMOKE ── */
+.hero-exhaust-smoke {
+  position: absolute;
+  left: -2%;
+  bottom: 18%;
+  width: 80px;
+  height: 60px;
+  pointer-events: none;
+}
+
+.hero-smoke-puff {
+  position: absolute;
+  left: 0;
+  border-radius: 50%;
+  background: rgba(180, 180, 180, 0.15);
+  animation: heroSmoke ease-out infinite;
+}
+
+/* ── ROAD SURFACE ── */
+.hero-road {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-road-surface {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 0%, hsl(220 15% 8%) 20%, hsl(220 10% 12%) 100%);
+}
+
+.hero-road-lines {
+  position: absolute;
+  bottom: 35px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 40px,
+    rgba(255,255,255,.08) 40px,
+    rgba(255,255,255,.08) 80px
+  );
+  animation: heroRoadScroll 1s linear infinite;
+}
+
+/* ── TEXT OVERLAY ── */
+.hero-text-overlay {
+  position: relative;
+  z-index: 8;
+  width: 100%;
+  padding-top: 120px;
+  padding-bottom: 40px;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.hero-text-inner {
+  max-width: 620px;
+  padding: 0 24px 0 max(24px, 6vw);
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.9s cubic-bezier(.22,1,.36,1), transform 0.9s cubic-bezier(.22,1,.36,1);
+  will-change: transform, opacity;
+  pointer-events: auto;
+}
+
+.hero-text-inner.hero-text-entered {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── BADGE ── */
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 18px;
+  border-radius: 50px;
+  font-size: 12px;
+  font-weight: 700;
+  color: hsl(0 100% 75%);
+  background: hsl(0 100% 50% / .1);
+  border: 1px solid hsl(0 100% 50% / .18);
+  margin-bottom: 28px;
+  backdrop-filter: blur(6px);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.hero-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(0 100% 60%);
+  box-shadow: 0 0 10px hsl(0 100% 60%), 0 0 20px hsl(0 100% 60% / .4);
+  animation: heroPulse 2s ease-in-out infinite;
+}
+
+/* ── TITLE ── */
+.hero-title {
+  font-size: clamp(2.5rem, 5vw, 4.2rem);
+  font-weight: 900;
+  line-height: 1.05;
+  color: white;
+  margin-bottom: 22px;
+  letter-spacing: -2px;
+}
+
+.hero-title-accent {
+  position: relative;
+  display: inline-block;
+}
+
+.hero-title-accent::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--gradient-accent);
+  animation: heroUnderline 1.2s 0.6s cubic-bezier(.22,1,.36,1) forwards;
+  transform-origin: left;
+  transform: scaleX(0);
+}
+
+.hero-subtitle {
+  font-size: clamp(0.95rem, 1.1vw, 1.15rem);
+  color: hsl(0 0% 100% / .55);
+  line-height: 1.75;
+  max-width: 500px;
+  margin-bottom: 32px;
+}
+
+/* ── SEARCH BAR ── */
+.hero-search-bar {
+  display: flex;
+  gap: 10px;
+  max-width: 520px;
+  margin-bottom: 28px;
+}
+
+.hero-search-input-wrap {
+  position: relative;
+  flex: 1;
+}
+
+.hero-search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: hsl(0 0% 100% / .3);
+}
+
+.hero-search-input {
+  width: 100%;
+  height: 52px;
+  padding-left: 46px;
+  padding-right: 16px;
+  border: 1.5px solid hsl(0 0% 100% / .08);
+  border-radius: 12px;
+  background: hsl(0 0% 100% / .05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: white;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+}
+
+.hero-search-input::placeholder {
+  color: hsl(0 0% 100% / .3);
+}
+
+.hero-search-input:focus {
+  border-color: hsl(0 100% 60% / .4);
+  background: hsl(0 0% 100% / .08);
+  box-shadow: 0 0 0 4px hsl(0 100% 60% / .08), 0 0 30px hsl(0 100% 60% / .06);
+}
+
+/* ── FEATURE BADGES ── */
+.hero-features {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+
+.hero-feature-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(0 0% 100% / .55);
+  background: hsl(0 0% 100% / .04);
+  border: 1px solid hsl(0 0% 100% / .06);
+}
+
+.hero-feature-badge svg {
+  color: hsl(0 100% 65%);
+}
+
+/* ── STATS ── */
+.hero-stats {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  padding-top: 24px;
+  border-top: 1px solid hsl(0 0% 100% / .06);
+}
+
+.hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  animation: heroStatIn 0.6s cubic-bezier(.22,1,.36,1) forwards;
+}
+
+.hero-stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: white;
+  letter-spacing: -0.5px;
+}
+
+.hero-stat-label {
+  font-size: 0.72rem;
+  color: hsl(0 0% 100% / .35);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+/* ── SPEED LINES ── */
+.hero-speed-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transition: opacity 0.4s;
+  z-index: 2;
+}
+
+.hero-speed-line {
+  position: absolute;
+  right: 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, hsl(0 100% 60% / .25), hsl(0 0% 100% / .05), transparent);
+  animation: heroSpeedLine 1s linear infinite;
+}
+
+/* ── SCROLL CTA ── */
+.hero-scroll-cta {
+  position: absolute;
+  bottom: 140px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: hsl(0 0% 100% / .25);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: opacity 0.4s;
+  z-index: 10;
+}
+
+.hero-scroll-arrow {
+  width: 16px;
+  height: 16px;
+  animation: heroBounce 2s ease-in-out infinite;
+}
+
+/* ── BOTTOM FADE ── */
+.hero-bottom-fade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 150px;
+  background: linear-gradient(transparent, hsl(0 0% 98%));
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ═══════ HERO KEYFRAMES ═══════ */
+
+@keyframes heroPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.6); }
+}
+
+@keyframes heroUnderline {
+  to { transform: scaleX(1); }
+}
+
+@keyframes heroStatIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes heroWheelSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes heroSpeedLine {
+  0%   { transform: translateX(100vw); opacity: 0; }
+  10%  { opacity: 1; }
+  100% { transform: translateX(-100vw); opacity: 0; }
+}
+
+@keyframes heroSmoke {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.3; }
+  50%  { opacity: 0.15; }
+  100% { transform: translate(-60px, -20px) scale(3); opacity: 0; }
+}
+
+@keyframes heroRoadScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-80px); }
+}
+
+@keyframes heroBounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(6px); }
+}
+
+/* ═══════ HERO RESPONSIVE ═══════ */
+
+@media (max-width: 1024px) {
+  .hero-3d-section {
+    min-height: 130vh;
+  }
+
+  .hero-text-inner {
+    padding: 0 24px;
+    max-width: 100%;
+  }
+
+  .hero-bike-full {
+    width: 70vw;
+    min-width: 400px;
+  }
+
+  .hero-text-overlay {
+    padding-top: 100px;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-3d-section {
+    min-height: 120vh;
+  }
+
+  .hero-text-overlay {
+    padding-top: 90px;
+  }
+
+  .hero-title {
+    font-size: 2.2rem;
+    letter-spacing: -1px;
+  }
+
+  .hero-search-bar {
+    flex-direction: column;
+  }
+
+  .hero-stats {
+    gap: 18px;
+  }
+
+  .hero-stat-value {
+    font-size: 1.2rem;
+  }
+
+  .hero-bike-full {
+    width: 90vw;
+    min-width: 320px;
+  }
+
+  .hero-bike-fullpage {
+    height: 35vh;
+    bottom: 10%;
+  }
+
+  .hero-scroll-cta {
+    bottom: 100px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: 1.8rem;
+  }
+
+  .hero-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .hero-features {
+    gap: 8px;
+  }
+
+  .hero-feature-badge {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+}
+
 /* ===== Auth Pages Styles (Login & Register) ===== */
 .loading-screen {
   display: flex;
