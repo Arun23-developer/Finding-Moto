@@ -3,6 +3,7 @@ import api from '../services/api';
 
 export type UserRole = 'buyer' | 'seller' | 'mechanic' | 'admin';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+//       "approvalStatus": "pending", // or "approved", "rejected"
 
 interface User {
   _id: string;
