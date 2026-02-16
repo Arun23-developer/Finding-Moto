@@ -35,7 +35,7 @@ interface FormData {
   workshopName: string;
 }
 
-const ROLE_INFO = {
+const ROLE_INFO: Record<string, { title: string; icon: string; description: string; color: string }> = {
   buyer: {
     title: 'Buyer',
     icon: '🛒',
@@ -409,7 +409,6 @@ const Register: React.FC = () => {
                 })()
               }}
             />
-          ))}
           ))}
         </div>
 

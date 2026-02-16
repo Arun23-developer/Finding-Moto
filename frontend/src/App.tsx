@@ -55,7 +55,8 @@ const PublicRoute: React.FC<RouteProps> = ({ children }) => {
 };
 
 // Role-based route protection
-const RoleRoute: React.FC<RoleRouteProps> = ({ children, roles }) => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const RoleRoute: React.FC<RoleRouteProps> = ({ children, roles }) => {
   const { user, loading } = useAuth();
   
   if (loading) {

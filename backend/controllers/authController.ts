@@ -77,14 +77,21 @@ const validateEmail = async (email: string): Promise<EmailValidationResult> => {
   }
 
   // Check domain has MX records (can actually receive email)
+  // If DNS is unavailable, allow the email through (soft check)
   const domain = email.split('@')[1];
   try {
     const mxRecords = await resolveMx(domain);
     if (!mxRecords || mxRecords.length === 0) {
       return { valid: false, reason: 'Email domain cannot receive emails' };
     }
-  } catch (err) {
-    return { valid: false, reason: 'Email domain does not exist' };
+  } catch (err: any) {
+    // Only reject if domain definitively doesn't exist (ENOTFOUND)
+    // Allow through on network errors (ECONNREFUSED, ETIMEOUT, etc.)
+    if (err?.code === 'ENOTFOUND') {
+      return { valid: false, reason: 'Email domain does not exist' };
+    }
+    // DNS unavailable — skip MX check, allow registration
+    console.warn(`DNS MX lookup skipped for ${domain}: ${err?.code || err?.message}`);
   }
 
   return { valid: true };
