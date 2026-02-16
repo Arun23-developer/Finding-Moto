@@ -37,12 +37,15 @@ Find_Moto/
 
 ## Features
 
-- User authentication (register/login)
+- Multi-role user authentication (buyer, seller, mechanic, admin)
+- Role-based registration with approval workflow
 - JWT-based authorization
+- Google OAuth login (buyer accounts)
 - MongoDB database integration
 - React Router for navigation
 - Context API for state management
 - RESTful API architecture
+- Admin dashboard for user management
 - Separate frontend and backend configurations
 
 ## Prerequisites
@@ -73,7 +76,7 @@ PORT=5000
 MONGO_URI=mongodb://localhost:27017/finding-moto
 JWT_SECRET=your-secret-key
 JWT_EXPIRES_IN=7d
-CLIENT_URL=http://localhost:3000
+CLIENT_URL=http://localhost:5173
 ```
 
 **Frontend (.env in frontend/ folder):**
@@ -106,16 +109,34 @@ npm start
 
 ## Access the Application
 
-- Frontend: http://localhost:3000
+- Frontend: http://localhost:5173
 - Backend API: http://localhost:5000/api
 - API Health Check: http://localhost:5000/api/health
 
 ## API Endpoints
 
-### Authentication
-- `POST /api/auth/register` - Register new user
+### Authentication (Public)
+- `POST /api/auth/register` - Register new user (buyer/seller/mechanic)
 - `POST /api/auth/login` - Login user
-- `GET /api/auth/me` - Get current user (Protected)
+- `POST /api/auth/google` - Google OAuth login (buyer only)
+- `GET /api/auth/approval-status/:email` - Check approval status
+
+### Authentication (Protected)
+- `GET /api/auth/me` - Get current user profile
+- `PUT /api/auth/profile` - Update user profile
+
+### Admin Only
+- `GET /api/auth/admin/pending` - Get pending approval requests
+- `PUT /api/auth/admin/approve/:userId` - Approve/reject user
+- `GET /api/auth/admin/users` - Get all users
+- `PUT /api/auth/admin/toggle-active/:userId` - Toggle user active status
+
+## User Roles
+
+- **Buyer** - Auto-approved on registration
+- **Seller** - Requires admin approval (provides shop details)
+- **Mechanic** - Requires admin approval (provides workshop details)
+- **Admin** - Full system access
 
 ## Technologies Used
 

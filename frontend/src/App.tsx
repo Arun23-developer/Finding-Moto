@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import type { UserRole } from './context/AuthContext';
 import Home from './pages/Home';
 import About from './pages/About';
 import Contact from './pages/Contact';
@@ -16,6 +17,11 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 interface RouteProps {
   children: React.ReactNode;
+}
+
+interface RoleRouteProps {
+  children: React.ReactNode;
+  roles: UserRole[];
 }
 
 const PrivateRoute: React.FC<RouteProps> = ({ children }) => {
@@ -46,6 +52,25 @@ const PublicRoute: React.FC<RouteProps> = ({ children }) => {
   }
   
   return user ? <Navigate to="/dashboard" /> : <>{children}</>;
+};
+
+// Role-based route protection
+const RoleRoute: React.FC<RoleRouteProps> = ({ children, roles }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+  
+  if (!user) return <Navigate to="/login" />;
+  if (!roles.includes(user.role)) return <Navigate to="/dashboard" />;
+  
+  return <>{children}</>;
 };
 
 function App() {

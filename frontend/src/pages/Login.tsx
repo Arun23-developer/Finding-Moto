@@ -8,12 +8,21 @@ interface FormData {
   password: string;
 }
 
+const ROLE_LABELS: Record<string, { icon: string; label: string }> = {
+  buyer: { icon: '🛒', label: 'Buyer' },
+  seller: { icon: '🏪', label: 'Seller' },
+  mechanic: { icon: '🔧', label: 'Mechanic' },
+  admin: { icon: '⚙️', label: 'Admin' }
+};
+
 const Login: React.FC = () => {
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: ''
   });
   const [error, setError] = useState('');
+  const [approvalInfo, setApprovalInfo] = useState<{ status: string; role: string; message: string } | null>(null);
+  const [verificationInfo, setVerificationInfo] = useState<{ email: string; message: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const { login, googleAuth } = useAuth();
   const navigate = useNavigate();
@@ -21,12 +30,28 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setApprovalInfo(null);
+    setVerificationInfo(null);
     setLoading(true);
     try {
       await login(formData);
       navigate('/dashboard');
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Login failed. Please try again.');
+      const data = error.response?.data;
+      if (data?.requiresVerification) {
+        setVerificationInfo({
+          email: data.email,
+          message: data.message
+        });
+      } else if (data?.approvalStatus) {
+        setApprovalInfo({
+          status: data.approvalStatus,
+          role: data.role,
+          message: data.message
+        });
+      } else {
+        setError(data?.message || 'Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -34,12 +59,22 @@ const Login: React.FC = () => {
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     setError('');
+    setApprovalInfo(null);
     setLoading(true);
     try {
       await googleAuth(credentialResponse.credential);
       navigate('/dashboard');
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Google login failed. Please try again.');
+      const data = error.response?.data;
+      if (data?.approvalStatus) {
+        setApprovalInfo({
+          status: data.approvalStatus,
+          role: data.role,
+          message: data.message
+        });
+      } else {
+        setError(data?.message || 'Google login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -72,6 +107,69 @@ const Login: React.FC = () => {
         </div>
 
         {error && <div className="error-message">{error}</div>}
+
+        {/* Email verification needed */}
+        {verificationInfo && (
+          <div style={{
+            padding: '16px',
+            borderRadius: '10px',
+            marginBottom: '16px',
+            backgroundColor: '#DBEAFE',
+            border: '1px solid #93C5FD'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span style={{ fontSize: '20px' }}>📧</span>
+              <strong style={{ color: '#1E40AF', fontSize: '14px' }}>Email Verification Required</strong>
+            </div>
+            <p style={{ color: '#1E40AF', fontSize: '13px', margin: '0 0 12px' }}>
+              {verificationInfo.message}
+            </p>
+            <Link
+              to="/register"
+              state={{ verifyEmail: verificationInfo.email }}
+              style={{
+                display: 'inline-block',
+                padding: '8px 16px',
+                backgroundColor: '#3B82F6',
+                color: '#FFFFFF',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 600,
+                textDecoration: 'none'
+              }}
+            >
+              Enter Verification Code
+            </Link>
+          </div>
+        )}
+
+        {/* Approval status message */}
+        {approvalInfo && (
+          <div style={{
+            padding: '16px',
+            borderRadius: '10px',
+            marginBottom: '16px',
+            backgroundColor: approvalInfo.status === 'pending' ? '#FEF3C7' : '#FEE2E2',
+            border: `1px solid ${approvalInfo.status === 'pending' ? '#FCD34D' : '#FECACA'}`
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span style={{ fontSize: '20px' }}>
+                {approvalInfo.status === 'pending' ? '⏳' : '❌'}
+              </span>
+              <strong style={{ color: approvalInfo.status === 'pending' ? '#92400E' : '#991B1B', fontSize: '14px' }}>
+                {approvalInfo.status === 'pending' ? 'Account Pending Approval' : 'Account Not Approved'}
+              </strong>
+            </div>
+            <p style={{ color: approvalInfo.status === 'pending' ? '#92400E' : '#991B1B', fontSize: '13px', margin: 0 }}>
+              {approvalInfo.message}
+            </p>
+            {approvalInfo.role && ROLE_LABELS[approvalInfo.role] && (
+              <p style={{ color: '#6B7280', fontSize: '12px', marginTop: '8px', marginBottom: 0 }}>
+                Role: {ROLE_LABELS[approvalInfo.role].icon} {ROLE_LABELS[approvalInfo.role].label}
+              </p>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">

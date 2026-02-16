@@ -1,6 +1,12 @@
 import mongoose, { Document, Schema, Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+// Role types
+export type UserRole = 'buyer' | 'seller' | 'mechanic' | 'admin';
+
+// Approval status types (for seller and mechanic)
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 // Interface for User document
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
@@ -8,13 +14,33 @@ export interface IUser extends Document {
   lastName: string;
   email: string;
   password?: string;
+  phone?: string;
+  address?: string;
   googleId?: string | null;
   avatar?: string | null;
-  role: 'user' | 'admin';
+  role: UserRole;
+  approvalStatus: ApprovalStatus;
+  approvalNotes?: string;
+  approvedAt?: Date;
+  isActive: boolean;
+  isEmailVerified: boolean;
+  otp?: string | null;
+  otpExpires?: Date | null;
+  // Seller-specific fields
+  shopName?: string;
+  shopDescription?: string;
+  shopLocation?: string;
+  // Mechanic-specific fields
+  specialization?: string;
+  experienceYears?: number;
+  workshopLocation?: string;
+  workshopName?: string;
   fullName: string;
   createdAt: Date;
   updatedAt: Date;
   matchPassword(enteredPassword: string): Promise<boolean>;
+  canLogin(): boolean;
+  getApprovalMessage(): string;
 }
 
 const userSchema = new Schema<IUser>(
@@ -42,6 +68,16 @@ const userSchema = new Schema<IUser>(
       minlength: 6,
       select: false
     },
+    phone: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    address: {
+      type: String,
+      trim: true,
+      default: null
+    },
     googleId: {
       type: String,
       default: null
@@ -52,8 +88,73 @@ const userSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ['user', 'admin'],
-      default: 'user'
+      enum: ['buyer', 'seller', 'mechanic', 'admin'],
+      default: 'buyer'
+    },
+    approvalStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'approved'
+    },
+    approvalNotes: {
+      type: String,
+      default: null
+    },
+    approvedAt: {
+      type: Date,
+      default: null
+    },
+    isActive: {
+      type: Boolean,
+      default: true
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false
+    },
+    otp: {
+      type: String,
+      default: null
+    },
+    otpExpires: {
+      type: Date,
+      default: null
+    },
+    // Seller-specific fields
+    shopName: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    shopDescription: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    shopLocation: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    // Mechanic-specific fields
+    specialization: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    experienceYears: {
+      type: Number,
+      default: null
+    },
+    workshopLocation: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    workshopName: {
+      type: String,
+      trim: true,
+      default: null
     }
   },
   {
@@ -70,13 +171,26 @@ userSchema.virtual('fullName').get(function (this: IUser) {
 userSchema.set('toJSON', { virtuals: true });
 userSchema.set('toObject', { virtuals: true });
 
-// Hash password before saving
+// Set approval status based on role before saving new users
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('password') || !this.password) {
-    return next();
+  // Hash password if modified
+  if (this.isModified('password') && this.password) {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
   }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+
+  // Set approval status for new users based on role
+  if (this.isNew) {
+    if (this.role === 'buyer') {
+      this.approvalStatus = 'approved';
+    } else if (this.role === 'seller' || this.role === 'mechanic') {
+      this.approvalStatus = 'pending';
+    } else if (this.role === 'admin') {
+      this.approvalStatus = 'approved';
+    }
+  }
+
+  next();
 });
 
 // Match password
@@ -86,6 +200,32 @@ userSchema.methods.matchPassword = async function (
 ): Promise<boolean> {
   if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Check if user can login based on approval status
+userSchema.methods.canLogin = function (this: IUser): boolean {
+  if (!this.isActive) return false;
+  // Buyers and admins can always login
+  if (this.role === 'buyer' || this.role === 'admin') return true;
+  // Sellers and mechanics need approval
+  return this.approvalStatus === 'approved';
+};
+
+// Get approval message
+userSchema.methods.getApprovalMessage = function (this: IUser): string {
+  if (this.role === 'buyer') {
+    return 'Welcome! Your account is ready to use.';
+  }
+  if (this.approvalStatus === 'pending') {
+    return 'Your account is pending admin approval. You will be notified once approved.';
+  }
+  if (this.approvalStatus === 'rejected') {
+    return `Your account was not approved. ${this.approvalNotes || 'Please contact support for more information.'}`;
+  }
+  if (this.approvalStatus === 'approved') {
+    return 'Your account has been approved! Welcome to Finding Moto.';
+  }
+  return 'Account status unknown. Please contact support.';
 };
 
 const User: Model<IUser> = mongoose.model<IUser>('User', userSchema);

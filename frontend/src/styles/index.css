@@ -890,6 +890,33 @@
   transform: none;
 }
 
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: #fff;
+  color: hsl(var(--foreground));
+  border: 1.5px solid hsl(var(--border));
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  margin-top: 4px;
+}
+
+.btn-secondary:hover {
+  background: hsl(var(--secondary));
+  border-color: hsl(var(--muted-foreground));
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
 .btn-spinner {
   display: inline-block;
   width: 16px;

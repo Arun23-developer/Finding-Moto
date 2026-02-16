@@ -9,6 +9,9 @@ React frontend application for Finding Moto built with Vite.
 - Context API for state management
 - Axios for API calls
 - JWT authentication
+- Google OAuth login
+- Multi-role dashboard (buyer, seller, mechanic, admin)
+- Role-based route protection
 - Responsive design
 
 ## Prerequisites
@@ -28,6 +31,7 @@ Create a `.env` file in the frontend directory:
 
 ```env
 VITE_API_URL=http://localhost:5000/api
+VITE_GOOGLE_CLIENT_ID=your-google-client-id
 ```
 
 ## Running the Application
@@ -47,7 +51,7 @@ npm run build
 npm run preview
 ```
 
-The application will run on `http://localhost:3000`
+The application will run on `http://localhost:5173`
 
 ## Project Structure
 
@@ -73,9 +77,14 @@ frontend/
 
 ## Available Pages
 
-- `/` - Home (Protected)
+- `/` - Home
 - `/login` - Login
-- `/register` - Register
+- `/register` - Multi-step registration
+- `/dashboard` - Role-specific dashboard (Protected)
+- `/products` - Products
+- `/services` - Services
+- `/about` - About
+- `/contact` - Contact
 
 ## Technologies
 
