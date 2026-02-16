@@ -126,6 +126,7 @@ const Register: React.FC = () => {
       return;
     }
 
+    if (loading) return; // Prevent duplicate submissions
     setLoading(true);
     try {
       const registerData: any = {

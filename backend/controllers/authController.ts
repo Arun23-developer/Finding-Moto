@@ -223,9 +223,15 @@ export const register = async (
       email: user.email,
       role: user.role
     });
-  } catch (error) {
+  } catch (error: any) {
+    // Handle MongoDB duplicate key error (race condition on rapid clicks)
+    if (error?.code === 11000) {
+      res.status(400).json({ message: 'User already exists with this email' });
+      return;
+    }
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ message: errorMessage });
+    console.error('Registration error:', errorMessage);
+    res.status(500).json({ message: 'Registration failed. Please try again.' });
   }
 };
 
