@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -42,16 +42,23 @@ const ROLE_CONFIG = {
     color: '#DC2626',
     gradient: 'linear-gradient(135deg, #DC2626 0%, #EF4444 100%)',
     quickActions: [
-      { label: 'Pending Approvals', icon: '✅', description: 'Review new accounts' },
-      { label: 'Manage Users', icon: '👥', description: 'User administration' },
-      { label: 'Analytics', icon: '📊', description: 'Platform insights' }
+      { label: 'Admin Panel', icon: '⚙️', description: 'Open admin dashboard', link: '/admin' },
+      { label: 'Pending Approvals', icon: '✅', description: 'Review new accounts', link: '/admin' },
+      { label: 'Manage Users', icon: '👥', description: 'User administration', link: '/admin' }
     ]
   }
 };
 
 const Dashboard: React.FC = () => {
-  const { user, logout, isSeller, isMechanic } = useAuth();
+  const { user, logout, isSeller, isMechanic, isAdmin } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect admin users to the admin panel
+  useEffect(() => {
+    if (isAdmin) {
+      navigate('/admin', { replace: true });
+    }
+  }, [isAdmin, navigate]);
 
   const handleLogout = () => {
     logout();
@@ -229,7 +236,9 @@ const Dashboard: React.FC = () => {
           <h2>Quick Actions</h2>
           <div className="actions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
             {roleConfig.quickActions.map((action, index) => (
-              <button key={index} className="action-btn" style={{
+              <button key={index} className="action-btn" onClick={() => {
+                if ('link' in action && (action as any).link) navigate((action as any).link);
+              }} style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',

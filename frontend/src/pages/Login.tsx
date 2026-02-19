@@ -34,8 +34,8 @@ const Login: React.FC = () => {
     setVerificationInfo(null);
     setLoading(true);
     try {
-      await login(formData);
-      navigate('/dashboard');
+      const result = await login(formData);
+      navigate(result.user?.role === 'admin' ? '/admin' : '/dashboard');
     } catch (error: any) {
       const data = error.response?.data;
       if (data?.requiresVerification) {
@@ -62,8 +62,8 @@ const Login: React.FC = () => {
     setApprovalInfo(null);
     setLoading(true);
     try {
-      await googleAuth(credentialResponse.credential);
-      navigate('/dashboard');
+      const result = await googleAuth(credentialResponse.credential);
+      navigate(result.user?.role === 'admin' ? '/admin' : '/dashboard');
     } catch (error: any) {
       const data = error.response?.data;
       if (data?.approvalStatus) {
