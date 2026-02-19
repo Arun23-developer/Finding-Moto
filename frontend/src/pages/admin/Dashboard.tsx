@@ -10,11 +10,11 @@ import {
 } from "lucide-react";
 
 const recentOrders = [
-  { id: "#FM-1024", customer: "Ahmed Garage", amount: "$342", status: "Delivered", date: "2h ago" },
-  { id: "#FM-1023", customer: "Quick Fix Motors", amount: "$128", status: "Shipped", date: "4h ago" },
-  { id: "#FM-1022", customer: "Ali Auto Parts", amount: "$567", status: "Processing", date: "6h ago" },
-  { id: "#FM-1021", customer: "Speed Mechanics", amount: "$89", status: "Pending", date: "8h ago" },
-  { id: "#FM-1020", customer: "Pro Garage", amount: "$445", status: "Delivered", date: "12h ago" },
+  { id: "#FM-1024", customer: "Ahmed Garage", amount: "LKR 342", status: "Delivered", date: "2h ago" },
+  { id: "#FM-1023", customer: "Quick Fix Motors", amount: "LKR 128", status: "Shipped", date: "4h ago" },
+  { id: "#FM-1022", customer: "Ali Auto Parts", amount: "LKR 567", status: "Processing", date: "6h ago" },
+  { id: "#FM-1021", customer: "Speed Mechanics", amount: "LKR 89", status: "Pending", date: "8h ago" },
+  { id: "#FM-1020", customer: "Pro Garage", amount: "LKR 445", status: "Delivered", date: "12h ago" },
 ];
 
 const statusColors: Record<string, string> = {
@@ -25,7 +25,7 @@ const statusColors: Record<string, string> = {
 };
 
 const stats = [
-  { title: "Total Revenue", value: "$52,400", change: "+12.5%", trend: "up" as const, icon: DollarSign },
+  { title: "Total Revenue", value: "LKR 52,400", change: "+12.5%", trend: "up" as const, icon: DollarSign },
   { title: "Total Orders", value: "1,315", change: "+8.2%", trend: "up" as const, icon: ShoppingCart },
   { title: "Active Shops", value: "248", change: "+15.3%", trend: "up" as const, icon: Store },
   { title: "Products Listed", value: "3,847", change: "-2.1%", trend: "down" as const, icon: Package },

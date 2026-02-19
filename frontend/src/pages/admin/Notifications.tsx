@@ -3,12 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Bell, Check, ShoppingCart, UserPlus, AlertTriangle, Package } from "lucide-react";
 
 const notifications = [
-  { id: 1, type: "order", title: "New order received", message: "Ahmed Garage placed order #FM-1024 for $342.00", time: "2 min ago", read: false, icon: ShoppingCart },
+  { id: 1, type: "order", title: "New order received", message: "Ahmed Garage placed order #FM-1024 for LKR 342.00", time: "2 min ago", read: false, icon: ShoppingCart },
   { id: 2, type: "user", title: "New shop registration", message: "Pro Auto Center has registered and is pending approval", time: "15 min ago", read: false, icon: UserPlus },
   { id: 3, type: "alert", title: "Low stock alert", message: "Spark Plug Set - Universal is out of stock (SKU: SP-UNI-003)", time: "1 hour ago", read: false, icon: AlertTriangle },
   { id: 4, type: "order", title: "Order delivered", message: "Order #FM-1020 has been successfully delivered to Pro Garage", time: "3 hours ago", read: true, icon: Package },
   { id: 5, type: "user", title: "Shop suspended", message: "Ali Garage has been suspended due to policy violation", time: "5 hours ago", read: true, icon: AlertTriangle },
-  { id: 6, type: "order", title: "Payment received", message: "Payment of $567.00 received for order #FM-1022", time: "6 hours ago", read: true, icon: ShoppingCart },
+  { id: 6, type: "order", title: "Payment received", message: "Payment of LKR 567.00 received for order #FM-1022", time: "6 hours ago", read: true, icon: ShoppingCart },
   { id: 7, type: "user", title: "New mechanic registered", message: "Sara Mechanic joined the platform", time: "8 hours ago", read: true, icon: UserPlus },
 ];
 

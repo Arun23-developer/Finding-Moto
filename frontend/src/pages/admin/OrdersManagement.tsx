@@ -4,13 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Search, Filter, Eye } from "lucide-react";
 
 const orders = [
-  { id: "#FM-1024", customer: "Ahmed Garage", items: 3, total: "$342.00", status: "Delivered", payment: "Paid", date: "Feb 18, 2026" },
-  { id: "#FM-1023", customer: "Quick Fix Motors", items: 1, total: "$128.50", status: "Shipped", payment: "Paid", date: "Feb 18, 2026" },
-  { id: "#FM-1022", customer: "Ali Auto Parts", items: 5, total: "$567.00", status: "Processing", payment: "Paid", date: "Feb 17, 2026" },
-  { id: "#FM-1021", customer: "Speed Mechanics", items: 2, total: "$89.99", status: "Pending", payment: "Unpaid", date: "Feb 17, 2026" },
-  { id: "#FM-1020", customer: "Pro Garage", items: 4, total: "$445.00", status: "Delivered", payment: "Paid", date: "Feb 16, 2026" },
-  { id: "#FM-1019", customer: "Sara Mechanic", items: 1, total: "$67.50", status: "Cancelled", payment: "Refunded", date: "Feb 16, 2026" },
-  { id: "#FM-1018", customer: "John's Workshop", items: 7, total: "$892.00", status: "Delivered", payment: "Paid", date: "Feb 15, 2026" },
+  { id: "#FM-1024", customer: "Ahmed Garage", items: 3, total: "LKR 342.00", status: "Delivered", payment: "Paid", date: "Feb 18, 2026" },
+  { id: "#FM-1023", customer: "Quick Fix Motors", items: 1, total: "LKR 128.50", status: "Shipped", payment: "Paid", date: "Feb 18, 2026" },
+  { id: "#FM-1022", customer: "Ali Auto Parts", items: 5, total: "LKR 567.00", status: "Processing", payment: "Paid", date: "Feb 17, 2026" },
+  { id: "#FM-1021", customer: "Speed Mechanics", items: 2, total: "LKR 89.99", status: "Pending", payment: "Unpaid", date: "Feb 17, 2026" },
+  { id: "#FM-1020", customer: "Pro Garage", items: 4, total: "LKR 445.00", status: "Delivered", payment: "Paid", date: "Feb 16, 2026" },
+  { id: "#FM-1019", customer: "Sara Mechanic", items: 1, total: "LKR 67.50", status: "Cancelled", payment: "Refunded", date: "Feb 16, 2026" },
+  { id: "#FM-1018", customer: "John's Workshop", items: 7, total: "LKR 892.00", status: "Delivered", payment: "Paid", date: "Feb 15, 2026" },
 ];
 
 const statusStyles: Record<string, string> = {

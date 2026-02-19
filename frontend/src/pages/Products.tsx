@@ -243,9 +243,9 @@ const Products: React.FC = () => {
                           </div>
                           <div className="flex items-center justify-between">
                             <div>
-                              <span className="text-lg font-bold text-foreground">${product.price}</span>
+                              <span className="text-lg font-bold text-foreground">LKR {product.price}</span>
                               {product.originalPrice && (
-                                <span className="ml-2 text-sm text-muted-foreground line-through">${product.originalPrice}</span>
+                                <span className="ml-2 text-sm text-muted-foreground line-through">LKR {product.originalPrice}</span>
                               )}
                             </div>
                             <div className="flex items-center gap-2">
@@ -289,9 +289,9 @@ const Products: React.FC = () => {
                         </div>
                         <div className="flex items-center justify-between">
                           <div>
-                            <span className="text-lg font-bold text-foreground">${product.price}</span>
+                            <span className="text-lg font-bold text-foreground">LKR {product.price}</span>
                             {product.originalPrice && (
-                              <span className="ml-2 text-sm text-muted-foreground line-through">${product.originalPrice}</span>
+                              <span className="ml-2 text-sm text-muted-foreground line-through">LKR {product.originalPrice}</span>
                             )}
                           </div>
                           <Button size="sm" variant={product.inStock ? "accent" : "outline"} disabled={!product.inStock} className="gap-1">
