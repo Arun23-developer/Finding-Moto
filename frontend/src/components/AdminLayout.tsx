@@ -97,9 +97,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Bottom Actions */}
         <div className="px-2 py-3 space-y-1 border-t border-sidebar-border">
-          {/* Back to Dashboard */}
+          {/* Back to Site */}
           <Link
-            to="/dashboard"
+            to="/"
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-200"
           >
             <ArrowLeft className="h-5 w-5 flex-shrink-0" />
