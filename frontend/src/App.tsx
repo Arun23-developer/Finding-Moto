@@ -13,6 +13,17 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import NotFound from './pages/NotFound';
 
+// Admin pages
+import { AdminLayout } from './components/AdminLayout';
+import AdminDashboard from './pages/admin/Dashboard';
+import AdminUsersManagement from './pages/admin/UsersManagement';
+import AdminProductsManagement from './pages/admin/ProductsManagement';
+import AdminOrdersManagement from './pages/admin/OrdersManagement';
+import AdminNotifications from './pages/admin/Notifications';
+import AdminContactManagement from './pages/admin/ContactManagement';
+import AdminSettingsPage from './pages/admin/SettingsPage';
+import AdminNotFound from './pages/admin/NotFound';
+
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 interface RouteProps {
@@ -51,11 +62,15 @@ const PublicRoute: React.FC<RouteProps> = ({ children }) => {
     );
   }
   
-  return user ? <Navigate to="/dashboard" /> : <>{children}</>;
+  if (user) {
+    // Admin users go to admin dashboard, others go to user dashboard
+    return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} />;
+  }
+  
+  return <>{children}</>;
 };
 
 // Role-based route protection
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const RoleRoute: React.FC<RoleRouteProps> = ({ children, roles }) => {
   const { user, loading } = useAuth();
   
@@ -99,6 +114,64 @@ function App() {
               {/* Protected pages - require login */}
               <Route path="/dashboard" element={
                 <PrivateRoute><Dashboard /></PrivateRoute>
+              } />
+
+              {/* Admin panel - requires admin role */}
+              <Route path="/admin" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminDashboard />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/users" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminUsersManagement />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/products" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminProductsManagement />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/orders" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminOrdersManagement />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/notifications" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminNotifications />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/contacts" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminContactManagement />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/settings" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminSettingsPage />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/*" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminNotFound />
+                  </AdminLayout>
+                </RoleRoute>
               } />
               
               {/* 404 */}

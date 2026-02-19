@@ -10,7 +10,7 @@ const features: Feature[] = [
   {
     icon: Truck,
     title: "Fast Shipping",
-    description: "Free shipping on orders over $99. Most orders delivered within 2-5 business days.",
+    description: "Free shipping on orders over LKR 99. Most orders delivered within 2-5 business days.",
   },
   {
     icon: ShieldCheck,
