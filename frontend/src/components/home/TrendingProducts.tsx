@@ -21,8 +21,8 @@ const trendingProducts: Product[] = [
   {
     id: "1",
     name: "High-Performance Brake Pads Set",
-    price: 89.99,
-    originalPrice: 119.99,
+    price: 27000,
+    originalPrice: 36000,
     rating: 4.8,
     reviewCount: 234,
     image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=400&fit=crop",
@@ -32,7 +32,7 @@ const trendingProducts: Product[] = [
   {
     id: "2",
     name: "LED Headlight Kit - Universal Fit",
-    price: 149.99,
+    price: 45000,
     rating: 4.6,
     reviewCount: 189,
     image: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=400&h=400&fit=crop",
@@ -42,8 +42,8 @@ const trendingProducts: Product[] = [
   {
     id: "3",
     name: "Racing Exhaust System - Full Titanium",
-    price: 799.99,
-    originalPrice: 999.99,
+    price: 240000,
+    originalPrice: 300000,
     rating: 4.9,
     reviewCount: 156,
     image: "https://images.unsplash.com/photo-1449426468159-d96dbf08f19f?w=400&h=400&fit=crop",
@@ -53,7 +53,7 @@ const trendingProducts: Product[] = [
   {
     id: "4",
     name: "Carbon Fiber Mirror Set",
-    price: 124.99,
+    price: 37500,
     rating: 4.5,
     reviewCount: 98,
     image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=400&h=400&fit=crop",
@@ -63,7 +63,7 @@ const trendingProducts: Product[] = [
   {
     id: "5",
     name: "Engine Oil Filter - Premium",
-    price: 24.99,
+    price: 7500,
     rating: 4.7,
     reviewCount: 312,
     image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=400&h=400&fit=crop",
@@ -73,8 +73,8 @@ const trendingProducts: Product[] = [
   {
     id: "6",
     name: "Motorcycle Chain & Sprocket Kit",
-    price: 189.99,
-    originalPrice: 229.99,
+    price: 57000,
+    originalPrice: 69000,
     rating: 4.8,
     reviewCount: 201,
     image: "https://images.unsplash.com/photo-1558981852-426c6c22a060?w=400&h=400&fit=crop",
@@ -134,10 +134,10 @@ function ProductCard({ product }: ProductCardProps): JSX.Element {
         {/* Price & Action */}
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-lg font-bold text-foreground">LKR {product.price}</span>
+            <span className="text-lg font-bold text-foreground">LKR {product.price.toLocaleString()}</span>
             {product.originalPrice && (
               <span className="ml-2 text-sm text-muted-foreground line-through">
-                LKR {product.originalPrice}
+                LKR {product.originalPrice.toLocaleString()}
               </span>
             )}
           </div>

@@ -4,12 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Search, Plus, MoreVertical, Package } from "lucide-react";
 
 const products = [
-  { id: 1, name: "Brake Pad Set - Toyota", sku: "BP-TOY-001", price: "LKR 45.99", stock: 142, category: "Brakes", shop: "Ahmed's Auto Parts", image: "🔧" },
-  { id: 2, name: "Oil Filter - Honda", sku: "OF-HON-002", price: "LKR 12.99", stock: 350, category: "Engine", shop: "Quick Fix Motors", image: "⚙️" },
-  { id: 3, name: "Spark Plug Set - Universal", sku: "SP-UNI-003", price: "LKR 24.99", stock: 0, category: "Electrical", shop: "Pro Auto Center", image: "⚡" },
-  { id: 4, name: "Headlight Assembly - BMW", sku: "HL-BMW-004", price: "LKR 189.99", stock: 23, category: "Body Parts", shop: "Ali Garage", image: "💡" },
-  { id: 5, name: "Timing Belt - Nissan", sku: "TB-NIS-005", price: "LKR 67.50", stock: 78, category: "Engine", shop: "Ahmed's Auto Parts", image: "🔗" },
-  { id: 6, name: "Alternator - Ford", sku: "AL-FRD-006", price: "LKR 145.00", stock: 15, category: "Electrical", shop: "John's Workshop", image: "🔌" },
+  { id: 1, name: "Brake Pad Set - Toyota", sku: "BP-TOY-001", price: "LKR 13,800", stock: 142, category: "Brakes", shop: "Ahmed's Auto Parts", image: "🔧" },
+  { id: 2, name: "Oil Filter - Honda", sku: "OF-HON-002", price: "LKR 3,900", stock: 350, category: "Engine", shop: "Quick Fix Motors", image: "⚙️" },
+  { id: 3, name: "Spark Plug Set - Universal", sku: "SP-UNI-003", price: "LKR 7,500", stock: 0, category: "Electrical", shop: "Pro Auto Center", image: "⚡" },
+  { id: 4, name: "Headlight Assembly - BMW", sku: "HL-BMW-004", price: "LKR 57,000", stock: 23, category: "Body Parts", shop: "Ali Garage", image: "💡" },
+  { id: 5, name: "Timing Belt - Nissan", sku: "TB-NIS-005", price: "LKR 20,250", stock: 78, category: "Engine", shop: "Ahmed's Auto Parts", image: "🔗" },
+  { id: 6, name: "Alternator - Ford", sku: "AL-FRD-006", price: "LKR 43,500", stock: 15, category: "Electrical", shop: "John's Workshop", image: "🔌" },
 ];
 
 export default function ProductsManagement() {
