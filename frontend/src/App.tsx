@@ -9,6 +9,7 @@ import Contact from './pages/Contact';
 import Products from './pages/Products';
 import Services from './pages/Services';
 import Dashboard from './pages/Dashboard';
+import SellerDashboard from './pages/seller/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import NotFound from './pages/NotFound';
@@ -63,8 +64,10 @@ const PublicRoute: React.FC<RouteProps> = ({ children }) => {
   }
   
   if (user) {
-    // Admin users go to admin dashboard, others go to user dashboard
-    return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} />;
+    // Admin → admin panel, Seller → seller dashboard, others → user dashboard
+    if (user.role === 'admin') return <Navigate to="/admin" />;
+    if (user.role === 'seller') return <Navigate to="/seller/dashboard" />;
+    return <Navigate to="/dashboard" />;
   }
   
   return <>{children}</>;
@@ -114,6 +117,13 @@ function App() {
               {/* Protected pages - require login */}
               <Route path="/dashboard" element={
                 <PrivateRoute><Dashboard /></PrivateRoute>
+              } />
+
+              {/* Seller dashboard */}
+              <Route path="/seller/dashboard" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerDashboard />
+                </RoleRoute>
               } />
 
               {/* Admin panel - requires admin role */}

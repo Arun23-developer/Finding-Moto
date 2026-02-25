@@ -28,47 +28,47 @@ interface Product {
 
 const products: Product[] = [
   {
-    id: "1", name: "High-Performance Brake Pads Set", price: 89.99, originalPrice: 119.99,
+    id: "1", name: "High-Performance Brake Pads Set", price: 27000, originalPrice: 36000,
     rating: 4.8, reviewCount: 234, image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=400&fit=crop",
     brand: "Brembo", category: "Brakes", inStock: true,
   },
   {
-    id: "2", name: "LED Headlight Kit - Universal Fit", price: 149.99,
+    id: "2", name: "LED Headlight Kit - Universal Fit", price: 45000,
     rating: 4.6, reviewCount: 189, image: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=400&h=400&fit=crop",
     brand: "J.W. Speaker", category: "Electronics", inStock: true,
   },
   {
-    id: "3", name: "Racing Exhaust System - Full Titanium", price: 799.99, originalPrice: 999.99,
+    id: "3", name: "Racing Exhaust System - Full Titanium", price: 240000, originalPrice: 300000,
     rating: 4.9, reviewCount: 156, image: "https://images.unsplash.com/photo-1449426468159-d96dbf08f19f?w=400&h=400&fit=crop",
     brand: "Akrapovic", category: "Performance", inStock: true,
   },
   {
-    id: "4", name: "Carbon Fiber Mirror Set", price: 124.99,
+    id: "4", name: "Carbon Fiber Mirror Set", price: 37500,
     rating: 4.5, reviewCount: 98, image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=400&h=400&fit=crop",
     brand: "CRG", category: "Accessories", inStock: false,
   },
   {
-    id: "5", name: "Engine Oil Filter - Premium", price: 24.99,
+    id: "5", name: "Engine Oil Filter - Premium", price: 7500,
     rating: 4.7, reviewCount: 312, image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=400&h=400&fit=crop",
     brand: "K&N", category: "Engine", inStock: true,
   },
   {
-    id: "6", name: "Motorcycle Chain & Sprocket Kit", price: 189.99, originalPrice: 229.99,
+    id: "6", name: "Motorcycle Chain & Sprocket Kit", price: 57000, originalPrice: 69000,
     rating: 4.8, reviewCount: 201, image: "https://images.unsplash.com/photo-1558981852-426c6c22a060?w=400&h=400&fit=crop",
     brand: "RK", category: "Drivetrain", inStock: true,
   },
   {
-    id: "7", name: "Sport Handlebar Grips", price: 34.99,
+    id: "7", name: "Sport Handlebar Grips", price: 10500,
     rating: 4.4, reviewCount: 178, image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=400&fit=crop",
     brand: "Renthal", category: "Accessories", inStock: true,
   },
   {
-    id: "8", name: "Hydraulic Clutch Kit", price: 259.99,
+    id: "8", name: "Hydraulic Clutch Kit", price: 78000,
     rating: 4.7, reviewCount: 89, image: "https://images.unsplash.com/photo-1449426468159-d96dbf08f19f?w=400&h=400&fit=crop",
     brand: "Magura", category: "Controls", inStock: true,
   },
   {
-    id: "9", name: "Quick-Release Tank Bag", price: 79.99,
+    id: "9", name: "Quick-Release Tank Bag", price: 24000,
     rating: 4.6, reviewCount: 145, image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=400&h=400&fit=crop",
     brand: "SW-Motech", category: "Luggage", inStock: true,
   },
@@ -243,9 +243,9 @@ const Products: React.FC = () => {
                           </div>
                           <div className="flex items-center justify-between">
                             <div>
-                              <span className="text-lg font-bold text-foreground">LKR {product.price}</span>
+                              <span className="text-lg font-bold text-foreground">LKR {product.price.toLocaleString()}</span>
                               {product.originalPrice && (
-                                <span className="ml-2 text-sm text-muted-foreground line-through">LKR {product.originalPrice}</span>
+                                <span className="ml-2 text-sm text-muted-foreground line-through">LKR {product.originalPrice.toLocaleString()}</span>
                               )}
                             </div>
                             <div className="flex items-center gap-2">
@@ -289,9 +289,9 @@ const Products: React.FC = () => {
                         </div>
                         <div className="flex items-center justify-between">
                           <div>
-                            <span className="text-lg font-bold text-foreground">LKR {product.price}</span>
+                            <span className="text-lg font-bold text-foreground">LKR {product.price.toLocaleString()}</span>
                             {product.originalPrice && (
-                              <span className="ml-2 text-sm text-muted-foreground line-through">LKR {product.originalPrice}</span>
+                              <span className="ml-2 text-sm text-muted-foreground line-through">LKR {product.originalPrice.toLocaleString()}</span>
                             )}
                           </div>
                           <Button size="sm" variant={product.inStock ? "accent" : "outline"} disabled={!product.inStock} className="gap-1">

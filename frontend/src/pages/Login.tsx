@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
@@ -15,6 +15,72 @@ const ROLE_LABELS: Record<string, { icon: string; label: string }> = {
   admin: { icon: '⚙️', label: 'Admin' }
 };
 
+const BIKE_SLIDES = [
+  // ── Bike Parts Shop ──
+  {
+    img: '/images/login/WhatsApp%20Image%202026-02-23%20at%208.35.52%20PM.jpeg',
+    brand: 'Genuine OEM Parts',
+    model: 'Parts & Inventory',
+    tag: 'Everything You Need In One Place',
+    price: '50,000+ Parts In Stock',
+    category: '⚙️ Bike Parts',
+  },
+  // ── Mechanic Diagnostic ──
+  {
+    img: '/images/login/WhatsApp%20Image%202026-02-23%20at%208.36.00%20PM.jpeg',
+    brand: 'Advanced Diagnostics',
+    model: 'Electronic Inspection',
+    tag: 'Precision Diagnosis, Every Time',
+    price: 'Starting LKR 2,500',
+    category: '🔧 Mechanic Services',
+  },
+  // ── Mechanic Team ──
+  {
+    img: '/images/login/WhatsApp%20Image%202026-02-23%20at%208.36.15%20PM.jpeg',
+    brand: 'Certified Workshop',
+    model: 'Professional Team',
+    tag: 'Your Bike in Expert Hands',
+    price: '1,000+ Mechanics Island-Wide',
+    category: '🔧 Mechanic Services',
+  },
+  // ── Roadside Repair ──
+  {
+    img: '/images/login/WhatsApp%20Image%202026-02-23%20at%208.38.49%20PM.jpeg',
+    brand: '24/7 Roadside Rescue',
+    model: 'Emergency Repair',
+    tag: 'We Come To You, Anytime',
+    price: 'Island-Wide Coverage',
+    category: '🛠️ Roadside Rescue',
+  },
+  // ── Towing Service ──
+  {
+    img: '/images/login/WhatsApp%20Image%202026-02-23%20at%208.40.01%20PM.jpeg',
+    brand: 'Recovery Service',
+    model: 'Bike Towing & Recovery',
+    tag: 'Safe Recovery, Every Time',
+    price: 'Available 24 Hours',
+    category: '🚛 Towing Service',
+  },
+  // ── Delivery ──
+  {
+    img: '/images/login/WhatsApp%20Image%202026-02-23%20at%2010.58.56%20PM.jpeg',
+    brand: 'Fast Delivery',
+    model: 'Island-Wide Sri Lanka',
+    tag: 'Parts To Your Doorstep',
+    price: 'Same-Day Delivery Available',
+    category: '🚚 Delivery',
+  },
+];
+
+const SPARE_PARTS = [
+  { icon: '⚙️', part: 'Engine Parts' },
+  { icon: '🛞', part: 'Tyres & Wheels' },
+  { icon: '💡', part: 'Electricals' },
+  { icon: '🔋', part: 'Batteries' },
+  { icon: '🛢️', part: 'Engine Oil' },
+  { icon: '🪛', part: 'Body Parts' },
+];
+
 const Login: React.FC = () => {
   const [formData, setFormData] = useState<FormData>({
     email: '',
@@ -24,8 +90,17 @@ const Login: React.FC = () => {
   const [approvalInfo, setApprovalInfo] = useState<{ status: string; role: string; message: string } | null>(null);
   const [verificationInfo, setVerificationInfo] = useState<{ email: string; message: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
   const { login, googleAuth } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSlide(prev => (prev + 1) % BIKE_SLIDES.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,16 +114,9 @@ const Login: React.FC = () => {
     } catch (error: any) {
       const data = error.response?.data;
       if (data?.requiresVerification) {
-        setVerificationInfo({
-          email: data.email,
-          message: data.message
-        });
+        setVerificationInfo({ email: data.email, message: data.message });
       } else if (data?.approvalStatus) {
-        setApprovalInfo({
-          status: data.approvalStatus,
-          role: data.role,
-          message: data.message
-        });
+        setApprovalInfo({ status: data.approvalStatus, role: data.role, message: data.message });
       } else {
         setError(data?.message || 'Login failed. Please try again.');
       }
@@ -67,11 +135,7 @@ const Login: React.FC = () => {
     } catch (error: any) {
       const data = error.response?.data;
       if (data?.approvalStatus) {
-        setApprovalInfo({
-          status: data.approvalStatus,
-          role: data.role,
-          message: data.message
-        });
+        setApprovalInfo({ status: data.approvalStatus, role: data.role, message: data.message });
       } else {
         setError(data?.message || 'Google login failed. Please try again.');
       }
@@ -85,147 +149,239 @@ const Login: React.FC = () => {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-container">
-        <div className="auth-header">
-          <div className="auth-logo">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <rect width="40" height="40" rx="10" fill="#4F46E5"/>
-              <path d="M12 20L18 26L28 14" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <h1>Finding Moto</h1>
-          <h2>Welcome back</h2>
-          <p className="auth-subtitle">Sign in to your account to continue</p>
-        </div>
-
-        {error && <div className="error-message">{error}</div>}
-
-        {/* Email verification needed */}
-        {verificationInfo && (
-          <div style={{
-            padding: '16px',
-            borderRadius: '10px',
-            marginBottom: '16px',
-            backgroundColor: '#DBEAFE',
-            border: '1px solid #93C5FD'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span style={{ fontSize: '20px' }}>📧</span>
-              <strong style={{ color: '#1E40AF', fontSize: '14px' }}>Email Verification Required</strong>
-            </div>
-            <p style={{ color: '#1E40AF', fontSize: '13px', margin: '0 0 12px' }}>
-              {verificationInfo.message}
-            </p>
-            <Link
-              to="/register"
-              state={{ verifyEmail: verificationInfo.email }}
-              style={{
-                display: 'inline-block',
-                padding: '8px 16px',
-                backgroundColor: '#3B82F6',
-                color: '#FFFFFF',
-                borderRadius: '6px',
-                fontSize: '13px',
-                fontWeight: 600,
-                textDecoration: 'none'
-              }}
-            >
-              Enter Verification Code
-            </Link>
-          </div>
-        )}
-
-        {/* Approval status message */}
-        {approvalInfo && (
-          <div style={{
-            padding: '16px',
-            borderRadius: '10px',
-            marginBottom: '16px',
-            backgroundColor: approvalInfo.status === 'pending' ? '#FEF3C7' : '#FEE2E2',
-            border: `1px solid ${approvalInfo.status === 'pending' ? '#FCD34D' : '#FECACA'}`
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span style={{ fontSize: '20px' }}>
-                {approvalInfo.status === 'pending' ? '⏳' : '❌'}
-              </span>
-              <strong style={{ color: approvalInfo.status === 'pending' ? '#92400E' : '#991B1B', fontSize: '14px' }}>
-                {approvalInfo.status === 'pending' ? 'Account Pending Approval' : 'Account Not Approved'}
-              </strong>
-            </div>
-            <p style={{ color: approvalInfo.status === 'pending' ? '#92400E' : '#991B1B', fontSize: '13px', margin: 0 }}>
-              {approvalInfo.message}
-            </p>
-            {approvalInfo.role && ROLE_LABELS[approvalInfo.role] && (
-              <p style={{ color: '#6B7280', fontSize: '12px', marginTop: '8px', marginBottom: 0 }}>
-                Role: {ROLE_LABELS[approvalInfo.role].icon} {ROLE_LABELS[approvalInfo.role].label}
-              </p>
-            )}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
-            <input
-              id="email"
-              type="email"
-              name="email"
-              placeholder="you@example.com"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              disabled={loading}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              name="password"
-              placeholder="Enter your password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              disabled={loading}
-            />
-          </div>
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? (
-              <><span className="btn-spinner"></span> Signing in...</>
-            ) : (
-              'Sign In'
-            )}
-          </button>
-        </form>
-
-        <div className="auth-divider">
-          <span>or continue with</span>
-        </div>
-
-        <div className="google-btn-wrapper">
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={handleGoogleError}
-            size="large"
-            width="100%"
-            theme="outline"
-            text="signin_with"
-            shape="rectangular"
+    <div className="login-split-page">
+      {/* ── LEFT PANEL ── */}
+      <div className="login-visual-panel">
+        {/* Slide images */}
+        {BIKE_SLIDES.map((slide, i) => (
+          <div
+            key={i}
+            className={`login-slide ${i === activeSlide ? 'login-slide-active' : ''}`}
+            style={{ backgroundImage: `url(${slide.img})` }}
           />
-        </div>
+        ))}
 
-        <p className="auth-footer">
-          Don't have an account? <Link to="/register">Create one</Link>
-        </p>
+        {/* Gradient overlay */}
+        <div className="login-slide-overlay" />
+
+        <div className="login-visual-content">
+          {/* Brand */}
+          <div className="login-brand">
+            <div className="login-brand-icon">
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                <rect width="36" height="36" rx="10" fill="rgba(255,255,255,0.2)" />
+                <path d="M8 22 C10 16, 14 12, 18 12 C22 12, 26 16, 28 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+                <circle cx="10" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
+                <circle cx="26" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
+                <path d="M13 24 L23 24" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <span className="login-brand-name">Finding Moto</span>
+          </div>
+
+          {/* Spacer pushes content to bottom */}
+          <div style={{ flex: 1 }} />
+
+          {/* Current slide info */}
+          <div className="login-bike-info">
+            <div className="login-slide-category">{BIKE_SLIDES[activeSlide].category}</div>
+            <div className="login-bike-tag">{BIKE_SLIDES[activeSlide].tag}</div>
+            <div className="login-bike-brand">{BIKE_SLIDES[activeSlide].brand}</div>
+            <div className="login-bike-model">{BIKE_SLIDES[activeSlide].model}</div>
+            <div className="login-bike-price">{BIKE_SLIDES[activeSlide].price}</div>
+          </div>
+
+          {/* Slide dots */}
+          <div className="login-slide-dots">
+            {BIKE_SLIDES.map((_, i) => (
+              <button
+                key={i}
+                className={`login-dot ${i === activeSlide ? 'login-dot-active' : ''}`}
+                onClick={() => setActiveSlide(i)}
+                aria-label={`Slide ${i + 1}`}
+              />
+            ))}
+          </div>
+
+          {/* Stats row */}
+          <div className="login-stats">
+            <div className="login-stat">
+              <span className="login-stat-num">50K+</span>
+              <span className="login-stat-label">Bikes Listed</span>
+            </div>
+            <div className="login-stat-divider" />
+            <div className="login-stat">
+              <span className="login-stat-num">2L+</span>
+              <span className="login-stat-label">Spare Parts</span>
+            </div>
+            <div className="login-stat-divider" />
+            <div className="login-stat">
+              <span className="login-stat-num">500+</span>
+              <span className="login-stat-label">Cities</span>
+            </div>
+          </div>
+
+          {/* Spare Parts */}
+          <div className="login-section-label" style={{ marginTop: '16px' }}>Popular Spare Parts</div>
+          <div className="login-parts-grid">
+            {SPARE_PARTS.map(p => (
+              <div key={p.part} className="login-part-chip">
+                <span>{p.icon}</span>
+                <span>{p.part}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── RIGHT PANEL (form) ── */}
+      <div className="login-form-panel">
+        <div className="login-form-card">
+          {/* Mobile brand header */}
+          <div className="login-mobile-brand">
+            <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
+              <rect width="36" height="36" rx="10" fill="#FF6B00" />
+              <path d="M8 22 C10 16, 14 12, 18 12 C22 12, 26 16, 28 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+              <circle cx="10" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
+              <circle cx="26" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
+              <path d="M13 24 L23 24" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            <span>Finding Moto</span>
+          </div>
+
+          <div className="login-form-header">
+            <h1>Welcome Back! 🏍️</h1>
+            <p>Sign in to access bikes &amp; spare parts</p>
+          </div>
+
+          {error && (
+            <div className="login-alert login-alert-error">
+              <span>⚠️</span> {error}
+            </div>
+          )}
+
+          {/* Email verification needed */}
+          {verificationInfo && (
+            <div className="login-alert login-alert-info">
+              <div className="login-alert-title">
+                <span>📧</span> Email Verification Required
+              </div>
+              <p>{verificationInfo.message}</p>
+              <Link
+                to="/register"
+                state={{ verifyEmail: verificationInfo.email }}
+                className="login-alert-action"
+              >
+                Enter Verification Code →
+              </Link>
+            </div>
+          )}
+
+          {/* Approval status */}
+          {approvalInfo && (
+            <div className={`login-alert ${approvalInfo.status === 'pending' ? 'login-alert-warn' : 'login-alert-error'}`}>
+              <div className="login-alert-title">
+                <span>{approvalInfo.status === 'pending' ? '⏳' : '❌'}</span>
+                {approvalInfo.status === 'pending' ? 'Account Pending Approval' : 'Account Not Approved'}
+              </div>
+              <p>{approvalInfo.message}</p>
+              {approvalInfo.role && ROLE_LABELS[approvalInfo.role] && (
+                <p className="login-alert-role">
+                  Role: {ROLE_LABELS[approvalInfo.role].icon} {ROLE_LABELS[approvalInfo.role].label}
+                </p>
+              )}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="login-form">
+            <div className="login-field">
+              <label htmlFor="email">
+                <span className="login-field-icon">📧</span> Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                name="email"
+                placeholder="you@example.com"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <div className="login-field">
+              <label htmlFor="password">
+                <span className="login-field-icon">🔒</span> Password
+              </label>
+              <div className="login-password-wrap">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className="login-eye-btn"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </div>
+
+            <div className="login-forgot">
+              <Link to="/forgot-password">Forgot password?</Link>
+            </div>
+
+            <button type="submit" className="login-submit-btn" disabled={loading}>
+              {loading ? (
+                <><span className="btn-spinner" /> Signing in...</>
+              ) : (
+                <>Sign In &nbsp;🚀</>
+              )}
+            </button>
+          </form>
+
+          <div className="login-divider">
+            <span>or continue with</span>
+          </div>
+
+          <div className="google-btn-wrapper">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              size="large"
+              width="100%"
+              theme="outline"
+              text="signin_with"
+              shape="rectangular"
+            />
+          </div>
+
+          <p className="login-footer">
+            New to Finding Moto? <Link to="/register">Create an account</Link>
+          </p>
+
+          {/* Quick role hints */}
+          <div className="login-role-hints">
+            {Object.entries(ROLE_LABELS).map(([, v]) => (
+              <span key={v.label} className="login-role-hint">
+                {v.icon} {v.label}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -58,7 +58,10 @@ const Dashboard: React.FC = () => {
     if (isAdmin) {
       navigate('/admin', { replace: true });
     }
-  }, [isAdmin, navigate]);
+    if (isSeller) {
+      navigate('/seller/dashboard', { replace: true });
+    }
+  }, [isAdmin, isSeller, navigate]);
 
   const handleLogout = () => {
     logout();

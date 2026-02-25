@@ -276,15 +276,15 @@ export const login = async (
       return;
     }
 
-    // Check if email is verified
-    if (!user.isEmailVerified) {
+    // Check if email is verified (skip for admin users — they are created via seed/DB)
+    if (!user.isEmailVerified && user.role !== 'admin') {
       // Resend OTP automatically
       const otp = generateOTP();
-      user.otp = otp;
-      user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
-      await user.save();
+      const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+      // Use updateOne to avoid Mongoose validation on potentially incomplete legacy documents
+      await User.updateOne({ _id: user._id }, { $set: { otp, otpExpires } });
       try {
-        await sendOTPEmail(user.email, otp, user.firstName);
+        await sendOTPEmail(user.email, otp, user.firstName || 'User');
       } catch (emailError) {
         console.error('Failed to resend OTP:', emailError);
       }
@@ -350,13 +350,14 @@ export const googleAuth = async (
 
     if (user) {
       // Update Google ID and avatar if not set
-      if (!user.googleId) {
-        user.googleId = googleId;
+      const updateFields: any = {};
+      if (!user.googleId) updateFields.googleId = googleId;
+      if (picture && !user.avatar) updateFields.avatar = picture;
+      if (Object.keys(updateFields).length > 0) {
+        await User.updateOne({ _id: user._id }, { $set: updateFields });
+        if (updateFields.googleId) user.googleId = googleId;
+        if (updateFields.avatar) user.avatar = picture || null;
       }
-      if (picture && !user.avatar) {
-        user.avatar = picture;
-      }
-      await user.save();
 
       // Check if user can login
       if (!user.canLogin()) {
@@ -428,10 +429,14 @@ export const verifyOTP = async (
     }
 
     // Mark email as verified and clear OTP
+    // Use updateOne to avoid Mongoose validation on potentially incomplete legacy documents
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { isEmailVerified: true, otp: null, otpExpires: null } }
+    );
     user.isEmailVerified = true;
     user.otp = null;
     user.otpExpires = null;
-    await user.save();
 
     // Send welcome email
     try {
@@ -498,12 +503,12 @@ export const resendOTP = async (
 
     // Generate new OTP
     const otp = generateOTP();
-    user.otp = otp;
-    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
-    await user.save();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    // Use updateOne to avoid Mongoose validation on potentially incomplete legacy documents
+    await User.updateOne({ _id: user._id }, { $set: { otp, otpExpires } });
 
     // Send OTP email
-    await sendOTPEmail(user.email, otp, user.firstName);
+    await sendOTPEmail(user.email, otp, user.firstName || 'User');
 
     res.json({ message: 'A new verification code has been sent to your email.' });
   } catch (error) {
