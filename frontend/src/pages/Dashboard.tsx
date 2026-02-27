@@ -11,7 +11,8 @@ const ROLE_CONFIG = {
     quickActions: [
       { label: 'Browse Products', icon: '🏍️', description: 'Find motorcycles & parts' },
       { label: 'My Orders', icon: '📦', description: 'Track your purchases' },
-      { label: 'Find Mechanic', icon: '🔧', description: 'Book repair services' }
+      { label: 'Find Mechanic', icon: '🔧', description: 'Book repair services' },
+      { label: 'Change Password', icon: '🔒', description: 'Update your password', link: '/change-password' }
     ]
   },
   seller: {
@@ -61,7 +62,10 @@ const Dashboard: React.FC = () => {
     if (isSeller) {
       navigate('/seller/dashboard', { replace: true });
     }
-  }, [isAdmin, isSeller, navigate]);
+    if (isMechanic) {
+      navigate('/mechanic/dashboard', { replace: true });
+    }
+  }, [isAdmin, isSeller, isMechanic, navigate]);
 
   const handleLogout = () => {
     logout();

@@ -7,6 +7,7 @@ import { errorHandler } from './middleware/errorHandler';
 // Route imports
 import authRoutes from './routes/authRoutes';
 import sellerRoutes from './routes/sellerRoutes';
+import mechanicRoutes from './routes/mechanicRoutes';
 
 const app: Application = express();
 
@@ -25,6 +26,7 @@ if (config.nodeEnv === 'development') {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/seller', sellerRoutes);
+app.use('/api/mechanic', mechanicRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
