@@ -1,6 +1,7 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import path from 'path';
 import config from './config';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -13,7 +14,7 @@ const app: Application = express();
 
 // Middleware
 app.use(cors({
-  origin: config.clientUrl,
+  origin: [config.clientUrl, 'http://localhost:8080', 'http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
 }));
 app.use(express.json());
@@ -22,6 +23,9 @@ app.use(express.urlencoded({ extended: true }));
 if (config.nodeEnv === 'development') {
   app.use(morgan('dev'));
 }
+
+// Serve uploaded images as static files
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
