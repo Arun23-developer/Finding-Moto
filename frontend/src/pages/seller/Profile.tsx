@@ -1,0 +1,290 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Store,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
+  Clock,
+  Edit3,
+  Save,
+  Camera,
+  Package,
+  ShoppingCart,
+  Star,
+  Eye,
+  CheckCircle,
+  Shield,
+} from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+
+// ─── Profile Page ───────────────────────────────────────────────────────────
+export default function SellerProfile() {
+  const { user } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    shopName: user?.shopName || "AutoParts Hub",
+    shopDescription: user?.shopDescription || "Premium quality automobile spare parts for all major brands. We specialize in engine parts, brake systems, and electrical components. Fast delivery across Sri Lanka.",
+    shopLocation: user?.shopLocation || "Colombo 03, Western Province",
+    phone: user?.phone || "+94 77 123 4567",
+    email: user?.email || "seller@findingmoto.lk",
+    website: "www.autopartshub.lk",
+    openHours: "Mon-Sat: 8:00 AM - 6:00 PM",
+  });
+
+  const shopStats = [
+    { icon: Package, label: "Total Products", value: "48", color: "text-blue-600", bg: "bg-blue-600/10" },
+    { icon: ShoppingCart, label: "Total Orders", value: "156", color: "text-emerald-600", bg: "bg-emerald-600/10" },
+    { icon: Star, label: "Average Rating", value: "4.6", color: "text-amber-600", bg: "bg-amber-600/10" },
+    { icon: Eye, label: "Profile Views", value: "2,450", color: "text-purple-600", bg: "bg-purple-600/10" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Shop Profile</h1>
+          <p className="text-sm text-muted-foreground">Manage your shop details and appearance</p>
+        </div>
+        <button
+          onClick={() => setEditing(!editing)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/25"
+        >
+          {editing ? (
+            <><Save className="h-4 w-4" /> Save Changes</>
+          ) : (
+            <><Edit3 className="h-4 w-4" /> Edit Profile</>
+          )}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Profile Card */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Shop Banner & Info */}
+          <Card className="glass-card overflow-hidden">
+            {/* Banner */}
+            <div className="relative h-40 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800">
+              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIj48cGF0aCBkPSJNMCAwaDQwdjQwSDB6IiBmaWxsPSJub25lIi8+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjAzKSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9InVybCgjYSkiLz48L3N2Zz4=')] opacity-50" />
+              {editing && (
+                <button className="absolute top-3 right-3 p-2 rounded-lg bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors">
+                  <Camera className="h-4 w-4" />
+                </button>
+              )}
+              {/* Shop logo */}
+              <div className="absolute -bottom-8 left-6">
+                <div className="w-20 h-20 rounded-2xl bg-card border-4 border-card flex items-center justify-center shadow-lg">
+                  <Store className="h-10 w-10 text-blue-600" />
+                </div>
+              </div>
+            </div>
+
+            <CardContent className="pt-12 pb-6 px-6">
+              {editing ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Shop Name</label>
+                      <input
+                        type="text"
+                        value={form.shopName}
+                        onChange={(e) => setForm({ ...form, shopName: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Location</label>
+                      <input
+                        type="text"
+                        value={form.shopLocation}
+                        onChange={(e) => setForm({ ...form, shopLocation: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Phone</label>
+                      <input
+                        type="tel"
+                        value={form.phone}
+                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Email</label>
+                      <input
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Website</label>
+                      <input
+                        type="text"
+                        value={form.website}
+                        onChange={(e) => setForm({ ...form, website: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Business Hours</label>
+                      <input
+                        type="text"
+                        value={form.openHours}
+                        onChange={(e) => setForm({ ...form, openHours: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block">Shop Description</label>
+                    <textarea
+                      value={form.shopDescription}
+                      onChange={(e) => setForm({ ...form, shopDescription: e.target.value })}
+                      rows={4}
+                      className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-none"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <h2 className="text-xl font-bold mb-1">{form.shopName}</h2>
+                  <p className="text-sm text-muted-foreground mb-4">{form.shopDescription}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="h-4 w-4 text-blue-600" /> {form.shopLocation}
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="h-4 w-4 text-blue-600" /> {form.phone}
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Mail className="h-4 w-4 text-blue-600" /> {form.email}
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Globe className="h-4 w-4 text-blue-600" /> {form.website}
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
+                      <Clock className="h-4 w-4 text-blue-600" /> {form.openHours}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Specializations */}
+          <Card className="glass-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Specializations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {["Engine Parts", "Brake Systems", "Electrical Components", "Filters & Fluids", "Body Parts", "Suspension", "Transmission"].map((spec) => (
+                  <span
+                    key={spec}
+                    className="px-3 py-1.5 rounded-full bg-blue-600/10 text-blue-600 text-xs font-medium"
+                  >
+                    {spec}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Brands */}
+          <Card className="glass-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Brands We Stock</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {["Toyota", "Honda", "Suzuki", "Nissan", "Mitsubishi", "Hyundai", "Ford", "BMW"].map((brand) => (
+                  <div
+                    key={brand}
+                    className="flex items-center justify-center p-3 rounded-lg border border-border bg-muted/30 text-sm font-medium hover:bg-muted/50 transition-colors"
+                  >
+                    {brand}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Account Status */}
+          <Card className="glass-card">
+            <CardContent className="p-6">
+              <div className="text-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle className="h-8 w-8 text-emerald-600" />
+                </div>
+                <h3 className="font-bold text-emerald-600">Verified Seller</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Member since January 2025
+                </p>
+              </div>
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
+                <Shield className="h-4 w-4 text-emerald-600" />
+                <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Identity Verified</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Shop Statistics */}
+          <Card className="glass-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Shop Statistics</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {shopStats.map((stat) => (
+                <div key={stat.label} className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
+                    <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Performance */}
+          <Card className="glass-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Performance</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[
+                { label: "Response Rate", value: 98, color: "bg-emerald-500" },
+                { label: "Order Fulfillment", value: 95, color: "bg-blue-500" },
+                { label: "Customer Satisfaction", value: 92, color: "bg-amber-500" },
+                { label: "On-time Delivery", value: 88, color: "bg-purple-500" },
+              ].map((metric) => (
+                <div key={metric.label} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{metric.label}</span>
+                    <span className="font-semibold">{metric.value}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${metric.color} transition-all duration-500`}
+                      style={{ width: `${metric.value}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

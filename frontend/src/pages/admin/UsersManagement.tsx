@@ -26,6 +26,7 @@ import {
   ToggleLeft,
   ToggleRight,
   AlertTriangle,
+  Eye,
 } from "lucide-react";
 import api from "@/services/api";
 
@@ -35,8 +36,8 @@ type ApprovalStatus = "pending" | "approved" | "rejected";
 
 interface AdminUser {
   _id: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   fullName: string;
   email: string;
   phone?: string;
@@ -110,6 +111,10 @@ export default function UsersManagement() {
   // Toggle active confirmation
   const [toggleUser, setToggleUser] = useState<AdminUser | null>(null);
   const [toggleLoading, setToggleLoading] = useState(false);
+
+  // View user details modal
+  const [detailUser, setDetailUser] = useState<any | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   // ── Fetch Users ──────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
@@ -199,6 +204,20 @@ export default function UsersManagement() {
       fetchUsers();
     } finally {
       setToggleLoading(false);
+    }
+  };
+
+  // ── View User Details ─────────────────────────────────────────────
+  const openUserDetail = async (userId: string) => {
+    setDetailLoading(true);
+    setDetailUser(null);
+    try {
+      const res = await api.get(`/auth/admin/users/${userId}`);
+      setDetailUser(res.data.user);
+    } catch {
+      setDetailUser(null);
+    } finally {
+      setDetailLoading(false);
     }
   };
 
@@ -343,7 +362,7 @@ export default function UsersManagement() {
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
                               <span className="text-xs font-bold text-primary">
-                                {u.firstName.charAt(0)}{u.lastName.charAt(0)}
+                                {(u.firstName || u.fullName || "?").charAt(0)}{(u.lastName || "").charAt(0)}
                               </span>
                             </div>
                             <div>
@@ -419,6 +438,15 @@ export default function UsersManagement() {
                         {/* Actions */}
                         <td className="py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => openUserDetail(u._id)}
+                              title="View details"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
                             {needsApproval ? (
                               <>
                                 <Button
@@ -495,7 +523,7 @@ export default function UsersManagement() {
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                 <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
                   <span className="text-sm font-bold text-primary">
-                    {modalUser.firstName.charAt(0)}{modalUser.lastName.charAt(0)}
+                    {(modalUser.firstName || modalUser.fullName || "?").charAt(0)}{(modalUser.lastName || "").charAt(0)}
                   </span>
                 </div>
                 <div>
@@ -619,6 +647,117 @@ export default function UsersManagement() {
               {toggleLoading && <RefreshCw className="h-4 w-4 animate-spin mr-2" />}
               {toggleUser?.isActive ? "Deactivate" : "Activate"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── User Detail Modal ──────────────────────────────────────── */}
+      <Dialog open={!!detailUser || detailLoading} onOpenChange={(open) => !open && setDetailUser(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-primary" />
+              User Details
+            </DialogTitle>
+          </DialogHeader>
+          {detailLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : detailUser ? (
+            <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
+              {/* User header */}
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-bold text-primary">
+                    {detailUser.firstName?.charAt(0)}{detailUser.lastName?.charAt(0)}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm">{detailUser.fullName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{detailUser.email}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${roleBadgeClass[detailUser.role as UserRole]}`}>
+                      {roleIcon(detailUser.role)}
+                      {roleLabel[detailUser.role as UserRole]}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${detailUser.isActive ? 'bg-green-500/15 text-green-600 border-green-500/20' : 'bg-red-500/15 text-red-600 border-red-500/20'}`}>
+                      {detailUser.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info rows */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-muted/30 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-0.5">Phone</p>
+                  <p className="font-medium">{detailUser.phone || '—'}</p>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-0.5">Email Verified</p>
+                  <p className="font-medium">{detailUser.isEmailVerified ? '✅ Yes' : '❌ No'}</p>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-0.5">Address</p>
+                  <p className="font-medium">{detailUser.address || '—'}</p>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-0.5">Approval</p>
+                  <p className="font-medium capitalize">{detailUser.approvalStatus}</p>
+                </div>
+              </div>
+
+              {/* Approval info */}
+              {detailUser.approvalNotes && (
+                <div className="bg-muted/30 rounded-lg p-3 text-sm">
+                  <p className="text-xs text-muted-foreground mb-0.5">Approval Notes</p>
+                  <p className="font-medium">{detailUser.approvalNotes}</p>
+                </div>
+              )}
+              {detailUser.approvedAt && (
+                <div className="bg-muted/30 rounded-lg p-3 text-sm">
+                  <p className="text-xs text-muted-foreground mb-0.5">Approved At</p>
+                  <p className="font-medium">{new Date(detailUser.approvedAt).toLocaleString()}</p>
+                </div>
+              )}
+
+              {/* Seller-specific */}
+              {detailUser.role === 'seller' && (
+                <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-3 space-y-1 text-sm">
+                  <p className="font-semibold text-purple-600 text-xs mb-2">🏪 Seller Details</p>
+                  {detailUser.shopName && <p><span className="text-muted-foreground">Shop:</span> {detailUser.shopName}</p>}
+                  {detailUser.shopDescription && <p><span className="text-muted-foreground">Description:</span> {detailUser.shopDescription}</p>}
+                  {detailUser.shopLocation && <p><span className="text-muted-foreground">Location:</span> {detailUser.shopLocation}</p>}
+                </div>
+              )}
+
+              {/* Mechanic-specific */}
+              {detailUser.role === 'mechanic' && (
+                <div className="bg-orange-500/5 border border-orange-500/10 rounded-lg p-3 space-y-1 text-sm">
+                  <p className="font-semibold text-orange-600 text-xs mb-2">🔧 Mechanic Details</p>
+                  {detailUser.specialization && <p><span className="text-muted-foreground">Specialization:</span> {detailUser.specialization}</p>}
+                  {detailUser.experienceYears != null && <p><span className="text-muted-foreground">Experience:</span> {detailUser.experienceYears} year(s)</p>}
+                  {detailUser.workshopName && <p><span className="text-muted-foreground">Workshop:</span> {detailUser.workshopName}</p>}
+                  {detailUser.workshopLocation && <p><span className="text-muted-foreground">Location:</span> {detailUser.workshopLocation}</p>}
+                </div>
+              )}
+
+              {/* Timestamps */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-muted/30 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-0.5">Joined</p>
+                  <p className="font-medium">{detailUser.createdAt ? new Date(detailUser.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}</p>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-0.5">Last Updated</p>
+                  <p className="font-medium">{detailUser.updatedAt ? new Date(detailUser.updatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailUser(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

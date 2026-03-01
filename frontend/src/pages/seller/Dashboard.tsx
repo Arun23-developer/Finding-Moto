@@ -1,750 +1,391 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Package,
+  ShoppingCart,
+  DollarSign,
+  Star,
+  TrendingUp,
+  TrendingDown,
+  ArrowUpRight,
+  Eye,
+  Clock,
+  CheckCircle,
+  Truck,
+  XCircle,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { useEffect, useState } from "react";
+import api from "@/services/api";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-type Tab = 'overview' | 'products' | 'orders' | 'analytics' | 'messages' | 'profile';
+interface DashboardStats {
+  revenue: number;
+  totalOrders: number;
+  pendingOrders: number;
+  deliveredOrders: number;
+  totalProducts: number;
+  activeProducts: number;
+  totalViews: number;
+}
 
-interface Product {
-  id: number;
+interface RecentOrder {
+  _id: string;
+  buyer: { name: string; email: string };
+  items: { name: string }[];
+  totalAmount: number;
+  status: string;
+  createdAt: string;
+}
+
+interface TopProduct {
   name: string;
   category: string;
+  sales: number;
   price: number;
   stock: number;
-  status: 'active' | 'inactive' | 'out_of_stock';
-  views: number;
-  sales: number;
-  image: string;
 }
 
-interface Order {
-  id: string;
-  buyer: string;
-  product: string;
-  qty: number;
-  amount: number;
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-  date: string;
+interface WeeklySale {
+  _id: string;
+  revenue: number;
+  orders: number;
 }
 
-interface Message {
-  id: number;
-  from: string;
-  avatar: string;
-  subject: string;
-  preview: string;
-  time: string;
-  unread: boolean;
-}
-
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-const MOCK_PRODUCTS: Product[] = [
-  { id: 1, name: 'High-Performance Brake Pads Set', category: 'Brakes', price: 27000, stock: 45, status: 'active', views: 1240, sales: 78, image: '🔧' },
-  { id: 2, name: 'LED Headlight Kit - Universal Fit', category: 'Electronics', price: 45000, stock: 12, status: 'active', views: 890, sales: 34, image: '💡' },
-  { id: 3, name: 'Racing Exhaust System - Full Titanium', category: 'Performance', price: 240000, stock: 0, status: 'out_of_stock', views: 2100, sales: 9, image: '🏍️' },
-  { id: 4, name: 'Carbon Fiber Mirror Set', category: 'Accessories', price: 37500, stock: 30, status: 'active', views: 560, sales: 22, image: '🪞' },
-  { id: 5, name: 'Engine Oil Filter - Premium', category: 'Engine', price: 7500, stock: 200, status: 'active', views: 3400, sales: 189, image: '⚙️' },
-  { id: 6, name: 'Sport Handlebar Grips', category: 'Accessories', price: 10500, stock: 0, status: 'inactive', views: 310, sales: 15, image: '🏁' },
-];
-
-const MOCK_ORDERS: Order[] = [
-  { id: 'ORD-1024', buyer: 'Ashan Perera', product: 'High-Performance Brake Pads Set', qty: 2, amount: 54000, status: 'pending', date: '2026-02-23' },
-  { id: 'ORD-1023', buyer: 'Nimal Fernando', product: 'LED Headlight Kit', qty: 1, amount: 45000, status: 'shipped', date: '2026-02-22' },
-  { id: 'ORD-1022', buyer: 'Kasun Silva', product: 'Engine Oil Filter - Premium', qty: 5, amount: 37500, status: 'delivered', date: '2026-02-21' },
-  { id: 'ORD-1021', buyer: 'Dilani Rathnayake', product: 'Carbon Fiber Mirror Set', qty: 1, amount: 37500, status: 'confirmed', date: '2026-02-20' },
-  { id: 'ORD-1020', buyer: 'Ruwan Jayasinghe', product: 'Sport Handlebar Grips', qty: 3, amount: 31500, status: 'cancelled', date: '2026-02-19' },
-  { id: 'ORD-1019', buyer: 'Chamara Bandara', product: 'Engine Oil Filter - Premium', qty: 10, amount: 75000, status: 'delivered', date: '2026-02-18' },
-];
-
-const MOCK_MESSAGES: Message[] = [
-  { id: 1, from: 'Ashan Perera', avatar: 'AP', subject: 'Brake Pads delivery time?', preview: 'Hi, when will my order ORD-1024 be dispatched?', time: '10 min ago', unread: true },
-  { id: 2, from: 'Nimal Fernando', avatar: 'NF', subject: 'LED Kit compatibility', preview: 'Does the LED kit fit a Pulsar NS200?', time: '2 hrs ago', unread: true },
-  { id: 3, from: 'Kasun Silva', avatar: 'KS', subject: 'Bulk order inquiry', preview: 'I want to order 20 oil filters. Any discount?', time: 'Yesterday', unread: false },
-  { id: 4, from: 'Support Team', avatar: 'ST', subject: 'Your listing approved', preview: 'Your new product Racing Exhaust System has been approved.', time: '2 days ago', unread: false },
-];
-
-const WEEKLY_SALES = [18000, 32000, 24000, 45000, 38000, 56000, 72000];
-const WEEKLY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-const fmt = (n: number) => `LKR ${n.toLocaleString()}`;
-
-const statusColor: Record<string, string> = {
-  active: '#059669', inactive: '#6B7280', out_of_stock: '#DC2626',
-  pending: '#D97706', confirmed: '#2563EB', shipped: '#7C3AED',
-  delivered: '#059669', cancelled: '#DC2626',
+const statusColors: Record<string, string> = {
+  Pending: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800",
+  Processing: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800",
+  Shipped: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-800",
+  Delivered: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800",
+  Cancelled: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800",
 };
 
-const statusBg: Record<string, string> = {
-  active: '#ECFDF5', inactive: '#F3F4F6', out_of_stock: '#FEF2F2',
-  pending: '#FFFBEB', confirmed: '#EFF6FF', shipped: '#F5F3FF',
-  delivered: '#ECFDF5', cancelled: '#FEF2F2',
-};
+const maxSale = Math.max(...weeklySales.map((d) => d.amount));
 
-const statusLabel: Record<string, string> = {
-  active: 'Active', inactive: 'Inactive', out_of_stock: 'Out of Stock',
-  pending: 'Pending', confirmed: 'Confirmed', shipped: 'Shipped',
-  delivered: 'Delivered', cancelled: 'Cancelled',
-};
+export default function SellerDashboard() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const [weeklySales, setWeeklySales] = useState<WeeklySale[]>([]);
 
-// ─── Sub-page components ──────────────────────────────────────────────────────
-function OverviewTab({ user }: { user: any }) {
-  const maxSale = Math.max(...WEEKLY_SALES);
-  const totalRevenue = MOCK_ORDERS.filter(o => o.status === 'delivered').reduce((s, o) => s + o.amount, 0);
-  const pendingOrders = MOCK_ORDERS.filter(o => o.status === 'pending' || o.status === 'confirmed').length;
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  return (
-    <div className="sd-content">
-      {/* Welcome banner */}
-      <div className="sd-welcome-banner">
-        <div>
-          <h1 className="sd-welcome-title">Welcome back, {user?.firstName}! 👋</h1>
-          <p className="sd-welcome-sub">Here's what's happening with your shop today.</p>
-        </div>
-        <div className="sd-shop-chip">
-          <span>🏪</span>
-          <span>{user?.shopName || 'My Shop'}</span>
-        </div>
-      </div>
+  const fetchDashboardData = async () => {
+    try {
+      const [overviewRes, analyticsRes] = await Promise.all([
+        api.get('/seller/overview'),
+        api.get('/seller/analytics'),
+      ]);
 
-      {/* KPI cards */}
-      <div className="sd-kpi-grid">
-        {[
-          { label: 'Total Revenue', value: fmt(totalRevenue), change: '+12.4%', icon: '💰', color: '#059669', bg: '#ECFDF5' },
-          { label: 'Active Listings', value: `${MOCK_PRODUCTS.filter(p => p.status === 'active').length}`, change: '+2 this week', icon: '📋', color: '#2563EB', bg: '#EFF6FF' },
-          { label: 'Pending Orders', value: `${pendingOrders}`, change: 'Need action', icon: '📦', color: '#D97706', bg: '#FFFBEB' },
-          { label: 'Total Views', value: `${MOCK_PRODUCTS.reduce((s, p) => s + p.views, 0).toLocaleString()}`, change: '+8.1% this week', icon: '👁️', color: '#7C3AED', bg: '#F5F3FF' },
-        ].map(kpi => (
-          <div key={kpi.label} className="sd-kpi-card" style={{ borderTop: `4px solid ${kpi.color}` }}>
-            <div className="sd-kpi-icon" style={{ background: kpi.bg, color: kpi.color }}>{kpi.icon}</div>
-            <div>
-              <div className="sd-kpi-value">{kpi.value}</div>
-              <div className="sd-kpi-label">{kpi.label}</div>
-              <div className="sd-kpi-change" style={{ color: kpi.color }}>{kpi.change}</div>
-            </div>
-          </div>
-        ))}
-      </div>
+      if (overviewRes.data.success) {
+        setStats(overviewRes.data.data.stats);
+        setRecentOrders(overviewRes.data.data.recentOrders);
+        setTopProducts(overviewRes.data.data.topProducts);
+      }
 
-      {/* Weekly sales chart + recent orders side by side */}
-      <div className="sd-row-2">
-        {/* Bar chart */}
-        <div className="sd-card sd-chart-card">
-          <div className="sd-card-header">
-            <h3 className="sd-card-title">Weekly Sales</h3>
-            <span className="sd-card-badge">This Week</span>
-          </div>
-          <div className="sd-bar-chart">
-            {WEEKLY_SALES.map((val, i) => (
-              <div key={i} className="sd-bar-col">
-                <div
-                  className="sd-bar"
-                  style={{ height: `${(val / maxSale) * 100}%` }}
-                  title={fmt(val)}
-                >
-                  <span className="sd-bar-tip">{fmt(val)}</span>
-                </div>
-                <span className="sd-bar-label">{WEEKLY_LABELS[i]}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Orders */}
-        <div className="sd-card sd-recent-card">
-          <div className="sd-card-header">
-            <h3 className="sd-card-title">Recent Orders</h3>
-            <span className="sd-card-badge sd-card-badge-green">{MOCK_ORDERS.filter(o => o.status === 'pending').length} Pending</span>
-          </div>
-          <div className="sd-order-list">
-            {MOCK_ORDERS.slice(0, 5).map(order => (
-              <div key={order.id} className="sd-order-row">
-                <div className="sd-order-avatar">{order.buyer.charAt(0)}</div>
-                <div className="sd-order-info">
-                  <span className="sd-order-id">{order.id}</span>
-                  <span className="sd-order-buyer">{order.buyer}</span>
-                </div>
-                <div className="sd-order-right">
-                  <span className="sd-order-amount">{fmt(order.amount)}</span>
-                  <span className="sd-badge" style={{ background: statusBg[order.status], color: statusColor[order.status] }}>
-                    {statusLabel[order.status]}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Top products */}
-      <div className="sd-card" style={{ marginTop: 24 }}>
-        <div className="sd-card-header">
-          <h3 className="sd-card-title">Top Performing Products</h3>
-        </div>
-        <div className="sd-top-products">
-          {MOCK_PRODUCTS.sort((a, b) => b.sales - a.sales).slice(0, 4).map(p => (
-            <div key={p.id} className="sd-top-product-row">
-              <div className="sd-top-product-icon">{p.image}</div>
-              <div className="sd-top-product-info">
-                <span className="sd-top-product-name">{p.name}</span>
-                <span className="sd-top-product-cat">{p.category}</span>
-              </div>
-              <div className="sd-top-product-stats">
-                <span className="sd-top-product-sales">{p.sales} sold</span>
-                <span className="sd-top-product-price">{fmt(p.price)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProductsTab() {
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<string>('all');
-
-  const filtered = MOCK_PRODUCTS.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === 'all' || p.status === filter;
-    return matchSearch && matchFilter;
-  });
-
-  return (
-    <div className="sd-content">
-      {/* Header actions */}
-      <div className="sd-page-header">
-        <div>
-          <h2 className="sd-page-title">My Products</h2>
-          <p className="sd-page-sub">{MOCK_PRODUCTS.length} total listings</p>
-        </div>
-        <button className="sd-btn-primary">
-          <span>+</span> Add New Product
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="sd-filter-bar">
-        <div className="sd-search-wrap">
-          <span className="sd-search-icon">🔍</span>
-          <input
-            className="sd-search"
-            placeholder="Search products..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="sd-filter-tabs">
-          {['all', 'active', 'inactive', 'out_of_stock'].map(f => (
-            <button
-              key={f}
-              className={`sd-filter-tab ${filter === f ? 'sd-filter-tab-active' : ''}`}
-              onClick={() => setFilter(f)}
-            >
-              {f === 'all' ? 'All' : statusLabel[f]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Products table */}
-      <div className="sd-card sd-table-card">
-        <table className="sd-table">
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Category</th>
-              <th>Price</th>
-              <th>Stock</th>
-              <th>Views</th>
-              <th>Sales</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(p => (
-              <tr key={p.id}>
-                <td>
-                  <div className="sd-table-product">
-                    <div className="sd-table-img">{p.image}</div>
-                    <span className="sd-table-name">{p.name}</span>
-                  </div>
-                </td>
-                <td><span className="sd-cat-chip">{p.category}</span></td>
-                <td className="sd-table-price">{fmt(p.price)}</td>
-                <td>
-                  <span style={{ color: p.stock === 0 ? '#DC2626' : p.stock < 10 ? '#D97706' : '#059669', fontWeight: 600 }}>
-                    {p.stock === 0 ? 'Out of Stock' : `${p.stock} units`}
-                  </span>
-                </td>
-                <td className="sd-table-muted">{p.views.toLocaleString()}</td>
-                <td className="sd-table-muted">{p.sales}</td>
-                <td>
-                  <span className="sd-badge" style={{ background: statusBg[p.status], color: statusColor[p.status] }}>
-                    {statusLabel[p.status]}
-                  </span>
-                </td>
-                <td>
-                  <div className="sd-table-actions">
-                    <button className="sd-action-btn sd-action-edit">✏️</button>
-                    <button className="sd-action-btn sd-action-delete">🗑️</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={8} className="sd-empty-row">No products found.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function OrdersTab() {
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-
-  const filtered = MOCK_ORDERS.filter(o => statusFilter === 'all' || o.status === statusFilter);
-
-  return (
-    <div className="sd-content">
-      <div className="sd-page-header">
-        <div>
-          <h2 className="sd-page-title">Orders</h2>
-          <p className="sd-page-sub">{MOCK_ORDERS.length} total orders</p>
-        </div>
-        <button className="sd-btn-outline">Export CSV</button>
-      </div>
-
-      {/* Summary strips */}
-      <div className="sd-order-strips">
-        {(['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const).map(s => {
-          const count = MOCK_ORDERS.filter(o => o.status === s).length;
-          return (
-            <div key={s} className="sd-order-strip" style={{ borderLeft: `4px solid ${statusColor[s]}` }}>
-              <span className="sd-strip-num" style={{ color: statusColor[s] }}>{count}</span>
-              <span className="sd-strip-label">{statusLabel[s]}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Filter tabs */}
-      <div className="sd-filter-tabs" style={{ marginBottom: 16 }}>
-        {['all', 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'].map(f => (
-          <button
-            key={f}
-            className={`sd-filter-tab ${statusFilter === f ? 'sd-filter-tab-active' : ''}`}
-            onClick={() => setStatusFilter(f)}
-          >
-            {f === 'all' ? 'All' : statusLabel[f]}
-          </button>
-        ))}
-      </div>
-
-      <div className="sd-card sd-table-card">
-        <table className="sd-table">
-          <thead>
-            <tr>
-              <th>Order ID</th>
-              <th>Buyer</th>
-              <th>Product</th>
-              <th>Qty</th>
-              <th>Amount</th>
-              <th>Date</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(order => (
-              <tr key={order.id}>
-                <td className="sd-order-id-cell">{order.id}</td>
-                <td>
-                  <div className="sd-table-buyer">
-                    <div className="sd-buyer-avatar">{order.buyer.charAt(0)}</div>
-                    {order.buyer}
-                  </div>
-                </td>
-                <td className="sd-table-name">{order.product}</td>
-                <td className="sd-table-muted">×{order.qty}</td>
-                <td className="sd-table-price">{fmt(order.amount)}</td>
-                <td className="sd-table-muted">{order.date}</td>
-                <td>
-                  <span className="sd-badge" style={{ background: statusBg[order.status], color: statusColor[order.status] }}>
-                    {statusLabel[order.status]}
-                  </span>
-                </td>
-                <td>
-                  {order.status === 'pending' && (
-                    <button className="sd-btn-xs sd-btn-confirm">Confirm</button>
-                  )}
-                  {order.status === 'confirmed' && (
-                    <button className="sd-btn-xs sd-btn-ship">Mark Shipped</button>
-                  )}
-                  {(order.status === 'shipped' || order.status === 'delivered' || order.status === 'cancelled') && (
-                    <button className="sd-btn-xs sd-btn-view">View</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function AnalyticsTab() {
-  const totalRevenue = MOCK_ORDERS.filter(o => o.status === 'delivered').reduce((s, o) => s + o.amount, 0);
-  const maxSale = Math.max(...WEEKLY_SALES);
-  const categories = [...new Set(MOCK_PRODUCTS.map(p => p.category))];
-  const catSales = categories.map(c => ({
-    category: c,
-    sales: MOCK_PRODUCTS.filter(p => p.category === c).reduce((s, p) => s + p.sales, 0),
-  })).sort((a, b) => b.sales - a.sales);
-  const maxCatSales = Math.max(...catSales.map(c => c.sales));
-
-  return (
-    <div className="sd-content">
-      <div className="sd-page-header">
-        <div>
-          <h2 className="sd-page-title">Analytics</h2>
-          <p className="sd-page-sub">Performance overview for your shop</p>
-        </div>
-        <select className="sd-select">
-          <option>Last 7 days</option>
-          <option>Last 30 days</option>
-          <option>Last 3 months</option>
-        </select>
-      </div>
-
-      {/* Summary strip */}
-      <div className="sd-kpi-grid">
-        {[
-          { label: 'Total Revenue', value: fmt(totalRevenue), icon: '💰', color: '#059669', bg: '#ECFDF5' },
-          { label: 'Total Orders', value: `${MOCK_ORDERS.length}`, icon: '📦', color: '#2563EB', bg: '#EFF6FF' },
-          { label: 'Products Sold', value: `${MOCK_PRODUCTS.reduce((s, p) => s + p.sales, 0)}`, icon: '📈', color: '#7C3AED', bg: '#F5F3FF' },
-          { label: 'Total Views', value: `${MOCK_PRODUCTS.reduce((s, p) => s + p.views, 0).toLocaleString()}`, icon: '👁️', color: '#D97706', bg: '#FFFBEB' },
-        ].map(kpi => (
-          <div key={kpi.label} className="sd-kpi-card" style={{ borderTop: `4px solid ${kpi.color}` }}>
-            <div className="sd-kpi-icon" style={{ background: kpi.bg, color: kpi.color }}>{kpi.icon}</div>
-            <div>
-              <div className="sd-kpi-value">{kpi.value}</div>
-              <div className="sd-kpi-label">{kpi.label}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="sd-row-2" style={{ marginTop: 24 }}>
-        {/* Weekly sales chart */}
-        <div className="sd-card sd-chart-card">
-          <div className="sd-card-header">
-            <h3 className="sd-card-title">Sales Trend (This Week)</h3>
-          </div>
-          <div className="sd-bar-chart">
-            {WEEKLY_SALES.map((val, i) => (
-              <div key={i} className="sd-bar-col">
-                <div className="sd-bar" style={{ height: `${(val / maxSale) * 100}%` }} title={fmt(val)}>
-                  <span className="sd-bar-tip">{fmt(val)}</span>
-                </div>
-                <span className="sd-bar-label">{WEEKLY_LABELS[i]}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Category breakdown */}
-        <div className="sd-card">
-          <div className="sd-card-header" style={{ marginBottom: 16 }}>
-            <h3 className="sd-card-title">Sales by Category</h3>
-          </div>
-          <div className="sd-cat-breakdown">
-            {catSales.map(c => (
-              <div key={c.category} className="sd-cat-row">
-                <span className="sd-cat-name">{c.category}</span>
-                <div className="sd-cat-bar-wrap">
-                  <div className="sd-cat-bar-fill" style={{ width: `${(c.sales / maxCatSales) * 100}%` }} />
-                </div>
-                <span className="sd-cat-val">{c.sales} sold</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MessagesTab() {
-  const [selected, setSelected] = useState<Message | null>(null);
-
-  return (
-    <div className="sd-content">
-      <div className="sd-page-header">
-        <div>
-          <h2 className="sd-page-title">Messages</h2>
-          <p className="sd-page-sub">{MOCK_MESSAGES.filter(m => m.unread).length} unread</p>
-        </div>
-      </div>
-
-      <div className="sd-messages-layout">
-        {/* Message list */}
-        <div className="sd-card sd-msg-list">
-          {MOCK_MESSAGES.map(msg => (
-            <div
-              key={msg.id}
-              className={`sd-msg-item ${selected?.id === msg.id ? 'sd-msg-item-active' : ''} ${msg.unread ? 'sd-msg-unread' : ''}`}
-              onClick={() => setSelected(msg)}
-            >
-              <div className="sd-msg-avatar">{msg.avatar}</div>
-              <div className="sd-msg-body">
-                <div className="sd-msg-top">
-                  <span className="sd-msg-from">{msg.from}</span>
-                  <span className="sd-msg-time">{msg.time}</span>
-                </div>
-                <div className="sd-msg-subject">{msg.subject}</div>
-                <div className="sd-msg-preview">{msg.preview}</div>
-              </div>
-              {msg.unread && <div className="sd-msg-dot" />}
-            </div>
-          ))}
-        </div>
-
-        {/* Message detail */}
-        <div className="sd-card sd-msg-detail">
-          {selected ? (
-            <>
-              <div className="sd-msg-detail-header">
-                <div className="sd-msg-detail-avatar">{selected.avatar}</div>
-                <div>
-                  <div className="sd-msg-from" style={{ fontSize: 16 }}>{selected.from}</div>
-                  <div className="sd-msg-subject">{selected.subject}</div>
-                </div>
-              </div>
-              <div className="sd-msg-detail-body">
-                <p>{selected.preview}</p>
-                <p className="sd-msg-detail-time">{selected.time}</p>
-              </div>
-              <div className="sd-msg-reply">
-                <textarea className="sd-msg-textarea" placeholder="Type your reply..." rows={4} />
-                <button className="sd-btn-primary" style={{ marginTop: 12 }}>Send Reply</button>
-              </div>
-            </>
-          ) : (
-            <div className="sd-msg-empty">
-              <span style={{ fontSize: 48 }}>💬</span>
-              <p>Select a message to read and reply</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ShopProfileTab({ user }: { user: any }) {
-  const [editing, setEditing] = useState(false);
-
-  return (
-    <div className="sd-content">
-      <div className="sd-page-header">
-        <div>
-          <h2 className="sd-page-title">Shop Profile</h2>
-          <p className="sd-page-sub">Manage your shop details and appearance</p>
-        </div>
-        <button className="sd-btn-primary" onClick={() => setEditing(!editing)}>
-          {editing ? '💾 Save Changes' : '✏️ Edit Profile'}
-        </button>
-      </div>
-
-      <div className="sd-profile-layout">
-        {/* Shop info card */}
-        <div className="sd-card sd-shop-card">
-          <div className="sd-shop-banner">
-            <div className="sd-shop-logo">🏪</div>
-          </div>
-          <div className="sd-shop-info">
-            {editing ? (
-              <div className="sd-form-grid">
-                {[
-                  { label: 'Shop Name', value: user?.shopName || '', placeholder: 'Enter shop name' },
-                  { label: 'Location', value: user?.shopLocation || '', placeholder: 'City, Province' },
-                  { label: 'Phone', value: user?.phone || '', placeholder: '+94 XX XXX XXXX' },
-                  { label: 'Email', value: user?.email || '', placeholder: 'shop@email.com' },
-                ].map(field => (
-                  <div key={field.label} className="sd-form-field">
-                    <label className="sd-form-label">{field.label}</label>
-                    <input className="sd-form-input" defaultValue={field.value} placeholder={field.placeholder} />
-                  </div>
-                ))}
-                <div className="sd-form-field sd-form-full">
-                  <label className="sd-form-label">Description</label>
-                  <textarea className="sd-form-input sd-form-textarea" defaultValue={user?.shopDescription || ''} placeholder="Tell buyers about your shop..." rows={4} />
-                </div>
-              </div>
-            ) : (
-              <>
-                <h3 className="sd-shop-name">{user?.shopName || 'My Shop'}</h3>
-                {user?.shopLocation && <p className="sd-shop-location">📍 {user.shopLocation}</p>}
-                {user?.shopDescription && <p className="sd-shop-desc">{user.shopDescription}</p>}
-                <div className="sd-shop-meta">
-                  {user?.phone && <span>📞 {user.phone}</span>}
-                  <span>✉️ {user?.email}</span>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Stats sidebar */}
-        <div className="sd-profile-side">
-          <div className="sd-card sd-profile-stats">
-            <h4 className="sd-card-title" style={{ marginBottom: 16 }}>Shop Statistics</h4>
-            {[
-              { label: 'Total Products', value: MOCK_PRODUCTS.length, icon: '📋' },
-              { label: 'Total Orders', value: MOCK_ORDERS.length, icon: '📦' },
-              { label: 'Total Sales', value: MOCK_PRODUCTS.reduce((s, p) => s + p.sales, 0), icon: '📈' },
-              { label: 'Profile Views', value: '2,450', icon: '👁️' },
-            ].map(stat => (
-              <div key={stat.label} className="sd-profile-stat-row">
-                <span className="sd-profile-stat-icon">{stat.icon}</span>
-                <div>
-                  <div className="sd-profile-stat-val">{stat.value}</div>
-                  <div className="sd-profile-stat-label">{stat.label}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="sd-card" style={{ padding: 20 }}>
-            <h4 className="sd-card-title" style={{ marginBottom: 12 }}>Account Status</h4>
-            <div className="sd-badge" style={{ background: '#ECFDF5', color: '#059669', fontSize: 13, padding: '6px 14px' }}>
-              ✅ Verified Seller
-            </div>
-            <p className="sd-profile-stat-label" style={{ marginTop: 12 }}>
-              Member since {new Date().toLocaleDateString('en-LK', { month: 'long', year: 'numeric' })}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Seller Dashboard ────────────────────────────────────────────────────
-const SellerDashboard: React.FC = () => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const handleLogout = () => { logout(); navigate('/login'); };
-
-  const getInitials = () => {
-    const f = user?.firstName?.charAt(0) || '';
-    const l = user?.lastName?.charAt(0) || '';
-    return (f + l).toUpperCase();
+      if (analyticsRes.data.success) {
+        setWeeklySales(analyticsRes.data.data.dailyRevenue);
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const NAV_ITEMS: { id: Tab; label: string; icon: string; badge?: number }[] = [
-    { id: 'overview', label: 'Overview', icon: '📊' },
-    { id: 'products', label: 'Products', icon: '📋', badge: MOCK_PRODUCTS.length },
-    { id: 'orders', label: 'Orders', icon: '📦', badge: MOCK_ORDERS.filter(o => o.status === 'pending').length },
-    { id: 'analytics', label: 'Analytics', icon: '📈' },
-    { id: 'messages', label: 'Messages', icon: '💬', badge: MOCK_MESSAGES.filter(m => m.unread).length },
-    { id: 'profile', label: 'Shop Profile', icon: '🏪' },
-  ];
+  const formatCurrency = (amount: number) => `LKR ${amount.toLocaleString()}`;
+  const formatDate = (date: string) => {
+    const diff = Date.now() - new Date(date).getTime();
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
+  };
+
+  const statsCards = stats ? [
+    { title: "Total Products", value: stats.totalProducts.toString(), change: `${stats.activeProducts} active`, trend: "up" as const, icon: Package, color: "text-blue-600", bg: "bg-blue-600/10" },
+    { title: "Total Orders", value: stats.totalOrders.toString(), change: `${stats.pendingOrders} pending`, trend: "up" as const, icon: ShoppingCart, color: "text-emerald-600", bg: "bg-emerald-600/10" },
+    { title: "Revenue", value: formatCurrency(stats.revenue), change: `${stats.deliveredOrders} delivered`, trend: "up" as const, icon: DollarSign, color: "text-amber-600", bg: "bg-amber-600/10" },
+    { title: "Total Views", value: stats.totalViews.toString(), change: "All products", trend: "up" as const, icon: Eye, color: "text-purple-600", bg: "bg-purple-600/10" },
+  ] : [];
+
+  const orderStatusSummary = stats ? [
+    { label: "Pending", count: stats.pendingOrders, icon: Clock, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30" },
+    { label: "Processing", count: 0, icon: Truck, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30" },
+    { label: "Delivered", count: stats.deliveredOrders, icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
+    { label: "Total", count: stats.totalOrders, icon: ShoppingCart, color: "text-gray-600", bg: "bg-gray-50 dark:bg-gray-950/30" },
+  ] : [];
+
+  const maxSale = weeklySales.length > 0 ? Math.max(...weeklySales.map((d) => d.revenue)) : 1;
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="sd-wrapper">
-      {/* ── Sidebar ── */}
-      <aside className={`sd-sidebar ${sidebarOpen ? 'sd-sidebar-open' : ''}`}>
-        {/* Brand */}
-        <div className="sd-sidebar-brand">
-          <div className="sd-sidebar-logo">
-            <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
-              <rect width="36" height="36" rx="8" fill="white" fillOpacity="0.15" />
-              <path d="M8 22 C10 16,14 12,18 12 C22 12,26 16,28 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              <circle cx="10" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
-              <circle cx="26" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
-              <path d="M13 24 L23 24" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <div>
-            <div className="sd-sidebar-app">Finding Moto</div>
-            <div className="sd-sidebar-role">Seller Dashboard</div>
-          </div>
-        </div>
-
-        {/* User info */}
-        <div className="sd-sidebar-user">
-          <div className="sd-sidebar-avatar">{getInitials()}</div>
-          <div>
-            <div className="sd-sidebar-username">{user?.firstName} {user?.lastName}</div>
-            <div className="sd-sidebar-shop">{user?.shopName || 'My Shop'}</div>
+    <div className="space-y-6">
+      {/* Welcome Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 p-8 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 animate-pulse" />
+        <div className="absolute bottom-0 left-0 w-72 h-72 bg-purple-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+        <div className="absolute top-1/2 left-1/4 w-40 h-40 bg-blue-400/10 rounded-full blur-2xl" />
+        <div className="relative z-10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight animate-fade-in">
+                Welcome back, {user?.firstName || "Seller"}! 👋
+              </h1>
+              <p className="text-blue-50/90 text-lg">
+                Here's what's happening with your shop today.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 bg-white/20 backdrop-blur-md rounded-xl px-5 py-3 w-fit border border-white/30 shadow-lg hover:bg-white/25 transition-all">
+              <span className="text-2xl">🏪</span>
+              <div>
+                <p className="text-xs text-blue-100 uppercase tracking-wider">Your Shop</p>
+                <p className="font-semibold text-lg">{user?.shopName || "My Shop"}</p>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Nav */}
-        <nav className="sd-nav">
-          {NAV_ITEMS.map(item => (
-            <button
-              key={item.id}
-              className={`sd-nav-item ${activeTab === item.id ? 'sd-nav-item-active' : ''}`}
-              onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-            >
-              <span className="sd-nav-icon">{item.icon}</span>
-              <span className="sd-nav-label">{item.label}</span>
-              {item.badge !== undefined && item.badge > 0 && (
-                <span className="sd-nav-badge">{item.badge}</span>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {statsCards.map((stat, idx) => (
+          <Card key={stat.title} className="stat-card-hover glass-card border-0 shadow-lg hover:shadow-xl group" style={{ animationDelay: `${idx * 100}ms` }}>
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className={`w-14 h-14 rounded-2xl ${stat.bg} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                  <stat.icon className={`h-7 w-7 ${stat.color}`} />
+                </div>
+                <div
+                  className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                    stat.trend === "up" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400"
+                  }`}
+                >
+                  {stat.trend === "up" ? (
+                    <TrendingUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <TrendingDown className="h-3.5 w-3.5" />
+                  )}
+                  {stat.change}
+                </div>
+              </div>
+              <p className="text-3xl font-bold mb-1 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text">{stat.value}</p>
+              <p className="text-sm text-muted-foreground font-medium">{stat.title}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Order Status Summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {orderStatusSummary.map((item, idx) => (
+          <div key={item.label} className={`flex items-center gap-4 rounded-xl border-2 p-5 ${item.bg} hover:scale-105 transition-all duration-300 cursor-pointer shadow-md hover:shadow-lg`} style={{ animationDelay: `${idx * 50}ms` }}>
+            <div className={`w-12 h-12 rounded-xl ${item.color.replace('text-', 'bg-')}/10 flex items-center justify-center`}>
+              <item.icon className={`h-6 w-6 ${item.color}`} />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{item.count}</p>
+              <p className="text-sm text-muted-foreground font-medium">{item.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Weekly Sales Chart */}
+        <Card className="lg:col-span-2 glass-card border-0 shadow-lg">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-bold">Weekly Sales</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Track your daily performance</p>
+              </div>
+              <span className="text-xs font-semibold text-blue-600 bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 px-3 py-1.5 rounded-full">This Week</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end gap-2 h-[220px] pt-4">
+              {weeklySales.length > 0 ? weeklySales.map((item, idx) => {
+                const date = new Date(item._id);
+                const dayName = dayNames[date.getDay()];
+                return (
+                  <div key={item._id} className="flex-1 flex flex-col items-center gap-2 group">
+                    <span className="text-xs text-muted-foreground font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                      LKR {(item.revenue / 1000).toFixed(1)}k
+                    </span>
+                    <div className="w-full relative flex-1 flex items-end">
+                      <div
+                        className="w-full rounded-t-lg bg-gradient-to-t from-blue-600 to-blue-400 hover:from-blue-700 hover:to-blue-500 transition-all duration-300 min-h-[12px] shadow-lg hover:shadow-xl cursor-pointer"
+                        style={{ height: `${(item.revenue / maxSale) * 100}%`, animationDelay: `${idx * 100}ms` }}
+                      />
+                    </div>
+                    <span className="text-xs font-semibold text-muted-foreground">{dayName}</span>
+                  </div>
+                );
+              }) : (
+                <div className="col-span-full text-center text-muted-foreground py-8">No sales data available</div>
               )}
-            </button>
-          ))}
-        </nav>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Logout */}
-        <button className="sd-nav-logout" onClick={handleLogout}>
-          <span>🚪</span> Sign Out
-        </button>
-      </aside>
+        {/* Top Products */}
+        <Card className="glass-card border-0 shadow-lg">
+          <CardHeader className="pb-3">
+            <div>
+              <CardTitle className="text-lg font-bold">Top Products</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Best sellers this month</p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {topProducts.length > 0 ? topProducts.map((product, idx) => (
+              <div key={product.name} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-all duration-200 cursor-pointer group">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shadow-md ${
+                  idx === 0 ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-white' :
+                  idx === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-white' :
+                  idx === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' :
+                  'bg-blue-100 text-blue-600 dark:bg-blue-950/50'
+                }`}>
+                  {idx + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate group-hover:text-blue-600 transition-colors">{product.name}</p>
+                  <p className="text-xs text-muted-foreground font-medium">{product.sales} sold · {product.stock} in stock</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(product.price * product.sales)}</p>
+                </div>
+              </div>
+            )) : (
+              <div className="text-center text-muted-foreground py-4">No products yet</div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* ── Overlay for mobile ── */}
-      {sidebarOpen && <div className="sd-overlay" onClick={() => setSidebarOpen(false)} />}
-
-      {/* ── Main area ── */}
-      <div className="sd-main">
-        {/* Top bar */}
-        <header className="sd-topbar">
-          <button className="sd-menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <span /><span /><span />
-          </button>
-          <div className="sd-topbar-title">
-            {NAV_ITEMS.find(n => n.id === activeTab)?.icon}{' '}
-            {NAV_ITEMS.find(n => n.id === activeTab)?.label}
+      {/* Recent Orders */}
+      <Card className="glass-card border-0 shadow-lg">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-bold">Recent Orders</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Latest customer purchases</p>
+            </div>
+            <Link to="/seller/orders" className="text-sm font-semibold text-blue-600 flex items-center gap-1 hover:gap-2 transition-all px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/30">
+              View All <ArrowUpRight className="h-4 w-4" />
+            </Link>
           </div>
-          <div className="sd-topbar-right">
-            <button className="sd-icon-btn" title="Notifications">🔔</button>
-            <div className="sd-topbar-avatar" onClick={() => setActiveTab('profile')}>{getInitials()}</div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-muted-foreground text-xs border-b border-border">
+                  <th className="text-left py-3 font-medium">Order ID</th>
+                  <th className="text-left py-3 font-medium">Buyer</th>
+                  <th className="text-left py-3 font-medium hidden md:table-cell">Product</th>
+                  <th className="text-left py-3 font-medium">Amount</th>
+                  <th className="text-left py-3 font-medium">Status</th>
+                  <th className="text-right py-3 font-medium">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentOrders.length > 0 ? recentOrders.map((order) => {
+                  const statusKey = order.status.charAt(0).toUpperCase() + order.status.slice(1);
+                  return (
+                    <tr key={order._id} className="border-b border-border/50 last:border-0 hover:bg-muted/50 transition-all duration-200 cursor-pointer group">
+                      <td className="py-4 font-mono font-bold text-blue-600 group-hover:text-blue-700">#{order._id.slice(-6)}</td>
+                      <td className="py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                            <span className="text-sm font-bold text-white">{order.buyer.name.charAt(0)}</span>
+                          </div>
+                          <span className="hidden sm:inline font-medium">{order.buyer.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 text-muted-foreground hidden md:table-cell font-medium">{order.items[0]?.name || 'N/A'}</td>
+                      <td className="py-4 font-bold">{formatCurrency(order.totalAmount)}</td>
+                      <td className="py-4">
+                        <span
+                          className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border-2 ${statusColors[statusKey] || statusColors.Pending}`}
+                        >
+                          {statusKey}
+                        </span>
+                      </td>
+                      <td className="py-4 text-right text-muted-foreground font-medium">{formatDate(order.createdAt)}</td>
+                    </tr>
+                  );
+                }) : (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-muted-foreground">No orders yet</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
-        </header>
+        </CardContent>
+      </Card>
 
-        {/* Page content */}
-        <div className="sd-page">
-          {activeTab === 'overview'   && <OverviewTab user={user} />}
-          {activeTab === 'products'   && <ProductsTab />}
-          {activeTab === 'orders'     && <OrdersTab />}
-          {activeTab === 'analytics'  && <AnalyticsTab />}
-          {activeTab === 'messages'   && <MessagesTab />}
-          {activeTab === 'profile'    && <ShopProfileTab user={user} />}
-        </div>
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <Link to="/seller/products">
+          <Card className="glass-card border-0 shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer group overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardContent className="p-6 flex items-center gap-4 relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                <Package className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-base">Manage Products</p>
+                <p className="text-sm text-muted-foreground">Add, edit or remove listings</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/seller/ai-chat">
+          <Card className="glass-card border-0 shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer group overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardContent className="p-6 flex items-center gap-4 relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                <Eye className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-base">AI Assistant</p>
+                <p className="text-sm text-muted-foreground">Get smart sales insights</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/seller/reviews">
+          <Card className="glass-card border-0 shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer group overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardContent className="p-6 flex items-center gap-4 relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                <Star className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-base">View Reviews</p>
+                <p className="text-sm text-muted-foreground">Check customer feedback</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
     </div>
   );
-};
-
-export default SellerDashboard;
+}

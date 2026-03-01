@@ -60,6 +60,7 @@ interface AuthContextType {
   resendOTP: (email: string) => Promise<any>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<any>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<any>;
   isBuyer: boolean;
   isSeller: boolean;
   isMechanic: boolean;
@@ -134,6 +135,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return response.data;
   };
 
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    const response = await api.put('/auth/change-password', { currentPassword, newPassword });
+    return response.data;
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
@@ -149,6 +155,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     resendOTP,
     logout,
     updateProfile,
+    changePassword,
     isBuyer: user?.role === 'buyer',
     isSeller: user?.role === 'seller',
     isMechanic: user?.role === 'mechanic',

@@ -10,12 +10,23 @@ import Products from './pages/Products';
 import Services from './pages/Services';
 import Dashboard from './pages/Dashboard';
 import SellerDashboard from './pages/seller/Dashboard';
+import SellerProducts from './pages/seller/Products';
+import SellerOrders from './pages/seller/Orders';
+import SellerReviews from './pages/seller/Reviews';
+import SellerProfile from './pages/seller/Profile';
+import SellerAIChat from './pages/seller/AIChat';
+import SellerNotifications from './pages/seller/Notifications';
+import MechanicDashboard from './pages/mechanic/Dashboard';
+import ChangePassword from './pages/ChangePassword';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import NotFound from './pages/NotFound';
 
-// Admin pages
+// Layout components
 import { AdminLayout } from './components/AdminLayout';
+import { SellerLayout } from './components/SellerLayout';
+
+// Admin pages
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminUsersManagement from './pages/admin/UsersManagement';
 import AdminProductsManagement from './pages/admin/ProductsManagement';
@@ -64,9 +75,10 @@ const PublicRoute: React.FC<RouteProps> = ({ children }) => {
   }
   
   if (user) {
-    // Admin → admin panel, Seller → seller dashboard, others → user dashboard
+    // Admin → admin panel, Seller → seller dashboard, Mechanic → mechanic dashboard, others → user dashboard
     if (user.role === 'admin') return <Navigate to="/admin" />;
     if (user.role === 'seller') return <Navigate to="/seller/dashboard" />;
+    if (user.role === 'mechanic') return <Navigate to="/mechanic/dashboard" />;
     return <Navigate to="/dashboard" />;
   }
   
@@ -119,11 +131,55 @@ function App() {
                 <PrivateRoute><Dashboard /></PrivateRoute>
               } />
 
-              {/* Seller dashboard */}
+              {/* Seller panel - requires seller role */}
               <Route path="/seller/dashboard" element={
                 <RoleRoute roles={['seller']}>
-                  <SellerDashboard />
+                  <SellerLayout><SellerDashboard /></SellerLayout>
                 </RoleRoute>
+              } />
+              <Route path="/seller/products" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerProducts /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/orders" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerOrders /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/reviews" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerReviews /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/profile" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerProfile /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/ai-chat" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerAIChat /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/notifications" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerNotifications /></SellerLayout>
+                </RoleRoute>
+              } />
+
+              {/* Mechanic dashboard */}
+              <Route path="/mechanic/dashboard" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicDashboard />
+                </RoleRoute>
+              } />
+
+              {/* Change Password - all authenticated users */}
+              <Route path="/change-password" element={
+                <PrivateRoute>
+                  <ChangePassword />
+                </PrivateRoute>
               } />
 
               {/* Admin panel - requires admin role */}

@@ -110,7 +110,10 @@ const Login: React.FC = () => {
     setLoading(true);
     try {
       const result = await login(formData);
-      navigate(result.user?.role === 'admin' ? '/admin' : '/dashboard');
+      if (result.user?.role === 'admin') navigate('/admin');
+      else if (result.user?.role === 'seller') navigate('/seller/dashboard');
+      else if (result.user?.role === 'mechanic') navigate('/mechanic/dashboard');
+      else navigate('/dashboard');
     } catch (error: any) {
       const data = error.response?.data;
       if (data?.requiresVerification) {
@@ -131,7 +134,10 @@ const Login: React.FC = () => {
     setLoading(true);
     try {
       const result = await googleAuth(credentialResponse.credential);
-      navigate(result.user?.role === 'admin' ? '/admin' : '/dashboard');
+      if (result.user?.role === 'admin') navigate('/admin');
+      else if (result.user?.role === 'seller') navigate('/seller/dashboard');
+      else if (result.user?.role === 'mechanic') navigate('/mechanic/dashboard');
+      else navigate('/dashboard');
     } catch (error: any) {
       const data = error.response?.data;
       if (data?.approvalStatus) {

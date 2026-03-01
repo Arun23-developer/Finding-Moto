@@ -12,6 +12,9 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    hmr: {
+      port: 3000
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
