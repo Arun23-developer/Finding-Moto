@@ -9,9 +9,9 @@ const ROLE_CONFIG = {
     color: '#4F46E5',
     gradient: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)',
     quickActions: [
-      { label: 'Browse Products', icon: '🏍️', description: 'Find motorcycles & parts' },
-      { label: 'My Orders', icon: '📦', description: 'Track your purchases' },
-      { label: 'Find Mechanic', icon: '🔧', description: 'Book repair services' },
+      { label: 'Browse Products', icon: '🏍️', description: 'Find motorcycles & parts', link: '/products' },
+      { label: 'My Orders', icon: '📦', description: 'Track your purchases', link: '/my-orders' },
+      { label: 'Find Mechanic', icon: '🔧', description: 'Book repair services', link: '/services' },
       { label: 'Change Password', icon: '🔒', description: 'Update your password', link: '/change-password' }
     ]
   },
@@ -21,9 +21,9 @@ const ROLE_CONFIG = {
     color: '#059669',
     gradient: 'linear-gradient(135deg, #059669 0%, #10B981 100%)',
     quickActions: [
-      { label: 'My Listings', icon: '📋', description: 'Manage your products' },
-      { label: 'Add Product', icon: '➕', description: 'List a new item' },
-      { label: 'Orders', icon: '📦', description: 'Manage incoming orders' }
+      { label: 'My Listings', icon: '📋', description: 'Manage your products', link: '/seller/products' },
+      { label: 'Add Product', icon: '➕', description: 'List a new item', link: '/seller/products' },
+      { label: 'Orders', icon: '📦', description: 'Manage incoming orders', link: '/seller/orders' }
     ]
   },
   mechanic: {
@@ -32,9 +32,9 @@ const ROLE_CONFIG = {
     color: '#D97706',
     gradient: 'linear-gradient(135deg, #D97706 0%, #F59E0B 100%)',
     quickActions: [
-      { label: 'Service Requests', icon: '📝', description: 'View pending requests' },
-      { label: 'My Services', icon: '⚙️', description: 'Manage your services' },
-      { label: 'Schedule', icon: '📅', description: 'View your appointments' }
+      { label: 'Service Requests', icon: '📝', description: 'View pending requests', link: '/mechanic/dashboard' },
+      { label: 'My Services', icon: '⚙️', description: 'Manage your services', link: '/mechanic/dashboard' },
+      { label: 'Schedule', icon: '📅', description: 'View your appointments', link: '/mechanic/dashboard' }
     ]
   },
   admin: {
@@ -93,11 +93,10 @@ const Dashboard: React.FC = () => {
       {/* Navbar */}
       <nav className="dashboard-nav">
         <div className="nav-brand">
-          <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
-            <rect width="40" height="40" rx="10" fill="#4F46E5"/>
-            <path d="M12 20L18 26L28 14" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span>Finding Moto</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'hsl(var(--primary))' }}>
+            <span style={{ fontSize: 15, fontWeight: 900, color: 'hsl(var(--primary-foreground))' }}>FM</span>
+          </div>
+          <span>Finding<span style={{ color: 'hsl(var(--accent))' }}>Moto</span></span>
         </div>
         <div className="nav-right">
           <div className="nav-user">
@@ -133,20 +132,22 @@ const Dashboard: React.FC = () => {
       <main className="dashboard-main">
         {/* Welcome Banner */}
         <div className="dashboard-welcome" style={{
-          background: roleConfig.gradient,
+          background: 'hsl(var(--card))',
           borderRadius: '16px',
           padding: '32px',
-          color: '#fff',
-          marginBottom: '24px'
+          color: 'hsl(var(--card-foreground))',
+          marginBottom: '24px',
+          border: '1px solid hsl(var(--border))',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h1 style={{ color: '#fff', margin: 0 }}>{getGreeting()}, {user?.firstName}!</h1>
-              <p style={{ color: 'rgba(255,255,255,0.85)', marginTop: '8px', fontSize: '15px' }}>
+              <h1 style={{ color: 'hsl(var(--foreground))', margin: 0 }}>{getGreeting()}, {user?.firstName}!</h1>
+              <p style={{ color: 'hsl(var(--muted-foreground))', marginTop: '8px', fontSize: '15px' }}>
                 Welcome to your {roleConfig.label} dashboard.
               </p>
             </div>
-            <span style={{ fontSize: '56px', opacity: 0.3 }}>{roleConfig.icon}</span>
+            <span style={{ fontSize: '56px', opacity: 0.15 }}>{roleConfig.icon}</span>
           </div>
         </div>
 
@@ -252,15 +253,15 @@ const Dashboard: React.FC = () => {
                 gap: '8px',
                 padding: '20px',
                 borderRadius: '12px',
-                border: '1px solid #E5E7EB',
-                backgroundColor: '#fff',
+                border: '1px solid hsl(var(--border))',
+                backgroundColor: 'hsl(var(--card))',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
                 textAlign: 'center'
               }}>
                 <span style={{ fontSize: '28px' }}>{action.icon}</span>
-                <strong style={{ fontSize: '14px', color: '#1F2937' }}>{action.label}</strong>
-                <span style={{ fontSize: '12px', color: '#6B7280' }}>{action.description}</span>
+                <strong style={{ fontSize: '14px', color: 'hsl(var(--foreground))' }}>{action.label}</strong>
+                <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>{action.description}</span>
               </button>
             ))}
             <button className="action-btn" onClick={handleLogout} style={{
@@ -270,19 +271,19 @@ const Dashboard: React.FC = () => {
               gap: '8px',
               padding: '20px',
               borderRadius: '12px',
-              border: '1px solid #FEE2E2',
-              backgroundColor: '#FEF2F2',
+              border: '1px solid hsl(var(--destructive) / 0.3)',
+              backgroundColor: 'hsl(var(--destructive) / 0.08)',
               cursor: 'pointer',
               transition: 'all 0.2s',
               textAlign: 'center'
             }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="hsl(var(--destructive))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                 <polyline points="16 17 21 12 16 7"/>
                 <line x1="21" y1="12" x2="9" y2="12"/>
               </svg>
-              <strong style={{ fontSize: '14px', color: '#DC2626' }}>Sign Out</strong>
-              <span style={{ fontSize: '12px', color: '#EF4444' }}>Logout from account</span>
+              <strong style={{ fontSize: '14px', color: 'hsl(var(--destructive))' }}>Sign Out</strong>
+              <span style={{ fontSize: '12px', color: 'hsl(var(--destructive))' }}>Logout from account</span>
             </button>
           </div>
         </div>

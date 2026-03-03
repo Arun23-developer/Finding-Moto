@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -123,7 +122,7 @@ export default function UsersManagement() {
     try {
       const params: Record<string, string> = {};
       if (activeTab === "pending") {
-        const res = await api.get("/auth/admin/pending");
+        const res = await api.get("/admin/pending");
         setUsers(res.data.users);
         setPendingCount(res.data.count);
         setLoading(false);
@@ -134,7 +133,7 @@ export default function UsersManagement() {
       if (activeTab === "buyer") params.role = "buyer";
       if (search.trim()) params.search = search.trim();
 
-      const res = await api.get("/auth/admin/users", { params });
+      const res = await api.get("/admin/users", { params });
       const allUsers: AdminUser[] = res.data.users;
       setUsers(allUsers);
 
@@ -176,7 +175,7 @@ export default function UsersManagement() {
     setActionLoading(true);
     setActionError(null);
     try {
-      await api.put(`/auth/admin/approve/${modalUser._id}`, {
+      await api.put(`/admin/approve/${modalUser._id}`, {
         action: modalAction,
         notes: notes.trim() || undefined,
       });
@@ -195,7 +194,7 @@ export default function UsersManagement() {
     if (!toggleUser) return;
     setToggleLoading(true);
     try {
-      await api.put(`/auth/admin/toggle-active/${toggleUser._id}`);
+      await api.put(`/admin/toggle-active/${toggleUser._id}`);
       setToggleUser(null);
       fetchUsers();
     } catch {
@@ -212,7 +211,7 @@ export default function UsersManagement() {
     setDetailLoading(true);
     setDetailUser(null);
     try {
-      const res = await api.get(`/auth/admin/users/${userId}`);
+      const res = await api.get(`/admin/users/${userId}`);
       setDetailUser(res.data.user);
     } catch {
       setDetailUser(null);

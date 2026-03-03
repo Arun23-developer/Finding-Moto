@@ -1,14 +1,18 @@
-import { Star, Heart, ShoppingCart } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Star, Heart, ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "../ui/button";
+import { Link } from "react-router-dom";
+import api from "../../services/api";
 
 interface Product {
-  id: string;
+  _id: string;
   name: string;
   price: number;
   originalPrice?: number;
   rating: number;
   reviewCount: number;
-  image: string;
+  image: string | null;
+  images: string[];
   brand: string;
   inStock: boolean;
 }
@@ -17,83 +21,25 @@ interface ProductCardProps {
   product: Product;
 }
 
-const trendingProducts: Product[] = [
-  {
-    id: "1",
-    name: "High-Performance Brake Pads Set",
-    price: 27000,
-    originalPrice: 36000,
-    rating: 4.8,
-    reviewCount: 234,
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=400&fit=crop",
-    brand: "Brembo",
-    inStock: true,
-  },
-  {
-    id: "2",
-    name: "LED Headlight Kit - Universal Fit",
-    price: 45000,
-    rating: 4.6,
-    reviewCount: 189,
-    image: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=400&h=400&fit=crop",
-    brand: "J.W. Speaker",
-    inStock: true,
-  },
-  {
-    id: "3",
-    name: "Racing Exhaust System - Full Titanium",
-    price: 240000,
-    originalPrice: 300000,
-    rating: 4.9,
-    reviewCount: 156,
-    image: "https://images.unsplash.com/photo-1449426468159-d96dbf08f19f?w=400&h=400&fit=crop",
-    brand: "Akrapovic",
-    inStock: true,
-  },
-  {
-    id: "4",
-    name: "Carbon Fiber Mirror Set",
-    price: 37500,
-    rating: 4.5,
-    reviewCount: 98,
-    image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=400&h=400&fit=crop",
-    brand: "CRG",
-    inStock: false,
-  },
-  {
-    id: "5",
-    name: "Engine Oil Filter - Premium",
-    price: 7500,
-    rating: 4.7,
-    reviewCount: 312,
-    image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=400&h=400&fit=crop",
-    brand: "K&N",
-    inStock: true,
-  },
-  {
-    id: "6",
-    name: "Motorcycle Chain & Sprocket Kit",
-    price: 57000,
-    originalPrice: 69000,
-    rating: 4.8,
-    reviewCount: 201,
-    image: "https://images.unsplash.com/photo-1558981852-426c6c22a060?w=400&h=400&fit=crop",
-    brand: "RK",
-    inStock: true,
-  },
-];
+function getImageUrl(product: Product): string {
+  const img = product.image || product.images?.[0];
+  if (!img) return "https://placehold.co/400x400?text=No+Image";
+  if (img.startsWith("http")) return img;
+  return `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${img}`;
+}
 
 function ProductCard({ product }: ProductCardProps): JSX.Element {
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
+  const imgUrl = getImageUrl(product);
 
   return (
     <div className="group relative bg-card rounded-xl border border-border shadow-card hover:shadow-hover transition-all duration-300">
       {/* Image */}
       <div className="relative aspect-square overflow-hidden rounded-t-xl bg-secondary">
         <img
-          src={product.image}
+          src={imgUrl}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
@@ -157,6 +103,25 @@ function ProductCard({ product }: ProductCardProps): JSX.Element {
 }
 
 export const TrendingProducts: React.FC = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTrending = async () => {
+      try {
+        const { data: res } = await api.get("/public/products/trending");
+        if (res.success) {
+          setProducts(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch trending products:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTrending();
+  }, []);
+
   return (
     <section className="py-16 md:py-24 bg-secondary">
       <div className="container">
@@ -169,15 +134,25 @@ export const TrendingProducts: React.FC = () => {
               Top-rated parts and accessories loved by riders worldwide
             </p>
           </div>
-          <Button variant="outline" className="w-fit">
-            View All Products
+          <Button variant="outline" className="w-fit" asChild>
+            <Link to="/products">View All Products</Link>
           </Button>
         </div>
 
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-accent" />
+            <span className="ml-3 text-muted-foreground">Loading products...</span>
+          </div>
+        ) : products.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-muted-foreground">No products available yet. Check back soon!</p>
+          </div>
+        ) : (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {trendingProducts.map((product, index) => (
+          {products.map((product, index) => (
             <div
-              key={product.id}
+              key={product._id}
               className="animate-fade-in"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
@@ -185,6 +160,7 @@ export const TrendingProducts: React.FC = () => {
             </div>
           ))}
         </div>
+        )}
       </div>
     </section>
   );

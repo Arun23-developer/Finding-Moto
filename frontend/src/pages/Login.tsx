@@ -178,13 +178,9 @@ const Login: React.FC = () => {
           {/* Brand */}
           <div className="login-brand">
             <div className="login-brand-icon">
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-                <rect width="36" height="36" rx="10" fill="rgba(255,255,255,0.2)" />
-                <path d="M8 22 C10 16, 14 12, 18 12 C22 12, 26 16, 28 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-                <circle cx="10" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
-                <circle cx="26" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
-                <path d="M13 24 L23 24" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)' }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: '#fff' }}>FM</span>
+              </div>
             </div>
             <span className="login-brand-name">Finding Moto</span>
           </div>
@@ -249,13 +245,9 @@ const Login: React.FC = () => {
         <div className="login-form-card">
           {/* Mobile brand header */}
           <div className="login-mobile-brand">
-            <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
-              <rect width="36" height="36" rx="10" fill="#FF6B00" />
-              <path d="M8 22 C10 16, 14 12, 18 12 C22 12, 26 16, 28 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              <circle cx="10" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
-              <circle cx="26" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
-              <path d="M13 24 L23 24" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'hsl(var(--primary))' }}>
+              <span style={{ fontSize: 13, fontWeight: 900, color: 'hsl(var(--primary-foreground))' }}>FM</span>
+            </div>
             <span>Finding Moto</span>
           </div>
 

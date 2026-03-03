@@ -1,43 +1,91 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, MoreVertical, Package } from "lucide-react";
+import { Search, Package, Loader2, AlertCircle, RefreshCw, ImageIcon } from "lucide-react";
+import api from "@/services/api";
 
-const products = [
-  { id: 1, name: "Brake Pad Set - Toyota", sku: "BP-TOY-001", price: "LKR 13,800", stock: 142, category: "Brakes", shop: "Ahmed's Auto Parts", image: "🔧" },
-  { id: 2, name: "Oil Filter - Honda", sku: "OF-HON-002", price: "LKR 3,900", stock: 350, category: "Engine", shop: "Quick Fix Motors", image: "⚙️" },
-  { id: 3, name: "Spark Plug Set - Universal", sku: "SP-UNI-003", price: "LKR 7,500", stock: 0, category: "Electrical", shop: "Pro Auto Center", image: "⚡" },
-  { id: 4, name: "Headlight Assembly - BMW", sku: "HL-BMW-004", price: "LKR 57,000", stock: 23, category: "Body Parts", shop: "Ali Garage", image: "💡" },
-  { id: 5, name: "Timing Belt - Nissan", sku: "TB-NIS-005", price: "LKR 20,250", stock: 78, category: "Engine", shop: "Ahmed's Auto Parts", image: "🔗" },
-  { id: 6, name: "Alternator - Ford", sku: "AL-FRD-006", price: "LKR 43,500", stock: 15, category: "Electrical", shop: "John's Workshop", image: "🔌" },
-];
+interface Product {
+  _id: string;
+  name: string;
+  sku: string;
+  price: number;
+  stock: number;
+  category: string;
+  status: string;
+  images: string[];
+  seller: { firstName: string; lastName: string; shopName?: string } | null;
+}
 
 export default function ProductsManagement() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+
+  const fetchProducts = useCallback(async () => {
+    try {
+      setError("");
+      const params: Record<string, string> = {};
+      if (search) params.search = search;
+      const { data } = await api.get("/admin/products", { params });
+      if (data.success) setProducts(data.data || []);
+    } catch {
+      setError("Failed to load products");
+    } finally {
+      setLoading(false);
+    }
+  }, [search]);
+
+  useEffect(() => {
+    const t = setTimeout(() => fetchProducts(), 300);
+    return () => clearTimeout(t);
+  }, [fetchProducts]);
+
+  const totalCount = products.length;
+  const inStockCount = products.filter((p) => p.status === "active").length;
+  const outOfStockCount = products.filter((p) => p.status === "out_of_stock").length;
+  const categoryCount = new Set(products.map((p) => p.category)).size;
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin mb-3 text-primary" />
+        <p className="text-sm font-medium">Loading products…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <AlertCircle className="h-8 w-8 mb-3 text-red-500" />
+        <p className="font-medium">{error}</p>
+        <button onClick={fetchProducts} className="mt-3 inline-flex items-center gap-2 text-sm text-primary hover:underline">
+          <RefreshCw className="h-4 w-4" /> Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Product Management</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage auto parts and services listings</p>
-        </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Product
-        </Button>
+      <div>
+        <h1 className="font-display text-2xl font-bold">Product Management</h1>
+        <p className="text-sm text-muted-foreground mt-1">Manage auto parts and services listings</p>
       </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Products", value: "3,847" },
-          { label: "In Stock", value: "3,412" },
-          { label: "Out of Stock", value: "135" },
-          { label: "Categories", value: "24" },
+          { label: "Total Products", value: totalCount },
+          { label: "In Stock", value: inStockCount },
+          { label: "Out of Stock", value: outOfStockCount },
+          { label: "Categories", value: categoryCount },
         ].map((s) => (
           <Card key={s.label} className="glass-card">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className="text-xl font-display font-bold mt-1">{s.value}</p>
+              <p className="text-xl font-display font-bold mt-1">{s.value.toLocaleString()}</p>
             </CardContent>
           </Card>
         ))}
@@ -47,7 +95,12 @@ export default function ProductsManagement() {
         <CardHeader className="pb-3">
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search products..." className="pl-9" />
+            <Input
+              placeholder="Search products..."
+              className="pl-9"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
         </CardHeader>
         <CardContent>
@@ -60,38 +113,47 @@ export default function ProductsManagement() {
                   <th className="text-left py-3 font-medium">Price</th>
                   <th className="text-left py-3 font-medium">Stock</th>
                   <th className="text-left py-3 font-medium">Shop</th>
-                  <th className="text-right py-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {products.map((product) => (
-                  <tr key={product.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center text-lg">
-                          {product.image}
-                        </div>
-                        <div>
-                          <p className="font-medium">{product.name}</p>
-                          <p className="text-xs text-muted-foreground">{product.category}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 font-mono text-xs text-muted-foreground">{product.sku}</td>
-                    <td className="py-3 font-semibold">{product.price}</td>
-                    <td className="py-3">
-                      <span className={product.stock === 0 ? "text-destructive font-medium" : "text-foreground"}>
-                        {product.stock === 0 ? "Out of stock" : product.stock}
-                      </span>
-                    </td>
-                    <td className="py-3 text-muted-foreground">{product.shop}</td>
-                    <td className="py-3 text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
+                {products.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-muted-foreground">
+                      <Package className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                      <p className="font-medium">No products found</p>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  products.map((product) => (
+                    <tr key={product._id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center overflow-hidden">
+                            {product.images?.[0] ? (
+                              <img src={product.images[0]} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium">{product.name}</p>
+                            <p className="text-xs text-muted-foreground">{product.category}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 font-mono text-xs text-muted-foreground">{product.sku}</td>
+                      <td className="py-3 font-semibold">LKR {product.price.toLocaleString()}</td>
+                      <td className="py-3">
+                        <span className={product.stock === 0 ? "text-destructive font-medium" : "text-foreground"}>
+                          {product.stock === 0 ? "Out of stock" : product.stock}
+                        </span>
+                      </td>
+                      <td className="py-3 text-muted-foreground">
+                        {product.seller?.shopName || `${product.seller?.firstName || ""} ${product.seller?.lastName || ""}`.trim() || "—"}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

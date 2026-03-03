@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Wrench,
+  DollarSign,
+  Star,
+  ArrowUpRight,
+  Clock,
+  CheckCircle,
+  Activity,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import api from "@/services/api";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-type Tab = 'overview' | 'services' | 'requests' | 'schedule' | 'profile';
-
+// ─── Mock Data ──────────────────────────────────────────────────────────────
 interface ServiceRequest {
   id: string;
   customer: string;
@@ -15,7 +25,6 @@ interface ServiceRequest {
   amount: number;
 }
 
-// ─── Mock Data ───────────────────────────────────────────────────────────────
 const MOCK_REQUESTS: ServiceRequest[] = [
   { id: 'SR-1001', customer: 'Ashan Perera', vehicle: 'Honda CB150R', issue: 'Engine overheating', status: 'pending', date: '2026-02-25', amount: 5500 },
   { id: 'SR-1002', customer: 'Nimal Fernando', vehicle: 'Yamaha FZ-S', issue: 'Brake pad replacement', status: 'accepted', date: '2026-02-24', amount: 3200 },
@@ -28,538 +37,235 @@ const MOCK_REQUESTS: ServiceRequest[] = [
 const WEEKLY_JOBS = [3, 5, 4, 7, 6, 8, 10];
 const WEEKLY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 const fmt = (n: number) => `LKR ${n.toLocaleString()}`;
 
-const statusColor: Record<string, string> = {
-  pending: '#D97706', accepted: '#2563EB', in_progress: '#7C3AED',
-  completed: '#059669', cancelled: '#DC2626',
+const statusColors: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700",
+  accepted: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700",
+  in_progress: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700",
+  completed: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700",
+  cancelled: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700",
 };
 
-const statusBg: Record<string, string> = {
-  pending: '#FFFBEB', accepted: '#EFF6FF', in_progress: '#F5F3FF',
-  completed: '#ECFDF5', cancelled: '#FEF2F2',
-};
-
-const statusLabel: Record<string, string> = {
+const statusLabels: Record<string, string> = {
   pending: 'Pending', accepted: 'Accepted', in_progress: 'In Progress',
   completed: 'Completed', cancelled: 'Cancelled',
 };
 
-// ─── Sub-page components ──────────────────────────────────────────────────────
-function OverviewTab({ user }: { user: any }) {
-  const maxJobs = Math.max(...WEEKLY_JOBS);
-  const totalEarnings = MOCK_REQUESTS.filter(r => r.status === 'completed').reduce((s, r) => s + r.amount, 0);
-  const pendingRequests = MOCK_REQUESTS.filter(r => r.status === 'pending' || r.status === 'accepted').length;
-
-  return (
-    <div className="sd-content">
-      {/* Welcome banner */}
-      <div className="sd-welcome-banner" style={{ background: 'linear-gradient(135deg, #D97706 0%, #F59E0B 100%)' }}>
-        <div>
-          <h1 className="sd-welcome-title">Welcome back, {user?.firstName}! 🔧</h1>
-          <p className="sd-welcome-sub">Here's what's happening with your services today.</p>
-        </div>
-        <div className="sd-shop-chip" style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>
-          <span>🔧</span>
-          <span>{user?.workshopName || user?.specialization || 'My Workshop'}</span>
-        </div>
-      </div>
-
-      {/* KPI cards */}
-      <div className="sd-kpi-grid">
-        {[
-          { label: 'Total Earnings', value: fmt(totalEarnings), change: '+15.2%', icon: '💰', color: '#059669', bg: '#ECFDF5' },
-          { label: 'Pending Requests', value: `${pendingRequests}`, change: 'Need action', icon: '📋', color: '#D97706', bg: '#FFFBEB' },
-          { label: 'Completed Jobs', value: `${MOCK_REQUESTS.filter(r => r.status === 'completed').length}`, change: 'This month', icon: '✅', color: '#2563EB', bg: '#EFF6FF' },
-          { label: 'Rating', value: '4.8 ⭐', change: 'Based on 45 reviews', icon: '🏆', color: '#7C3AED', bg: '#F5F3FF' },
-        ].map(kpi => (
-          <div key={kpi.label} className="sd-kpi-card" style={{ borderTop: `4px solid ${kpi.color}` }}>
-            <div className="sd-kpi-icon" style={{ background: kpi.bg, color: kpi.color }}>{kpi.icon}</div>
-            <div>
-              <div className="sd-kpi-value">{kpi.value}</div>
-              <div className="sd-kpi-label">{kpi.label}</div>
-              <div className="sd-kpi-change" style={{ color: kpi.color }}>{kpi.change}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Weekly jobs chart + recent requests */}
-      <div className="sd-row-2">
-        <div className="sd-card sd-chart-card">
-          <div className="sd-card-header">
-            <h3 className="sd-card-title">Weekly Jobs</h3>
-            <span className="sd-card-badge">This Week</span>
-          </div>
-          <div className="sd-bar-chart">
-            {WEEKLY_JOBS.map((val, i) => (
-              <div key={i} className="sd-bar-col">
-                <div
-                  className="sd-bar"
-                  style={{ height: `${(val / maxJobs) * 100}%`, background: 'linear-gradient(180deg, #D97706, #F59E0B)' }}
-                  title={`${val} jobs`}
-                >
-                  <span className="sd-bar-tip">{val}</span>
-                </div>
-                <span className="sd-bar-label">{WEEKLY_LABELS[i]}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="sd-card sd-recent-card">
-          <div className="sd-card-header">
-            <h3 className="sd-card-title">Recent Requests</h3>
-            <span className="sd-card-badge sd-card-badge-green">{MOCK_REQUESTS.filter(r => r.status === 'pending').length} Pending</span>
-          </div>
-          <div className="sd-order-list">
-            {MOCK_REQUESTS.slice(0, 5).map(req => (
-              <div key={req.id} className="sd-order-row">
-                <div className="sd-order-avatar">{req.customer.charAt(0)}</div>
-                <div className="sd-order-info">
-                  <span className="sd-order-id">{req.id}</span>
-                  <span className="sd-order-buyer">{req.customer} · {req.vehicle}</span>
-                </div>
-                <div className="sd-order-right">
-                  <span className="sd-order-amount">{fmt(req.amount)}</span>
-                  <span className="sd-badge" style={{ background: statusBg[req.status], color: statusColor[req.status] }}>
-                    {statusLabel[req.status]}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ServiceRequestsTab() {
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-
-  const filtered = MOCK_REQUESTS.filter(r => statusFilter === 'all' || r.status === statusFilter);
-
-  return (
-    <div className="sd-content">
-      <div className="sd-page-header">
-        <div>
-          <h2 className="sd-page-title">Service Requests</h2>
-          <p className="sd-page-sub">{MOCK_REQUESTS.length} total requests</p>
-        </div>
-      </div>
-
-      <div className="sd-order-strips">
-        {(['pending', 'accepted', 'in_progress', 'completed', 'cancelled'] as const).map(s => {
-          const count = MOCK_REQUESTS.filter(r => r.status === s).length;
-          return (
-            <div key={s} className="sd-order-strip" style={{ borderLeft: `4px solid ${statusColor[s]}` }}>
-              <span className="sd-strip-num" style={{ color: statusColor[s] }}>{count}</span>
-              <span className="sd-strip-label">{statusLabel[s]}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="sd-filter-tabs" style={{ marginBottom: 16 }}>
-        {['all', 'pending', 'accepted', 'in_progress', 'completed', 'cancelled'].map(f => (
-          <button
-            key={f}
-            className={`sd-filter-tab ${statusFilter === f ? 'sd-filter-tab-active' : ''}`}
-            onClick={() => setStatusFilter(f)}
-          >
-            {f === 'all' ? 'All' : statusLabel[f]}
-          </button>
-        ))}
-      </div>
-
-      <div className="sd-card sd-table-card">
-        <table className="sd-table">
-          <thead>
-            <tr>
-              <th>Request ID</th>
-              <th>Customer</th>
-              <th>Vehicle</th>
-              <th>Issue</th>
-              <th>Amount</th>
-              <th>Date</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(req => (
-              <tr key={req.id}>
-                <td className="sd-order-id-cell">{req.id}</td>
-                <td>
-                  <div className="sd-table-buyer">
-                    <div className="sd-buyer-avatar">{req.customer.charAt(0)}</div>
-                    {req.customer}
-                  </div>
-                </td>
-                <td className="sd-table-name">{req.vehicle}</td>
-                <td className="sd-table-muted">{req.issue}</td>
-                <td className="sd-table-price">{fmt(req.amount)}</td>
-                <td className="sd-table-muted">{req.date}</td>
-                <td>
-                  <span className="sd-badge" style={{ background: statusBg[req.status], color: statusColor[req.status] }}>
-                    {statusLabel[req.status]}
-                  </span>
-                </td>
-                <td>
-                  {req.status === 'pending' && (
-                    <button className="sd-btn-xs sd-btn-confirm">Accept</button>
-                  )}
-                  {req.status === 'accepted' && (
-                    <button className="sd-btn-xs sd-btn-ship">Start Work</button>
-                  )}
-                  {req.status === 'in_progress' && (
-                    <button className="sd-btn-xs sd-btn-confirm">Complete</button>
-                  )}
-                  {(req.status === 'completed' || req.status === 'cancelled') && (
-                    <button className="sd-btn-xs sd-btn-view">View</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function MyServicesTab() {
-  const services = [
-    { name: 'Full Service', price: 'LKR 12,000', icon: '🔧', description: 'Complete motorcycle service including oil change, filter, chain adjustment' },
-    { name: 'Engine Repair', price: 'LKR 8,000+', icon: '⚙️', description: 'Engine diagnostics and repair for all motorcycle brands' },
-    { name: 'Brake Service', price: 'LKR 3,500', icon: '🛑', description: 'Brake pad replacement, disc inspection and adjustment' },
-    { name: 'Electrical Diagnostics', price: 'LKR 4,000', icon: '⚡', description: 'Complete electrical system check and repair' },
-    { name: 'Tyre Change', price: 'LKR 2,500', icon: '🛞', description: 'Tyre replacement and wheel balancing' },
-    { name: 'Chain & Sprocket', price: 'LKR 7,500', icon: '🔗', description: 'Chain and sprocket set replacement with alignment' },
-  ];
-
-  return (
-    <div className="sd-content">
-      <div className="sd-page-header">
-        <div>
-          <h2 className="sd-page-title">My Services</h2>
-          <p className="sd-page-sub">Services you offer to customers</p>
-        </div>
-        <button className="sd-btn-primary">
-          <span>+</span> Add Service
-        </button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-        {services.map(svc => (
-          <div key={svc.name} className="sd-card" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-              <div style={{
-                width: '44px', height: '44px', borderRadius: '12px',
-                background: '#FFFBEB', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: '22px'
-              }}>{svc.icon}</div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#1F2937' }}>{svc.name}</h3>
-                <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#D97706' }}>{svc.price}</p>
-              </div>
-            </div>
-            <p style={{ color: '#6B7280', fontSize: '13px', margin: 0 }}>{svc.description}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ScheduleTab() {
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-
-  const todayJobs = MOCK_REQUESTS.filter(r =>
-    (r.status === 'accepted' || r.status === 'in_progress') && r.date >= todayStr
-  );
-
-  return (
-    <div className="sd-content">
-      <div className="sd-page-header">
-        <div>
-          <h2 className="sd-page-title">Schedule</h2>
-          <p className="sd-page-sub">Your upcoming appointments</p>
-        </div>
-      </div>
-
-      <div className="sd-card" style={{ padding: '24px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1F2937', marginBottom: '16px' }}>
-          📅 Today — {today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-        </h3>
-        {todayJobs.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: '#9CA3AF' }}>
-            <p style={{ fontSize: '40px', marginBottom: '8px' }}>📅</p>
-            <p>No scheduled services for today</p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {todayJobs.map(job => (
-              <div key={job.id} style={{
-                display: 'flex', alignItems: 'center', gap: '16px',
-                padding: '16px', borderRadius: '12px',
-                border: '1px solid #E5E7EB', background: '#FAFAFA'
-              }}>
-                <div style={{
-                  width: '44px', height: '44px', borderRadius: '50%',
-                  background: '#FFFBEB', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontWeight: 700, color: '#D97706', fontSize: '14px'
-                }}>{job.customer.charAt(0)}</div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>{job.customer}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#6B7280' }}>
-                    {job.vehicle} — {job.issue}
-                  </p>
-                </div>
-                <span className="sd-badge" style={{ background: statusBg[job.status], color: statusColor[job.status] }}>
-                  {statusLabel[job.status]}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Upcoming this week */}
-      <div className="sd-card" style={{ padding: '24px', marginTop: '20px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1F2937', marginBottom: '16px' }}>
-          🗓️ Upcoming Jobs
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {MOCK_REQUESTS.filter(r => r.status !== 'completed' && r.status !== 'cancelled').map(job => (
-            <div key={job.id} style={{
-              display: 'flex', alignItems: 'center', gap: '16px',
-              padding: '12px 16px', borderRadius: '10px',
-              border: '1px solid #F3F4F6'
-            }}>
-              <div style={{ fontSize: '12px', color: '#9CA3AF', minWidth: '80px' }}>{job.date}</div>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>{job.customer}</p>
-                <p style={{ margin: 0, fontSize: '12px', color: '#6B7280' }}>{job.issue}</p>
-              </div>
-              <span className="sd-badge" style={{ background: statusBg[job.status], color: statusColor[job.status], fontSize: '11px' }}>
-                {statusLabel[job.status]}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function WorkshopProfileTab({ user }: { user: any }) {
-  const [editing, setEditing] = useState(false);
-
-  return (
-    <div className="sd-content">
-      <div className="sd-page-header">
-        <div>
-          <h2 className="sd-page-title">Workshop Profile</h2>
-          <p className="sd-page-sub">Manage your workshop details</p>
-        </div>
-        <button className="sd-btn-primary" onClick={() => setEditing(!editing)}>
-          {editing ? '💾 Save Changes' : '✏️ Edit Profile'}
-        </button>
-      </div>
-
-      <div className="sd-profile-layout">
-        <div className="sd-card sd-shop-card">
-          <div className="sd-shop-banner" style={{ background: 'linear-gradient(135deg, #D97706 0%, #F59E0B 100%)' }}>
-            <div className="sd-shop-logo">🔧</div>
-          </div>
-          <div className="sd-shop-info">
-            {editing ? (
-              <div className="sd-form-grid">
-                {[
-                  { label: 'First Name', value: user?.firstName || '', placeholder: 'First name' },
-                  { label: 'Last Name', value: user?.lastName || '', placeholder: 'Last name' },
-                  { label: 'Workshop Name', value: user?.workshopName || '', placeholder: 'Workshop name' },
-                  { label: 'Specialization', value: user?.specialization || '', placeholder: 'e.g. Engine Repair' },
-                  { label: 'Experience (years)', value: user?.experienceYears || '', placeholder: 'e.g. 5' },
-                  { label: 'Workshop Location', value: user?.workshopLocation || '', placeholder: 'City, Province' },
-                  { label: 'Phone', value: user?.phone || '', placeholder: '+94 XX XXX XXXX' },
-                  { label: 'Email', value: user?.email || '', placeholder: 'email@example.com' },
-                ].map(field => (
-                  <div key={field.label} className="sd-form-field">
-                    <label className="sd-form-label">{field.label}</label>
-                    <input className="sd-form-input" defaultValue={field.value} placeholder={field.placeholder} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <>
-                <h3 className="sd-shop-name">{user?.workshopName || user?.specialization || 'My Workshop'}</h3>
-                <p style={{ color: '#6B7280', fontSize: '14px', margin: '4px 0' }}>
-                  👤 {user?.firstName} {user?.lastName}
-                </p>
-                {user?.specialization && <p style={{ color: '#D97706', fontWeight: 600, fontSize: '14px', margin: '4px 0' }}>🔧 {user.specialization}</p>}
-                {user?.experienceYears && <p style={{ color: '#6B7280', fontSize: '13px', margin: '4px 0' }}>📅 {user.experienceYears} years experience</p>}
-                {user?.workshopLocation && <p className="sd-shop-location">📍 {user.workshopLocation}</p>}
-                <div className="sd-shop-meta">
-                  {user?.phone && <span>📞 {user.phone}</span>}
-                  <span>✉️ {user?.email}</span>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="sd-profile-side">
-          <div className="sd-card sd-profile-stats">
-            <h4 className="sd-card-title" style={{ marginBottom: 16 }}>Workshop Statistics</h4>
-            {[
-              { label: 'Total Jobs', value: MOCK_REQUESTS.length, icon: '🔧' },
-              { label: 'Completed', value: MOCK_REQUESTS.filter(r => r.status === 'completed').length, icon: '✅' },
-              { label: 'Total Earnings', value: fmt(MOCK_REQUESTS.filter(r => r.status === 'completed').reduce((s, r) => s + r.amount, 0)), icon: '💰' },
-              { label: 'Rating', value: '4.8 ⭐', icon: '🏆' },
-            ].map(stat => (
-              <div key={stat.label} className="sd-profile-stat-row">
-                <span className="sd-profile-stat-icon">{stat.icon}</span>
-                <div>
-                  <div className="sd-profile-stat-val">{stat.value}</div>
-                  <div className="sd-profile-stat-label">{stat.label}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="sd-card" style={{ padding: 20 }}>
-            <h4 className="sd-card-title" style={{ marginBottom: 12 }}>Account Status</h4>
-            <div className="sd-badge" style={{ background: '#ECFDF5', color: '#059669', fontSize: 13, padding: '6px 14px' }}>
-              ✅ Verified Mechanic
-            </div>
-            <p className="sd-profile-stat-label" style={{ marginTop: 12 }}>
-              Member since {new Date().toLocaleDateString('en-LK', { month: 'long', year: 'numeric' })}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Mechanic Dashboard ────────────────────────────────────────────────────
-const MechanicDashboard: React.FC = () => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const handleLogout = () => { logout(); navigate('/login'); };
-
-  const getInitials = () => {
-    const f = user?.firstName?.charAt(0) || '';
-    const l = user?.lastName?.charAt(0) || '';
-    return (f + l).toUpperCase();
-  };
-
-  const NAV_ITEMS: { id: Tab; label: string; icon: string; badge?: number }[] = [
-    { id: 'overview', label: 'Overview', icon: '📊' },
-    { id: 'requests', label: 'Requests', icon: '📋', badge: MOCK_REQUESTS.filter(r => r.status === 'pending').length },
-    { id: 'services', label: 'My Services', icon: '🔧' },
-    { id: 'schedule', label: 'Schedule', icon: '📅' },
-    { id: 'profile', label: 'Workshop Profile', icon: '🏭' },
-  ];
-
-  return (
-    <div className="sd-wrapper">
-      {/* ── Sidebar ── */}
-      <aside className={`sd-sidebar ${sidebarOpen ? 'sd-sidebar-open' : ''}`} style={{ background: 'linear-gradient(180deg, #78350F 0%, #92400E 50%, #B45309 100%)' }}>
-        {/* Brand */}
-        <div className="sd-sidebar-brand">
-          <div className="sd-sidebar-logo">
-            <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
-              <rect width="36" height="36" rx="8" fill="white" fillOpacity="0.15" />
-              <path d="M8 22 C10 16,14 12,18 12 C22 12,26 16,28 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              <circle cx="10" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
-              <circle cx="26" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
-              <path d="M13 24 L23 24" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <div>
-            <div className="sd-sidebar-app">Finding Moto</div>
-            <div className="sd-sidebar-role">Mechanic Dashboard</div>
-          </div>
-        </div>
-
-        {/* User info */}
-        <div className="sd-sidebar-user">
-          <div className="sd-sidebar-avatar" style={{ background: 'rgba(217, 119, 6, 0.3)', color: '#FDE68A' }}>{getInitials()}</div>
-          <div>
-            <div className="sd-sidebar-username">{user?.firstName} {user?.lastName}</div>
-            <div className="sd-sidebar-shop">{user?.workshopName || user?.specialization || 'Mechanic'}</div>
-          </div>
-        </div>
-
-        {/* Nav */}
-        <nav className="sd-nav">
-          {NAV_ITEMS.map(item => (
-            <button
-              key={item.id}
-              className={`sd-nav-item ${activeTab === item.id ? 'sd-nav-item-active' : ''}`}
-              onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-            >
-              <span className="sd-nav-icon">{item.icon}</span>
-              <span className="sd-nav-label">{item.label}</span>
-              {item.badge !== undefined && item.badge > 0 && (
-                <span className="sd-nav-badge">{item.badge}</span>
-              )}
-            </button>
-          ))}
-        </nav>
-
-        {/* Change Password Link */}
-        <button className="sd-nav-item" onClick={() => navigate('/change-password')} style={{ marginTop: '8px' }}>
-          <span className="sd-nav-icon">🔒</span>
-          <span className="sd-nav-label">Change Password</span>
-        </button>
-
-        {/* Logout */}
-        <button className="sd-nav-logout" onClick={handleLogout}>
-          <span>🚪</span> Sign Out
-        </button>
-      </aside>
-
-      {/* ── Overlay for mobile ── */}
-      {sidebarOpen && <div className="sd-overlay" onClick={() => setSidebarOpen(false)} />}
-
-      {/* ── Main area ── */}
-      <div className="sd-main">
-        {/* Top bar */}
-        <header className="sd-topbar">
-          <button className="sd-menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <span /><span /><span />
-          </button>
-          <div className="sd-topbar-title">
-            {NAV_ITEMS.find(n => n.id === activeTab)?.icon}{' '}
-            {NAV_ITEMS.find(n => n.id === activeTab)?.label}
-          </div>
-          <div className="sd-topbar-right">
-            <button className="sd-icon-btn" title="Notifications">🔔</button>
-            <div className="sd-topbar-avatar" onClick={() => setActiveTab('profile')} style={{ background: '#FFFBEB', color: '#D97706' }}>{getInitials()}</div>
-          </div>
-        </header>
-
-        {/* Page content */}
-        <div className="sd-page">
-          {activeTab === 'overview'  && <OverviewTab user={user} />}
-          {activeTab === 'requests'  && <ServiceRequestsTab />}
-          {activeTab === 'services'  && <MyServicesTab />}
-          {activeTab === 'schedule'  && <ScheduleTab />}
-          {activeTab === 'profile'   && <WorkshopProfileTab user={user} />}
-        </div>
-      </div>
-    </div>
-  );
+const statusIcons: Record<string, React.ReactNode> = {
+  pending: <Clock className="h-3 w-3" />,
+  accepted: <CheckCircle className="h-3 w-3" />,
+  in_progress: <Activity className="h-3 w-3" />,
+  completed: <CheckCircle className="h-3 w-3" />,
+  cancelled: <span className="h-3 w-3">✕</span>,
 };
 
-export default MechanicDashboard;
+interface DashboardService {
+  _id: string;
+  name: string;
+  price: number;
+  category: string;
+  active: boolean;
+}
+
+const categoryIcons: Record<string, string> = {
+  General: '🔧',
+  Engine: '⚙️',
+  Brakes: '🛑',
+  Electrical: '⚡',
+  Tyres: '🛞',
+  Transmission: '🔗',
+  Suspension: '🏍️',
+};
+
+// ─── Dashboard Overview ─────────────────────────────────────────────────────
+export default function MechanicDashboard() {
+  const { user } = useAuth();
+  const [dashServices, setDashServices] = useState<DashboardService[]>([]);
+
+  useEffect(() => {
+    api.get('/mechanic/services')
+      .then((res) => {
+        if (res.data.success) {
+          setDashServices(res.data.data.filter((s: DashboardService) => s.active).slice(0, 6));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const totalEarnings = MOCK_REQUESTS.filter(r => r.status === 'completed').reduce((s, r) => s + r.amount, 0);
+  const pendingRequests = MOCK_REQUESTS.filter(r => r.status === 'pending' || r.status === 'accepted').length;
+  const completedJobs = MOCK_REQUESTS.filter(r => r.status === 'completed').length;
+  const maxJobs = Math.max(...WEEKLY_JOBS);
+
+  return (
+    <div className="space-y-6">
+      {/* Welcome Banner */}
+      <Card className="glass-card overflow-hidden">
+        <div className="relative p-6 bg-gradient-to-r from-amber-600 via-amber-700 to-orange-800 text-white">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold">Welcome back, {user?.firstName}! 🔧</h1>
+              <p className="text-amber-100 mt-1">Here's what's happening with your services today.</p>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/15 backdrop-blur-sm">
+              <Wrench className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                {(user as any)?.workshopName || (user as any)?.specialization || 'My Workshop'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Earnings', value: fmt(totalEarnings), change: '+15.2%', icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-600/10', border: 'border-t-emerald-500' },
+          { label: 'Pending Requests', value: `${pendingRequests}`, change: 'Need action', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-600/10', border: 'border-t-amber-500' },
+          { label: 'Completed Jobs', value: `${completedJobs}`, change: 'This month', icon: CheckCircle, color: 'text-blue-600', bg: 'bg-blue-600/10', border: 'border-t-blue-500' },
+          { label: 'Rating', value: '4.8', change: 'Based on 45 reviews', icon: Star, color: 'text-purple-600', bg: 'bg-purple-600/10', border: 'border-t-purple-500' },
+        ].map(kpi => (
+          <Card key={kpi.label} className={cn("glass-card border-t-4", kpi.border)}>
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{kpi.label}</p>
+                  <p className="text-2xl font-bold mt-1">{kpi.value}</p>
+                  <p className={cn("text-xs mt-1 font-medium", kpi.color)}>{kpi.change}</p>
+                </div>
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", kpi.bg)}>
+                  <kpi.icon className={cn("h-5 w-5", kpi.color)} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Weekly Jobs Chart */}
+        <Card className="glass-card">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold">Weekly Jobs</CardTitle>
+              <span className="px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                This Week
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end justify-between gap-2 h-48 pt-4">
+              {WEEKLY_JOBS.map((val, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <span className="text-xs font-semibold text-muted-foreground">{val}</span>
+                  <div className="w-full relative rounded-t-lg overflow-hidden" style={{ height: `${(val / maxJobs) * 100}%` }}>
+                    <div className="absolute inset-0 bg-gradient-to-t from-amber-600 to-amber-400 rounded-t-lg" />
+                  </div>
+                  <span className="text-xs text-muted-foreground">{WEEKLY_LABELS[i]}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Requests */}
+        <Card className="glass-card">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold">Recent Requests</CardTitle>
+              <Link to="/mechanic/orders" className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
+                View All <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-1 p-0 px-6 pb-6">
+            {MOCK_REQUESTS.slice(0, 5).map((req) => (
+              <div key={req.id} className="flex items-center gap-3 py-3 border-b border-border/50 last:border-0">
+                <div className="w-9 h-9 rounded-full bg-amber-600/10 flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-bold text-amber-600">{req.customer.charAt(0)}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{req.customer}</p>
+                  <p className="text-xs text-muted-foreground truncate">{req.vehicle} · {req.issue}</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-semibold">{fmt(req.amount)}</p>
+                  <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border", statusColors[req.status])}>
+                    {statusIcons[req.status]} {statusLabels[req.status]}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Services Offered */}
+      <Card className="glass-card">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold">Services Offered</CardTitle>
+            <Link to="/mechanic/services" className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
+              Manage <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {dashServices.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {dashServices.map(svc => (
+              <div key={svc._id} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border hover:bg-muted/30 transition-colors text-center">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center text-xl">
+                  {categoryIcons[svc.category] || '🔧'}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold">{svc.name}</p>
+                  <p className="text-[10px] text-amber-600 font-medium">LKR {svc.price.toLocaleString()}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Wrench className="h-8 w-8 text-muted-foreground/30 mb-2" />
+              <p className="text-sm text-muted-foreground">No services added yet</p>
+              <Link to="/mechanic/services" className="text-xs text-amber-600 mt-1 hover:underline">Add your first service</Link>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Upcoming Jobs */}
+      <Card className="glass-card">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold">Upcoming Jobs</CardTitle>
+            <Link to="/mechanic/orders" className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
+              View All <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {MOCK_REQUESTS.filter(r => r.status !== 'completed' && r.status !== 'cancelled').map((job) => (
+            <div key={job.id} className="flex items-center gap-4 p-3 rounded-xl border border-border hover:bg-muted/20 transition-colors">
+              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center flex-shrink-0">
+                <span className="text-sm font-bold text-amber-600">{job.customer.charAt(0)}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">{job.customer}</p>
+                <p className="text-xs text-muted-foreground">{job.vehicle} — {job.issue}</p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-xs text-muted-foreground">{job.date}</p>
+                <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border mt-1", statusColors[job.status])}>
+                  {statusLabels[job.status]}
+                </span>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

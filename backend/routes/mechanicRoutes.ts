@@ -4,6 +4,10 @@ import {
   getProfile,
   updateProfile,
   getOverview,
+  getServices,
+  createService,
+  updateService,
+  deleteService,
 } from '../controllers/mechanicController';
 
 const router = express.Router();
@@ -18,5 +22,11 @@ router.get('/overview', getOverview);
 // Profile
 router.get('/profile', getProfile);
 router.put('/profile', updateProfile);
+
+// Services CRUD
+router.get('/services', getServices);
+router.post('/services', createService);
+router.put('/services/:id', updateService);
+router.delete('/services/:id', deleteService);
 
 export default router;

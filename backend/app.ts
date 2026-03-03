@@ -9,6 +9,11 @@ import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/authRoutes';
 import sellerRoutes from './routes/sellerRoutes';
 import mechanicRoutes from './routes/mechanicRoutes';
+import productRoutes from './routes/productRoutes';
+import orderRoutes from './routes/orderRoutes';
+import adminRoutes from './routes/adminRoutes';
+import reviewRoutes from './routes/reviewRoutes';
+import publicRoutes from './routes/publicRoutes';
 
 const app: Application = express();
 
@@ -28,9 +33,14 @@ if (config.nodeEnv === 'development') {
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/seller', sellerRoutes);
-app.use('/api/mechanic', mechanicRoutes);
+app.use('/api/public', publicRoutes);       // Public — No auth required (products/mechanics browsing)
+app.use('/api/auth', authRoutes);          // Raakul — User Management
+app.use('/api/seller', sellerRoutes);      // Thulax — Seller Dashboard
+app.use('/api/mechanic', mechanicRoutes);  // Thulax — Mechanic Dashboard
+app.use('/api/products', productRoutes);   // Arun   — Product Management
+app.use('/api/orders', orderRoutes);       // Saran  — Order Management
+app.use('/api/admin', adminRoutes);        // Sujani — Admin Dashboard
+app.use('/api/reviews', reviewRoutes);     // Sivaganga — Rating & Review
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

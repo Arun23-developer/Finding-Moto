@@ -1,7 +1,9 @@
-import { Request, Response } from 'express';
+// ─── Seller Dashboard Controller — Thulax ──────────────────────────────────
+import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import Product, { IProduct } from '../models/Product';
-import Order, { OrderStatus } from '../models/Order';
+import Product from '../models/Product';
+import Order from '../models/Order';
+import Review from '../models/Review';
 import mongoose from 'mongoose';
 
 // ─── Overview / Stats ──────────────────────────────────────────────────────
@@ -41,7 +43,7 @@ export const getOverview = async (req: AuthRequest, res: Response): Promise<void
     const recentOrders = await Order.find({ seller: sellerId })
       .sort({ createdAt: -1 })
       .limit(5)
-      .populate('buyer', 'name email')
+      .populate('buyer', 'firstName lastName email')
       .lean();
 
     // Top products by sales
@@ -162,189 +164,6 @@ export const getAnalytics = async (req: AuthRequest, res: Response): Promise<voi
   }
 };
 
-// ─── Products ──────────────────────────────────────────────────────────────
-
-export const getProducts = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const sellerId = req.user!._id as mongoose.Types.ObjectId;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
-    const status = req.query.status as string;
-    const search = req.query.search as string;
-
-    const query: Record<string, unknown> = { seller: sellerId };
-    if (status && status !== 'all') query.status = status;
-    if (search) query.name = { $regex: search, $options: 'i' };
-
-    const [products, total] = await Promise.all([
-      Product.find(query)
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
-      Product.countDocuments(query),
-    ]);
-
-    res.json({
-      success: true,
-      data: products,
-      meta: { page, limit, total, pages: Math.ceil(total / limit) },
-    });
-  } catch (err) {
-    console.error('getProducts error:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
-
-export const createProduct = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const sellerId = req.user!._id;
-    const { name, description, category, brand, price, originalPrice, stock, images, sku } = req.body;
-
-    const product = await Product.create({
-      seller: sellerId,
-      name,
-      description,
-      category,
-      brand,
-      price,
-      originalPrice,
-      stock: stock ?? 0,
-      images: images ?? [],
-      sku,
-    });
-
-    res.status(201).json({ success: true, data: product });
-  } catch (err: unknown) {
-    console.error('createProduct error:', err);
-    if (err && typeof err === 'object' && 'name' in err && (err as { name: string }).name === 'ValidationError') {
-      res.status(400).json({ success: false, message: (err as Error).message });
-      return;
-    }
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
-
-export const updateProduct = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const sellerId = req.user!._id;
-    const { id } = req.params;
-
-    const product = await Product.findOne({ _id: id, seller: sellerId });
-    if (!product) {
-      res.status(404).json({ success: false, message: 'Product not found' });
-      return;
-    }
-
-    const allowedFields = [
-      'name', 'description', 'category', 'brand', 'price', 'originalPrice',
-      'stock', 'images', 'status', 'sku',
-    ];
-
-    allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined) {
-        (product as unknown as Record<string, unknown>)[field] = req.body[field];
-      }
-    });
-
-    await product.save();
-    res.json({ success: true, data: product });
-  } catch (err) {
-    console.error('updateProduct error:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
-
-export const deleteProduct = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const sellerId = req.user!._id;
-    const { id } = req.params;
-
-    const product = await Product.findOneAndDelete({ _id: id, seller: sellerId });
-    if (!product) {
-      res.status(404).json({ success: false, message: 'Product not found' });
-      return;
-    }
-
-    res.json({ success: true, message: 'Product deleted' });
-  } catch (err) {
-    console.error('deleteProduct error:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
-
-// ─── Orders ────────────────────────────────────────────────────────────────
-
-export const getOrders = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const sellerId = req.user!._id as mongoose.Types.ObjectId;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
-    const status = req.query.status as string;
-
-    const query: Record<string, unknown> = { seller: sellerId };
-    if (status && status !== 'all') query.status = status;
-
-    const [orders, total] = await Promise.all([
-      Order.find(query)
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .populate('buyer', 'name email phone')
-        .lean(),
-      Order.countDocuments(query),
-    ]);
-
-    res.json({
-      success: true,
-      data: orders,
-      meta: { page, limit, total, pages: Math.ceil(total / limit) },
-    });
-  } catch (err) {
-    console.error('getOrders error:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
-
-export const updateOrderStatus = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const sellerId = req.user!._id;
-    const { id } = req.params;
-    const { status, note } = req.body as { status: OrderStatus; note?: string };
-
-    const validTransitions: Record<OrderStatus, OrderStatus[]> = {
-      pending: ['confirmed', 'cancelled'],
-      confirmed: ['shipped', 'cancelled'],
-      shipped: ['delivered'],
-      delivered: [],
-      cancelled: [],
-    };
-
-    const order = await Order.findOne({ _id: id, seller: sellerId });
-    if (!order) {
-      res.status(404).json({ success: false, message: 'Order not found' });
-      return;
-    }
-
-    if (!validTransitions[order.status].includes(status)) {
-      res.status(400).json({
-        success: false,
-        message: `Cannot transition from ${order.status} to ${status}`,
-      });
-      return;
-    }
-
-    order.statusHistory.push({ status: order.status, changedAt: new Date(), note });
-    order.status = status;
-    await order.save();
-
-    res.json({ success: true, data: order });
-  } catch (err) {
-    console.error('updateOrderStatus error:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
-
 // ─── Profile ───────────────────────────────────────────────────────────────
 
 export const getProfile = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -396,6 +215,67 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
     res.json({ success: true, data: user });
   } catch (err) {
     console.error('updateProfile error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ─── Seller Reviews ────────────────────────────────────────────────────────
+
+export const getSellerReviews = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const sellerId = req.user!._id as mongoose.Types.ObjectId;
+
+    // Get all product IDs owned by this seller
+    const products = await Product.find({ seller: sellerId }).select('_id name').lean();
+    const productIds = products.map((p) => p._id);
+    const productMap = new Map(products.map((p) => [p._id.toString(), p.name]));
+
+    // Get all reviews for those products
+    const reviews = await Review.find({ productId: { $in: productIds } })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Calculate stats
+    const total = reviews.length;
+    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+    const average = total > 0 ? Math.round((sum / total) * 10) / 10 : 0;
+
+    // Rating distribution
+    const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    reviews.forEach((r) => {
+      dist[r.rating] = (dist[r.rating] || 0) + 1;
+    });
+    const distribution = [5, 4, 3, 2, 1].map((stars) => ({
+      stars,
+      count: dist[stars],
+      percentage: total > 0 ? Math.round((dist[stars] / total) * 100) : 0,
+    }));
+
+    // Recommended: count of 4-5 star reviews
+    const recommended = total > 0
+      ? Math.round(((dist[4] + dist[5]) / total) * 100)
+      : 0;
+
+    // Enrich reviews with product name
+    const enrichedReviews = reviews.map((r) => ({
+      _id: r._id,
+      productId: r.productId,
+      productName: productMap.get(r.productId.toString()) || 'Unknown Product',
+      rating: r.rating,
+      comment: r.comment,
+      createdAt: r.createdAt,
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        stats: { average, total, recommended },
+        distribution,
+        reviews: enrichedReviews,
+      },
+    });
+  } catch (err) {
+    console.error('getSellerReviews error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

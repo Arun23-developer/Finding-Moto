@@ -1,79 +1,129 @@
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Package,
   ShoppingCart,
   DollarSign,
-  TrendingUp,
-  TrendingDown,
   ArrowUpRight,
   Store,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
-
-const recentOrders = [
-  { id: "#FM-1024", customer: "Ahmed Garage", amount: "LKR 342", status: "Delivered", date: "2h ago" },
-  { id: "#FM-1023", customer: "Quick Fix Motors", amount: "LKR 128", status: "Shipped", date: "4h ago" },
-  { id: "#FM-1022", customer: "Ali Auto Parts", amount: "LKR 567", status: "Processing", date: "6h ago" },
-  { id: "#FM-1021", customer: "Speed Mechanics", amount: "LKR 89", status: "Pending", date: "8h ago" },
-  { id: "#FM-1020", customer: "Pro Garage", amount: "LKR 445", status: "Delivered", date: "12h ago" },
-];
+import api from "@/services/api";
 
 const statusColors: Record<string, string> = {
-  Delivered: "bg-success/15 text-success border-success/20",
-  Shipped: "bg-info/15 text-info border-info/20",
-  Processing: "bg-warning/15 text-warning border-warning/20",
-  Pending: "bg-muted text-muted-foreground border-border",
+  delivered: "bg-success/15 text-success border-success/20",
+  shipped: "bg-info/15 text-info border-info/20",
+  confirmed: "bg-warning/15 text-warning border-warning/20",
+  pending: "bg-muted text-muted-foreground border-border",
+  cancelled: "bg-destructive/15 text-destructive border-destructive/20",
 };
 
-const stats = [
-  { title: "Total Revenue", value: "LKR 52,400", change: "+12.5%", trend: "up" as const, icon: DollarSign },
-  { title: "Total Orders", value: "1,315", change: "+8.2%", trend: "up" as const, icon: ShoppingCart },
-  { title: "Active Shops", value: "248", change: "+15.3%", trend: "up" as const, icon: Store },
-  { title: "Products Listed", value: "3,847", change: "-2.1%", trend: "down" as const, icon: Package },
+const catColors = [
+  "hsl(25, 95%, 53%)",
+  "hsl(217, 91%, 60%)",
+  "hsl(142, 71%, 45%)",
+  "hsl(280, 65%, 60%)",
+  "hsl(38, 92%, 50%)",
 ];
 
-const categoryData = [
-  { name: "Engine Parts", value: 35, color: "hsl(25, 95%, 53%)" },
-  { name: "Brakes", value: 25, color: "hsl(217, 91%, 60%)" },
-  { name: "Electrical", value: 20, color: "hsl(142, 71%, 45%)" },
-  { name: "Body Parts", value: 12, color: "hsl(280, 65%, 60%)" },
-  { name: "Services", value: 8, color: "hsl(38, 92%, 50%)" },
-];
+interface OverviewData {
+  stats: {
+    revenue: number;
+    totalOrders: number;
+    pendingOrders: number;
+    processingOrders: number;
+    deliveredOrders: number;
+    totalProducts: number;
+    activeProducts: number;
+    outOfStockProducts: number;
+    activeSellers: number;
+  };
+  recentOrders: {
+    _id: string;
+    buyer: { firstName: string; lastName: string } | null;
+    seller: { firstName: string; lastName: string; shopName?: string } | null;
+    totalAmount: number;
+    status: string;
+    itemCount: number;
+    createdAt: string;
+  }[];
+  categories: { name: string; value: number }[];
+  monthlyRevenue: { _id: string; revenue: number }[];
+}
 
-const revenueData = [
-  { month: "Jan", revenue: 4200 },
-  { month: "Feb", revenue: 5800 },
-  { month: "Mar", revenue: 7200 },
-  { month: "Apr", revenue: 6100 },
-  { month: "May", revenue: 8400 },
-  { month: "Jun", revenue: 9200 },
-  { month: "Jul", revenue: 10800 },
-];
-
-const maxRevenue = Math.max(...revenueData.map((d) => d.revenue));
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export default function Dashboard() {
+  const [data, setData] = useState<OverviewData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const fetchOverview = useCallback(async () => {
+    try {
+      setError("");
+      const { data: res } = await api.get("/admin/overview");
+      if (res.success) setData(res.data);
+    } catch {
+      setError("Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOverview();
+  }, [fetchOverview]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin mb-3 text-primary" />
+        <p className="text-sm font-medium">Loading dashboard…</p>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <AlertCircle className="h-8 w-8 mb-3 text-red-500" />
+        <p className="font-medium">{error}</p>
+        <button onClick={fetchOverview} className="mt-3 inline-flex items-center gap-2 text-sm text-primary hover:underline">
+          <RefreshCw className="h-4 w-4" /> Retry
+        </button>
+      </div>
+    );
+  }
+
+  const { stats, recentOrders, categories, monthlyRevenue } = data;
+  const maxRevenue = Math.max(...monthlyRevenue.map((d) => d.revenue), 1);
+
+  const statCards = [
+    { title: "Total Revenue", value: `LKR ${stats.revenue.toLocaleString()}`, icon: DollarSign },
+    { title: "Total Orders", value: stats.totalOrders.toLocaleString(), icon: ShoppingCart },
+    { title: "Active Shops", value: stats.activeSellers.toLocaleString(), icon: Store },
+    { title: "Products Listed", value: stats.totalProducts.toLocaleString(), icon: Package },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
+        {statCards.map((stat) => (
           <Card key={stat.title} className="stat-card-hover glass-card">
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                   <stat.icon className="h-5 w-5 text-primary" />
-                </div>
-                <div
-                  className={`flex items-center gap-1 text-xs font-medium ${
-                    stat.trend === "up" ? "text-success" : "text-destructive"
-                  }`}
-                >
-                  {stat.trend === "up" ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : (
-                    <TrendingDown className="h-3 w-3" />
-                  )}
-                  {stat.change}
                 </div>
               </div>
               <p className="text-2xl font-bold">{stat.value}</p>
@@ -85,62 +135,72 @@ export default function Dashboard() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Revenue Chart - Simple Bar */}
+        {/* Revenue Chart */}
         <Card className="lg:col-span-2 glass-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold">Revenue Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-end gap-3 h-[250px] pt-4">
-              {revenueData.map((item) => (
-                <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
-                  <span className="text-xs text-muted-foreground font-medium">
-                    ${(item.revenue / 1000).toFixed(1)}k
-                  </span>
-                  <div className="w-full relative flex-1 flex items-end">
-                    <div
-                      className="w-full rounded-t-md bg-primary/80 hover:bg-primary transition-colors duration-200 min-h-[8px]"
-                      style={{ height: `${(item.revenue / maxRevenue) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-muted-foreground">{item.month}</span>
-                </div>
-              ))}
-            </div>
+            {monthlyRevenue.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">No revenue data yet</p>
+            ) : (
+              <div className="flex items-end gap-3 h-[250px] pt-4">
+                {monthlyRevenue.map((item) => {
+                  const label = new Date(item._id + "-01").toLocaleString("default", { month: "short" });
+                  return (
+                    <div key={item._id} className="flex-1 flex flex-col items-center gap-2">
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {(item.revenue / 1000).toFixed(1)}k
+                      </span>
+                      <div className="w-full relative flex-1 flex items-end">
+                        <div
+                          className="w-full rounded-t-md bg-primary/80 hover:bg-primary transition-colors duration-200 min-h-[8px]"
+                          style={{ height: `${(item.revenue / maxRevenue) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground">{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Categories Donut */}
+        {/* Categories */}
         <Card className="glass-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold">Top Categories</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4">
-            {/* Simple progress bars for categories */}
             <div className="w-full space-y-3 mt-2">
-              {categoryData.map((cat) => (
-                <div key={cat.name} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: cat.color }}
-                      />
-                      <span className="text-muted-foreground">{cat.name}</span>
+              {categories.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No data yet</p>
+              ) : (
+                categories.map((cat, i) => (
+                  <div key={cat.name} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-2.5 h-2.5 rounded-full"
+                          style={{ backgroundColor: catColors[i % catColors.length] }}
+                        />
+                        <span className="text-muted-foreground">{cat.name}</span>
+                      </div>
+                      <span className="font-medium">{cat.value}%</span>
                     </div>
-                    <span className="font-medium">{cat.value}%</span>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${cat.value}%`,
+                          backgroundColor: catColors[i % catColors.length],
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${cat.value}%`,
-                        backgroundColor: cat.color,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -162,28 +222,38 @@ export default function Dashboard() {
               <thead>
                 <tr className="text-muted-foreground text-xs border-b border-border">
                   <th className="text-left py-3 font-medium">Order ID</th>
-                  <th className="text-left py-3 font-medium">Shop</th>
+                  <th className="text-left py-3 font-medium">Buyer</th>
                   <th className="text-left py-3 font-medium">Amount</th>
                   <th className="text-left py-3 font-medium">Status</th>
                   <th className="text-right py-3 font-medium">Time</th>
                 </tr>
               </thead>
               <tbody>
-                {recentOrders.map((order) => (
-                  <tr key={order.id} className="border-b border-border/50 last:border-0">
-                    <td className="py-3 font-mono font-medium text-primary">{order.id}</td>
-                    <td className="py-3">{order.customer}</td>
-                    <td className="py-3 font-semibold">{order.amount}</td>
-                    <td className="py-3">
-                      <span
-                        className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColors[order.status]}`}
-                      >
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-right text-muted-foreground">{order.date}</td>
+                {recentOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-muted-foreground text-sm">No orders yet</td>
                   </tr>
-                ))}
+                ) : (
+                  recentOrders.map((order) => (
+                    <tr key={order._id} className="border-b border-border/50 last:border-0">
+                      <td className="py-3 font-mono font-medium text-primary text-xs">
+                        {order._id.slice(-6).toUpperCase()}
+                      </td>
+                      <td className="py-3">
+                        {order.buyer ? `${order.buyer.firstName} ${order.buyer.lastName}` : "—"}
+                      </td>
+                      <td className="py-3 font-semibold">LKR {order.totalAmount.toLocaleString()}</td>
+                      <td className="py-3">
+                        <span
+                          className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${statusColors[order.status] || ""}`}
+                        >
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-right text-muted-foreground">{timeAgo(order.createdAt)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

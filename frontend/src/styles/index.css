@@ -3001,7 +3001,8 @@
 
 /* ── Welcome banner ── */
 .sd-welcome-banner {
-  background: linear-gradient(135deg, #1E3A5F 0%, #3B82F6 100%);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 16px;
   padding: 28px 32px;
   display: flex;
@@ -3009,17 +3010,18 @@
   align-items: center;
   margin-bottom: 24px;
   gap: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .sd-welcome-title {
   font-size: 22px;
   font-weight: 800;
-  color: #fff;
+  color: #000000;
   margin: 0;
 }
 
 .sd-welcome-sub {
-  color: rgba(255,255,255,0.75);
+  color: #4b5563;
   margin-top: 6px;
   font-size: 14px;
 }

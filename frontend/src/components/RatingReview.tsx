@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from "react";
-import reviewService from "../services/reviewService";
+import React, { useEffect, useState } from 'react';
+import reviewService, { Review } from '../services/reviewService';
 
-function RatingReview({ productId }) {
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
-  const [reviews, setReviews] = useState([]);
-  const [average, setAverage] = useState(0);
+interface RatingReviewProps {
+  productId: string;
+}
+
+const RatingReview: React.FC<RatingReviewProps> = ({ productId }) => {
+  const [rating, setRating] = useState<number>(0);
+  const [comment, setComment] = useState<string>('');
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [average, setAverage] = useState<string>('0');
 
   useEffect(() => {
     fetchReviews();
@@ -17,43 +21,38 @@ function RatingReview({ productId }) {
       setReviews(data);
       calculateAverage(data);
     } catch (error) {
-      console.error("Error fetching reviews", error);
+      console.error('Error fetching reviews', error);
     }
   };
 
-  const calculateAverage = (data) => {
+  const calculateAverage = (data: Review[]) => {
     if (data.length === 0) {
-      setAverage(0);
+      setAverage('0');
       return;
     }
     const total = data.reduce((sum, r) => sum + r.rating, 0);
     setAverage((total / data.length).toFixed(1));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rating || !comment) {
-      alert("Please provide rating and comment");
+      alert('Please provide rating and comment');
       return;
     }
 
-    const newReview = {
-      rating,
-      comment,
-    };
-
     try {
-      await reviewService.addReview(productId, newReview);
+      await reviewService.addReview(productId, { rating, comment });
       setRating(0);
-      setComment("");
+      setComment('');
       fetchReviews();
     } catch (error) {
-      console.error("Error adding review", error);
+      console.error('Error adding review', error);
     }
   };
 
   return (
-    <div style={{ padding: "20px", border: "1px solid #ccc" }}>
+    <div style={{ padding: '20px', border: '1px solid #ccc' }}>
       <h2>⭐ Rating & Reviews</h2>
 
       <h3>Average Rating: {average} / 5</h3>
@@ -86,8 +85,8 @@ function RatingReview({ productId }) {
 
       <h3>All Reviews</h3>
 
-      {reviews.map((review, index) => (
-        <div key={index} style={{ marginBottom: "10px" }}>
+      {reviews.map((review) => (
+        <div key={review._id} style={{ marginBottom: '10px' }}>
           <p>⭐ {review.rating}</p>
           <p>{review.comment}</p>
           <small>
@@ -97,6 +96,6 @@ function RatingReview({ productId }) {
       ))}
     </div>
   );
-}
+};
 
 export default RatingReview;

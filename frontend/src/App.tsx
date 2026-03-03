@@ -17,6 +17,15 @@ import SellerProfile from './pages/seller/Profile';
 import SellerAIChat from './pages/seller/AIChat';
 import SellerNotifications from './pages/seller/Notifications';
 import MechanicDashboard from './pages/mechanic/Dashboard';
+import MechanicProducts from './pages/mechanic/Products';
+import MechanicOrders from './pages/mechanic/Orders';
+import MechanicReviews from './pages/mechanic/Reviews';
+import MechanicProfile from './pages/mechanic/Profile';
+import MechanicAIChat from './pages/mechanic/AIChat';
+import MechanicNotifications from './pages/mechanic/Notifications';
+import MechanicServices from './pages/mechanic/Services';
+import ProductDetail from './pages/ProductDetail';
+import MyOrders from './pages/MyOrders';
 import ChangePassword from './pages/ChangePassword';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -25,6 +34,7 @@ import NotFound from './pages/NotFound';
 // Layout components
 import { AdminLayout } from './components/AdminLayout';
 import { SellerLayout } from './components/SellerLayout';
+import { MechanicLayout } from './components/MechanicLayout';
 
 // Admin pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -116,6 +126,7 @@ function App() {
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/products" element={<Products />} />
+              <Route path="/products/:id" element={<ProductDetail />} />
               <Route path="/services" element={<Services />} />
               
               {/* Auth pages - redirect to dashboard if already logged in */}
@@ -129,6 +140,9 @@ function App() {
               {/* Protected pages - require login */}
               <Route path="/dashboard" element={
                 <PrivateRoute><Dashboard /></PrivateRoute>
+              } />
+              <Route path="/my-orders" element={
+                <PrivateRoute><MyOrders /></PrivateRoute>
               } />
 
               {/* Seller panel - requires seller role */}
@@ -168,10 +182,45 @@ function App() {
                 </RoleRoute>
               } />
 
-              {/* Mechanic dashboard */}
+              {/* Mechanic panel - requires mechanic role */}
               <Route path="/mechanic/dashboard" element={
                 <RoleRoute roles={['mechanic']}>
-                  <MechanicDashboard />
+                  <MechanicLayout><MechanicDashboard /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/services" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicServices /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/products" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicProducts /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/orders" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicOrders /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/reviews" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicReviews /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/profile" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicProfile /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/ai-chat" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicAIChat /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/notifications" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicNotifications /></MechanicLayout>
                 </RoleRoute>
               } />
 
