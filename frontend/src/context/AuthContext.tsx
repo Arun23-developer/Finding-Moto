@@ -53,14 +53,17 @@ interface RegisterData {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (credentials: LoginCredentials) => Promise<any>;
+  login: (credentials: LoginCredentials & { role?: string }) => Promise<any>;
+  loginWithRole: (email: string, password: string, role: string) => Promise<any>;
   register: (userData: RegisterData) => Promise<any>;
   googleAuth: (credential: string) => Promise<any>;
-  verifyOTP: (email: string, otp: string) => Promise<any>;
-  resendOTP: (email: string) => Promise<any>;
+  verifyOTP: (email: string, otp: string, role?: string) => Promise<any>;
+  resendOTP: (email: string, role?: string) => Promise<any>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<any>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<any>;
+  addRole: (data: any) => Promise<any>;
+  getMyRoles: () => Promise<any>;
   isBuyer: boolean;
   isSeller: boolean;
   isMechanic: boolean;
@@ -94,8 +97,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(false);
   };
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = async (credentials: LoginCredentials & { role?: string }) => {
     const response = await api.post('/auth/login', credentials);
+    // If role selection is needed, don't set token
+    if (response.data.requiresRoleSelection) {
+      return response.data;
+    }
+    localStorage.setItem('token', response.data.token);
+    setUser(response.data.user);
+    return response.data;
+  };
+
+  const loginWithRole = async (email: string, password: string, role: string) => {
+    const response = await api.post('/auth/login', { email, password, role });
     localStorage.setItem('token', response.data.token);
     setUser(response.data.user);
     return response.data;
@@ -114,8 +128,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return response.data;
   };
 
-  const verifyOTP = async (email: string, otp: string) => {
-    const response = await api.post('/auth/verify-otp', { email, otp });
+  const verifyOTP = async (email: string, otp: string, role?: string) => {
+    const response = await api.post('/auth/verify-otp', { email, otp, role });
     // If token is returned (buyer auto-approved), set auth state
     if (response.data.token) {
       localStorage.setItem('token', response.data.token);
@@ -124,8 +138,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return response.data;
   };
 
-  const resendOTP = async (email: string) => {
-    const response = await api.post('/auth/resend-otp', { email });
+  const resendOTP = async (email: string, role?: string) => {
+    const response = await api.post('/auth/resend-otp', { email, role });
     return response.data;
   };
 
@@ -140,6 +154,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return response.data;
   };
 
+  const addRole = async (data: any) => {
+    const response = await api.post('/auth/add-role', data);
+    return response.data;
+  };
+
+  const getMyRoles = async () => {
+    const response = await api.get('/auth/my-roles');
+    return response.data;
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
@@ -149,6 +173,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     loading,
     login,
+    loginWithRole,
     register,
     googleAuth,
     verifyOTP,
@@ -156,6 +181,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     updateProfile,
     changePassword,
+    addRole,
+    getMyRoles,
     isBuyer: user?.role === 'buyer',
     isSeller: user?.role === 'seller',
     isMechanic: user?.role === 'mechanic',

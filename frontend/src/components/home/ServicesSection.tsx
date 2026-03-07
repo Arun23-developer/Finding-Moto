@@ -1,56 +1,42 @@
-import { MapPin, Star, Clock, Phone, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { MapPin, Phone, ArrowRight, Loader2, Wrench } from "lucide-react";
 import { Button } from "../ui/button";
 import { Link } from "react-router-dom";
+import api from "../../services/api";
 
 interface Garage {
-  id: string;
+  _id: string;
   name: string;
+  ownerName: string;
   address: string;
-  rating: number;
-  reviewCount: number;
-  hours: string;
   phone: string;
+  specialization: string;
+  experienceYears: number;
+  avatar: string | null;
   services: string[];
-  image: string;
+  verified: boolean;
 }
 
-const featuredGarages: Garage[] = [
-  {
-    id: "1",
-    name: "Velocity Moto Works",
-    address: "2847 Sunset Blvd, Los Angeles, CA",
-    rating: 4.9,
-    reviewCount: 312,
-    hours: "Mon-Sat: 8AM-6PM",
-    phone: "(310) 555-0123",
-    services: ["Full Service", "Custom Builds", "Performance Tuning"],
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&h=400&fit=crop",
-  },
-  {
-    id: "2",
-    name: "Iron Horse Garage",
-    address: "1523 Main Street, Santa Monica, CA",
-    rating: 4.7,
-    reviewCount: 245,
-    hours: "Mon-Fri: 9AM-5PM",
-    phone: "(310) 555-0456",
-    services: ["Oil Change", "Tire Service", "Diagnostics"],
-    image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=600&h=400&fit=crop",
-  },
-  {
-    id: "3",
-    name: "Speed Demons Workshop",
-    address: "789 Harbor Way, Long Beach, CA",
-    rating: 4.8,
-    reviewCount: 189,
-    hours: "Tue-Sun: 10AM-7PM",
-    phone: "(562) 555-0789",
-    services: ["Racing Setup", "Suspension", "Engine Rebuild"],
-    image: "https://images.unsplash.com/photo-1449426468159-d96dbf08f19f?w=600&h=400&fit=crop",
-  },
-];
-
 export const ServicesSection: React.FC = () => {
+  const [garages, setGarages] = useState<Garage[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchGarages = async () => {
+      try {
+        const { data: res } = await api.get("/public/mechanics");
+        if (res.success) {
+          // Only show first 3 on homepage
+          setGarages(res.data.slice(0, 3));
+        }
+      } catch (err) {
+        console.error("Failed to fetch mechanics:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchGarages();
+  }, []);
   return (
     <section className="py-16 md:py-24 bg-background">
       <div className="container">
@@ -71,24 +57,42 @@ export const ServicesSection: React.FC = () => {
           </Button>
         </div>
 
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-accent" />
+            <span className="ml-3 text-muted-foreground">Loading service centers...</span>
+          </div>
+        ) : garages.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-muted-foreground">No service centers available yet. Check back soon!</p>
+          </div>
+        ) : (
         <div className="grid md:grid-cols-3 gap-6">
-          {featuredGarages.map((garage, index) => (
+          {garages.map((garage, index) => (
             <div
-              key={garage.id}
+              key={garage._id}
               className="group bg-card rounded-xl border border-border shadow-card hover:shadow-hover transition-all duration-300 overflow-hidden animate-fade-in"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              {/* Image */}
-              <div className="relative h-48 overflow-hidden">
-                <img
-                  src={garage.image}
-                  alt={garage.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
+              {/* Image / Avatar */}
+              <div className="relative h-48 overflow-hidden bg-secondary flex items-center justify-center">
+                {garage.avatar ? (
+                  <img
+                    src={garage.avatar.startsWith("http") ? garage.avatar : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${garage.avatar}`}
+                    alt={garage.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center text-muted-foreground">
+                    <Wrench className="h-12 w-12 mb-2" />
+                    <span className="text-sm font-medium">{garage.specialization}</span>
+                  </div>
+                )}
+                {garage.experienceYears > 0 && (
                 <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-background/90 backdrop-blur">
-                  <Star className="h-4 w-4 fill-warning text-warning" />
-                  <span className="text-sm font-semibold">{garage.rating}</span>
+                  <span className="text-sm font-semibold">{garage.experienceYears}+ yrs</span>
                 </div>
+                )}
               </div>
 
               {/* Content */}
@@ -103,8 +107,8 @@ export const ServicesSection: React.FC = () => {
                     <span>{garage.address}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4 shrink-0" />
-                    <span>{garage.hours}</span>
+                    <Wrench className="h-4 w-4 shrink-0" />
+                    <span>By {garage.ownerName}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Phone className="h-4 w-4 shrink-0" />
@@ -131,6 +135,7 @@ export const ServicesSection: React.FC = () => {
             </div>
           ))}
         </div>
+        )}
 
         {/* Map Placeholder */}
         <div className="mt-12 rounded-xl overflow-hidden border border-border bg-secondary h-64 md:h-80 flex items-center justify-center">

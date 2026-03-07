@@ -7,7 +7,7 @@ import { promisify } from 'util';
 import config from '../config';
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
 import { AuthRequest } from '../middleware/auth';
-import { generateOTP, sendOTPEmail, sendWelcomeEmail, sendApprovalEmail } from '../utils/email';
+import { generateOTP, sendOTPEmail, sendWelcomeEmail } from '../utils/email';
 
 const resolveMx = promisify(dns.resolveMx);
 
@@ -37,6 +37,7 @@ interface RegisterRequestBody {
 interface LoginRequestBody {
   email: string;
   password: string;
+  role?: UserRole;
 }
 
 interface GoogleAuthRequestBody {
@@ -171,10 +172,10 @@ export const register = async (
       return;
     }
 
-    // Check if user exists
-    const userExists = await User.findOne({ email });
+    // Check if user already exists with same email AND role
+    const userExists = await User.findOne({ email, role: userRole });
     if (userExists) {
-      res.status(400).json({ message: 'User already exists with this email' });
+      res.status(400).json({ message: `An account with this email already exists as ${userRole}` });
       return;
     }
 
@@ -226,7 +227,7 @@ export const register = async (
   } catch (error: any) {
     // Handle MongoDB duplicate key error (race condition on rapid clicks)
     if (error?.code === 11000) {
-      res.status(400).json({ message: 'User already exists with this email' });
+      res.status(400).json({ message: `An account with this email already exists as ${req.body?.role || 'this role'}` });
       return;
     }
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -243,36 +244,91 @@ export const login = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { email, password } = req.body as LoginRequestBody;
+    const { email, password, role } = req.body as LoginRequestBody;
 
     if (!email || !password) {
       res.status(400).json({ message: 'Please provide email and password' });
       return;
     }
 
-    // Check for user
-    const user = await User.findOne({ email }).select('+password');
-    if (!user) {
+    // If role is specified (user chose from role selection), find that specific account
+    if (role) {
+      const user = await User.findOne({ email, role }).select('+password');
+      if (!user || !user.password) {
+        res.status(401).json({ message: 'Invalid email or password' });
+        return;
+      }
+      const isMatch = await user.matchPassword(password);
+      if (!isMatch) {
+        res.status(401).json({ message: 'Invalid email or password' });
+        return;
+      }
+      if (!user.isActive) {
+        res.status(403).json({ message: 'Your account has been deactivated. Please contact support.' });
+        return;
+      }
+      if (!user.isEmailVerified && user.role !== 'admin') {
+        const otp = generateOTP();
+        const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+        await User.updateOne({ _id: user._id }, { $set: { otp, otpExpires } });
+        try { await sendOTPEmail(user.email, otp, user.firstName || 'User'); } catch {}
+        res.status(403).json({
+          message: 'Email not verified. A new verification code has been sent to your email.',
+          requiresVerification: true, email: user.email, role: user.role
+        });
+        return;
+      }
+      if (!user.canLogin()) {
+        res.status(403).json({ message: user.getApprovalMessage(), approvalStatus: user.approvalStatus, role: user.role });
+        return;
+      }
+      res.json({ user: formatUser(user), token: generateToken(user._id, user.role) });
+      return;
+    }
+
+    // Check for user — same email may have multiple role accounts
+    const users = await User.find({ email }).select('+password');
+    if (!users || users.length === 0) {
       res.status(401).json({ message: 'Invalid email or password' });
       return;
     }
+
+    // Try password against each account to find matching roles
+    const matchedUsers: IUser[] = [];
+    for (const candidate of users) {
+      if (!candidate.password) continue;
+      const isMatch = await candidate.matchPassword(password);
+      if (isMatch) {
+        matchedUsers.push(candidate);
+      }
+    }
+
+    if (matchedUsers.length === 0) {
+      res.status(401).json({ message: 'Invalid email or password' });
+      return;
+    }
+
+    // If multiple roles matched the same password, ask user to choose
+    if (matchedUsers.length > 1) {
+      const roles = matchedUsers.map(u => ({
+        role: u.role,
+        approvalStatus: u.approvalStatus,
+        isActive: u.isActive,
+        isEmailVerified: u.isEmailVerified
+      }));
+      res.json({
+        requiresRoleSelection: true,
+        email,
+        roles
+      });
+      return;
+    }
+
+    const user = matchedUsers[0];
 
     // Check if account is active
     if (!user.isActive) {
       res.status(403).json({ message: 'Your account has been deactivated. Please contact support.' });
-      return;
-    }
-
-    // If user registered with Google only
-    if (!user.password) {
-      res.status(401).json({ message: 'This account uses Google sign-in. Please use Google to log in.' });
-      return;
-    }
-
-    // Check password
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      res.status(401).json({ message: 'Invalid email or password' });
       return;
     }
 
@@ -291,7 +347,8 @@ export const login = async (
       res.status(403).json({
         message: 'Email not verified. A new verification code has been sent to your email.',
         requiresVerification: true,
-        email: user.email
+        email: user.email,
+        role: user.role
       });
       return;
     }
@@ -345,8 +402,8 @@ export const googleAuth = async (
       return;
     }
 
-    // Check if user exists
-    let user = await User.findOne({ $or: [{ googleId }, { email }] });
+    // Check if user exists (Google auth = buyer only)
+    let user = await User.findOne({ $or: [{ googleId }, { email, role: 'buyer' }] });
 
     if (user) {
       // Update Google ID and avatar if not set
@@ -398,14 +455,17 @@ export const verifyOTP = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { email, otp } = req.body;
+    const { email, otp, role } = req.body;
 
     if (!email || !otp) {
       res.status(400).json({ message: 'Email and OTP are required' });
       return;
     }
 
-    const user = await User.findOne({ email });
+    // Find the unverified user with this email (and optional role)
+    const filter: any = { email, isEmailVerified: false };
+    if (role) filter.role = role;
+    const user = await User.findOne(filter).sort({ createdAt: -1 });
     if (!user) {
       res.status(404).json({ message: 'User not found' });
       return;
@@ -472,14 +532,17 @@ export const resendOTP = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { email } = req.body;
+    const { email, role } = req.body;
 
     if (!email) {
       res.status(400).json({ message: 'Email is required' });
       return;
     }
 
-    const user = await User.findOne({ email });
+    // Find the unverified user with this email (and optional role)
+    const filter: any = { email, isEmailVerified: false };
+    if (role) filter.role = role;
+    const user = await User.findOne(filter).sort({ createdAt: -1 });
     if (!user) {
       res.status(404).json({ message: 'User not found' });
       return;
@@ -607,12 +670,15 @@ export const checkApprovalStatus = async (
 ): Promise<void> => {
   try {
     const email = req.query.email as string;
+    const role = req.query.role as string;
     if (!email) {
       res.status(400).json({ message: 'Email is required' });
       return;
     }
 
-    const user = await User.findOne({ email });
+    const filter: any = { email };
+    if (role) filter.role = role;
+    const user = await User.findOne(filter);
     if (!user) {
       res.status(404).json({ message: 'User not found' });
       return;
@@ -623,192 +689,6 @@ export const checkApprovalStatus = async (
       approvalStatus: user.approvalStatus,
       canLogin: user.canLogin(),
       message: user.getApprovalMessage()
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ message: errorMessage });
-  }
-};
-
-// ========== ADMIN ENDPOINTS ==========
-
-// @desc    Get all pending approvals
-// @route   GET /api/auth/admin/pending
-// @access  Private/Admin
-export const getPendingApprovals = async (
-  req: AuthRequest,
-  res: Response
-): Promise<void> => {
-  try {
-    const roleFilter = req.query.role as string;
-    
-    const filter: any = { approvalStatus: 'pending' };
-    if (roleFilter && ['seller', 'mechanic'].includes(roleFilter)) {
-      filter.role = roleFilter;
-    } else {
-      filter.role = { $in: ['seller', 'mechanic'] };
-    }
-
-    const users = await User.find(filter).sort({ createdAt: 1 });
-
-    res.json({
-      users: users.map(formatUser),
-      count: users.length
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ message: errorMessage });
-  }
-};
-
-// @desc    Approve or reject a user
-// @route   PUT /api/auth/admin/approve/:userId
-// @access  Private/Admin
-export const approveUser = async (
-  req: AuthRequest,
-  res: Response
-): Promise<void> => {
-  try {
-    const { userId } = req.params;
-    const { action, notes } = req.body;
-
-    if (!['approve', 'reject'].includes(action)) {
-      res.status(400).json({ message: 'Action must be "approve" or "reject"' });
-      return;
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
-
-    if (!['seller', 'mechanic'].includes(user.role)) {
-      res.status(400).json({ message: 'Only seller and mechanic accounts can be approved/rejected' });
-      return;
-    }
-
-    if (action === 'approve') {
-      user.approvalStatus = 'approved';
-      user.approvalNotes = notes || 'Approved by admin';
-      user.approvedAt = new Date();
-    } else {
-      user.approvalStatus = 'rejected';
-      user.approvalNotes = notes || 'Rejected by admin';
-    }
-
-    await user.save();
-
-    // Send approval/rejection notification email
-    try {
-      await sendApprovalEmail(
-        user.email,
-        user.firstName,
-        action === 'approve',
-        user.approvalNotes || undefined
-      );
-    } catch (emailError) {
-      console.error('Failed to send approval email:', emailError);
-    }
-
-    res.json({
-      message: `User ${action === 'approve' ? 'approved' : 'rejected'} successfully`,
-      user: formatUser(user)
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ message: errorMessage });
-  }
-};
-
-// @desc    Get all users (admin management)
-// @route   GET /api/auth/admin/users
-// @access  Private/Admin
-export const getAllUsers = async (
-  req: AuthRequest,
-  res: Response
-): Promise<void> => {
-  try {
-    const { role, status, search } = req.query;
-
-    const filter: any = {};
-    if (role) filter.role = role;
-    if (status) filter.approvalStatus = status;
-    if (search) {
-      filter.$or = [
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    const users = await User.find(filter).sort({ createdAt: -1 });
-
-    res.json({
-      users: users.map(formatUser),
-      count: users.length
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ message: errorMessage });
-  }
-};
-
-// @desc    Toggle user active status
-// @route   PUT /api/auth/admin/toggle-active/:userId
-// @access  Private/Admin
-export const toggleUserActive = async (
-  req: AuthRequest,
-  res: Response
-): Promise<void> => {
-  try {
-    const { userId } = req.params;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
-
-    user.isActive = !user.isActive;
-    await user.save();
-
-    res.json({
-      message: `User ${user.isActive ? 'activated' : 'deactivated'} successfully`,
-      user: formatUser(user)
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ message: errorMessage });
-  }
-};
-
-// @desc    Get user details by ID (admin)
-// @route   GET /api/auth/admin/users/:userId
-// @access  Private/Admin
-export const getUserById = async (
-  req: AuthRequest,
-  res: Response
-): Promise<void> => {
-  try {
-    const { userId } = req.params;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
-
-    res.json({
-      user: {
-        ...formatUser(user),
-        address: user.address,
-        isEmailVerified: user.isEmailVerified,
-        approvalNotes: user.approvalNotes,
-        approvedAt: user.approvedAt,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-      }
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -866,6 +746,130 @@ export const changePassword = async (
     await user.save();
 
     res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ message: errorMessage });
+  }
+};
+
+// @desc    Add a new role to existing email account
+// @route   POST /api/auth/add-role
+// @access  Private (authenticated user)
+export const addRole = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'Not authorized' });
+      return;
+    }
+
+    const {
+      role, password,
+      shopName, shopDescription, shopLocation,
+      specialization, experienceYears, workshopLocation, workshopName
+    } = req.body;
+
+    // Validate role
+    const validRoles: UserRole[] = ['buyer', 'seller', 'mechanic'];
+    if (!role || !validRoles.includes(role)) {
+      res.status(400).json({ message: 'Invalid role. Must be buyer, seller, or mechanic' });
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      res.status(400).json({ message: 'Password must be at least 6 characters' });
+      return;
+    }
+
+    // Validate role-specific required fields
+    if (role === 'seller' && !shopName) {
+      res.status(400).json({ message: 'Shop name is required for sellers' });
+      return;
+    }
+    if (role === 'mechanic' && !specialization) {
+      res.status(400).json({ message: 'Specialization is required for mechanics' });
+      return;
+    }
+
+    const currentUser = await User.findById(req.user._id);
+    if (!currentUser) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    // Check if this email already has this role
+    const existingRole = await User.findOne({ email: currentUser.email, role });
+    if (existingRole) {
+      res.status(400).json({ message: `You already have a ${role} account` });
+      return;
+    }
+
+    // Build new role account data
+    const userData: any = {
+      firstName: currentUser.firstName,
+      lastName: currentUser.lastName,
+      email: currentUser.email,
+      password,
+      phone: currentUser.phone,
+      role,
+      isEmailVerified: true // Already verified via original account
+    };
+
+    if (role === 'seller') {
+      userData.shopName = shopName;
+      userData.shopDescription = shopDescription;
+      userData.shopLocation = shopLocation;
+    }
+    if (role === 'mechanic') {
+      userData.specialization = specialization;
+      userData.experienceYears = experienceYears;
+      userData.workshopLocation = workshopLocation;
+      userData.workshopName = workshopName;
+    }
+
+    const newUser = await User.create(userData);
+
+    res.status(201).json({
+      message: `${role.charAt(0).toUpperCase() + role.slice(1)} role added successfully!${
+        role !== 'buyer' ? ' It is pending admin approval.' : ''
+      }`,
+      user: formatUser(newUser)
+    });
+  } catch (error: any) {
+    if (error?.code === 11000) {
+      res.status(400).json({ message: 'You already have this role' });
+      return;
+    }
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ message: errorMessage });
+  }
+};
+
+// @desc    Get all roles for the current user's email
+// @route   GET /api/auth/my-roles
+// @access  Private
+export const getMyRoles = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'Not authorized' });
+      return;
+    }
+
+    const users = await User.find({ email: req.user.email });
+    const roles = users.map(u => ({
+      role: u.role,
+      approvalStatus: u.approvalStatus,
+      isActive: u.isActive,
+      isEmailVerified: u.isEmailVerified,
+      createdAt: u.createdAt
+    }));
+
+    res.json({ email: req.user.email, roles });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ message: errorMessage });

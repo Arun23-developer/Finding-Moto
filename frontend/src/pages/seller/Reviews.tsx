@@ -1,32 +1,30 @@
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Star, ThumbsUp, MessageSquare } from "lucide-react";
+import { Star, ThumbsUp, MessageSquare, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import api from "@/services/api";
 
-// ─── Mock Data ──────────────────────────────────────────────────────────────
-const MOCK_REVIEWS = [
-  { id: 1, buyer: "Kamal Perera", avatar: "KP", product: "Brake Pad Set - Toyota", rating: 5, comment: "Excellent quality brake pads! Perfect fit for my Toyota Corolla. Delivery was fast and packaging was secure. Highly recommend this seller.", date: "2026-02-26", helpful: 12 },
-  { id: 2, buyer: "Nimal Silva", avatar: "NS", product: "Oil Filter - Honda", rating: 4, comment: "Good quality oil filter. Exactly as described. Took a day longer than expected for delivery but overall satisfied with the purchase.", date: "2026-02-24", helpful: 8 },
-  { id: 3, buyer: "Ruwan Fernando", avatar: "RF", product: "Headlight Assembly", rating: 5, comment: "Amazing headlight assembly! Very bright and clear. Installation was straightforward. Great value for money.", date: "2026-02-22", helpful: 15 },
-  { id: 4, buyer: "Saman Kumara", avatar: "SK", product: "Spark Plugs Set (4)", rating: 3, comment: "Spark plugs work fine but the packaging could be better. One plug was slightly loose in the box. Performance is good though.", date: "2026-02-20", helpful: 4 },
-  { id: 5, buyer: "Ajith Bandara", avatar: "AB", product: "Air Filter - Suzuki", rating: 5, comment: "Perfect replacement air filter for my Suzuki Swift. Noticed improved engine performance after installation. Will buy again!", date: "2026-02-18", helpful: 10 },
-  { id: 6, buyer: "Priya Mendis", avatar: "PM", product: "Radiator Hose Kit", rating: 4, comment: "Good quality hoses. Fit perfectly without any modifications needed. Seller was responsive to my questions before purchase.", date: "2026-02-15", helpful: 6 },
-  { id: 7, buyer: "Dinesh Jayawardena", avatar: "DJ", product: "Timing Belt - Mitsubishi", rating: 2, comment: "The belt quality seems lower than expected for the price. It works but I'm not confident about long-term durability. Packaging was decent.", date: "2026-02-12", helpful: 3 },
-  { id: 8, buyer: "Mahesh Wijesinghe", avatar: "MW", product: "Clutch Kit - Nissan", rating: 5, comment: "Outstanding clutch kit! Professional grade quality. My mechanic was impressed with the quality. Smooth installation and great performance.", date: "2026-02-10", helpful: 18 },
-];
+// ─── Types ──────────────────────────────────────────────────────────────────
+interface ReviewItem {
+  _id: string;
+  productId: string;
+  productName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
 
-const ratingDistribution = [
-  { stars: 5, count: 82, percentage: 52 },
-  { stars: 4, count: 45, percentage: 29 },
-  { stars: 3, count: 18, percentage: 11 },
-  { stars: 2, count: 8, percentage: 5 },
-  { stars: 1, count: 5, percentage: 3 },
-];
+interface Distribution {
+  stars: number;
+  count: number;
+  percentage: number;
+}
 
-const overallStats = {
-  average: 4.6,
-  total: 158,
-  recommended: 92,
-};
+interface ReviewStats {
+  average: number;
+  total: number;
+  recommended: number;
+}
 
 // ─── Star Rating Component ──────────────────────────────────────────────────
 function StarRating({ rating, size = "sm" }: { rating: number; size?: "sm" | "lg" }) {
@@ -47,6 +45,55 @@ function StarRating({ rating, size = "sm" }: { rating: number; size?: "sm" | "lg
 
 // ─── Reviews Page ───────────────────────────────────────────────────────────
 export default function SellerReviews() {
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [stats, setStats] = useState<ReviewStats>({ average: 0, total: 0, recommended: 0 });
+  const [distribution, setDistribution] = useState<Distribution[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const fetchReviews = useCallback(async () => {
+    try {
+      setError("");
+      const { data } = await api.get("/seller/reviews");
+      if (data.success) {
+        setStats(data.data.stats);
+        setDistribution(data.data.distribution);
+        setReviews(data.data.reviews);
+      }
+    } catch {
+      setError("Failed to load reviews");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
+
+  /* ── Loading ── */
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin mb-3 text-blue-600" />
+        <p className="text-sm font-medium">Loading reviews…</p>
+      </div>
+    );
+  }
+
+  /* ── Error ── */
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <AlertCircle className="h-8 w-8 mb-3 text-red-500" />
+        <p className="font-medium">{error}</p>
+        <button onClick={fetchReviews} className="mt-3 inline-flex items-center gap-2 text-sm text-blue-600 hover:underline">
+          <RefreshCw className="h-4 w-4" /> Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -60,10 +107,10 @@ export default function SellerReviews() {
         {/* Average Rating */}
         <Card className="glass-card">
           <CardContent className="p-6 text-center">
-            <div className="text-5xl font-bold text-blue-600 mb-2">{overallStats.average}</div>
-            <StarRating rating={Math.round(overallStats.average)} size="lg" />
+            <div className="text-5xl font-bold text-blue-600 mb-2">{stats.average}</div>
+            <StarRating rating={Math.round(stats.average)} size="lg" />
             <p className="text-sm text-muted-foreground mt-2">
-              Based on {overallStats.total} reviews
+              Based on {stats.total} reviews
             </p>
           </CardContent>
         </Card>
@@ -73,7 +120,7 @@ export default function SellerReviews() {
           <CardContent className="p-6">
             <h3 className="text-sm font-semibold mb-4">Rating Distribution</h3>
             <div className="space-y-3">
-              {ratingDistribution.map((item) => (
+              {distribution.map((item) => (
                 <div key={item.stars} className="flex items-center gap-3">
                   <span className="text-sm font-medium w-8 text-right">{item.stars}★</span>
                   <div className="flex-1 h-3 rounded-full bg-muted overflow-hidden">
@@ -100,7 +147,7 @@ export default function SellerReviews() {
               <Star className="h-5 w-5 text-amber-500" />
             </div>
             <div>
-              <p className="text-lg font-bold">{overallStats.average}/5.0</p>
+              <p className="text-lg font-bold">{stats.average}/5.0</p>
               <p className="text-xs text-muted-foreground">Average Rating</p>
             </div>
           </CardContent>
@@ -111,7 +158,7 @@ export default function SellerReviews() {
               <MessageSquare className="h-5 w-5 text-blue-500" />
             </div>
             <div>
-              <p className="text-lg font-bold">{overallStats.total}</p>
+              <p className="text-lg font-bold">{stats.total}</p>
               <p className="text-xs text-muted-foreground">Total Reviews</p>
             </div>
           </CardContent>
@@ -122,7 +169,7 @@ export default function SellerReviews() {
               <ThumbsUp className="h-5 w-5 text-emerald-500" />
             </div>
             <div>
-              <p className="text-lg font-bold">{overallStats.recommended}%</p>
+              <p className="text-lg font-bold">{stats.recommended}%</p>
               <p className="text-xs text-muted-foreground">Would Recommend</p>
             </div>
           </CardContent>
@@ -135,49 +182,51 @@ export default function SellerReviews() {
           <CardTitle className="text-base font-semibold">Recent Reviews</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1 p-0">
-          {MOCK_REVIEWS.map((review, idx) => (
-            <div
-              key={review.id}
-              className={cn(
-                "px-6 py-5",
-                idx < MOCK_REVIEWS.length - 1 && "border-b border-border/50"
-              )}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                {/* Avatar */}
-                <div className="w-10 h-10 rounded-full bg-blue-600/10 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-bold text-blue-600">{review.avatar}</span>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-2">
-                    <div>
-                      <p className="font-semibold">{review.buyer}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Purchased: <span className="text-foreground font-medium">{review.product}</span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <StarRating rating={review.rating} />
-                      <span className="text-xs text-muted-foreground">{review.date}</span>
-                    </div>
+          {reviews.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground">
+              <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">No reviews yet</p>
+              <p className="text-xs mt-1">Reviews will appear here when customers rate your products</p>
+            </div>
+          ) : (
+            reviews.map((review, idx) => (
+              <div
+                key={review._id}
+                className={cn(
+                  "px-6 py-5",
+                  idx < reviews.length - 1 && "border-b border-border/50"
+                )}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                  {/* Avatar */}
+                  <div className="w-10 h-10 rounded-full bg-blue-600/10 flex items-center justify-center flex-shrink-0">
+                    <Star className="h-5 w-5 text-blue-600" />
                   </div>
 
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-                    {review.comment}
-                  </p>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-2">
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Product: <span className="text-foreground font-medium">{review.productName}</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StarRating rating={review.rating} />
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(review.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
 
-                  <div className="flex items-center gap-4">
-                    <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                      <ThumbsUp className="h-3.5 w-3.5" />
-                      Helpful ({review.helpful})
-                    </button>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {review.comment}
+                    </p>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </CardContent>
       </Card>
     </div>

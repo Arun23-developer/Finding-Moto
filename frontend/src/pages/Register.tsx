@@ -88,9 +88,9 @@ const Register: React.FC = () => {
 
   // If redirected from login with unverified email, go straight to OTP step
   useEffect(() => {
-    const state = location.state as { verifyEmail?: string } | null;
+    const state = location.state as { verifyEmail?: string; verifyRole?: string } | null;
     if (state?.verifyEmail) {
-      setFormData(prev => ({ ...prev, email: state.verifyEmail! }));
+      setFormData(prev => ({ ...prev, email: state.verifyEmail!, role: (state.verifyRole as UserRole) || prev.role }));
       setStep('otp');
       startResendCooldown();
     }
@@ -246,7 +246,7 @@ const Register: React.FC = () => {
     setLoading(true);
     setOtpError('');
     try {
-      const result = await verifyOTP(formData.email, otp);
+      const result = await verifyOTP(formData.email, otp, formData.role);
       if (result.token) {
         // Buyer - verified and auto-approved
         navigate('/dashboard');
@@ -269,7 +269,7 @@ const Register: React.FC = () => {
     setLoading(true);
     setOtpError('');
     try {
-      await resendOTP(formData.email);
+      await resendOTP(formData.email, formData.role);
       setOtpValues(['', '', '', '', '', '']);
       startResendCooldown();
       setOtpError('');
@@ -341,10 +341,9 @@ const Register: React.FC = () => {
         <div className="auth-container">
           <div className="auth-header">
             <div className="auth-logo">
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                <rect width="40" height="40" rx="10" fill="#059669"/>
-                <path d="M12 20L18 26L28 14" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 10, background: '#059669' }}>
+              <span style={{ fontSize: 20, fontWeight: 900, color: '#fff' }}>✓</span>
+            </div>
             </div>
             <h1>Registration Successful!</h1>
             <div style={{ fontSize: '48px', margin: '16px 0' }}>
@@ -373,10 +372,9 @@ const Register: React.FC = () => {
       <div className="auth-container" style={{ maxWidth: step === 1 ? '520px' : '460px' }}>
         <div className="auth-header">
           <div className="auth-logo">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <rect width="40" height="40" rx="10" fill="#4F46E5"/>
-              <path d="M12 20L18 26L28 14" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 10, background: 'hsl(var(--primary))' }}>
+              <span style={{ fontSize: 20, fontWeight: 900, color: 'hsl(var(--primary-foreground))' }}>FM</span>
+            </div>
           </div>
           <h1>Finding Moto</h1>
           <h2>Create your account</h2>

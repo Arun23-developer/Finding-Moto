@@ -88,11 +88,12 @@ const Login: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [approvalInfo, setApprovalInfo] = useState<{ status: string; role: string; message: string } | null>(null);
-  const [verificationInfo, setVerificationInfo] = useState<{ email: string; message: string } | null>(null);
+  const [verificationInfo, setVerificationInfo] = useState<{ email: string; role: string; message: string } | null>(null);
+  const [roleSelection, setRoleSelection] = useState<{ email: string; roles: { role: string; approvalStatus: string; isActive: boolean }[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
-  const { login, googleAuth } = useAuth();
+  const { login, loginWithRole, googleAuth } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -107,9 +108,15 @@ const Login: React.FC = () => {
     setError('');
     setApprovalInfo(null);
     setVerificationInfo(null);
+    setRoleSelection(null);
     setLoading(true);
     try {
       const result = await login(formData);
+      if (result.requiresRoleSelection) {
+        // Multiple roles matched the same password — let user choose
+        setRoleSelection({ email: result.email, roles: result.roles });
+        return;
+      }
       if (result.user?.role === 'admin') navigate('/admin');
       else if (result.user?.role === 'seller') navigate('/seller/dashboard');
       else if (result.user?.role === 'mechanic') navigate('/mechanic/dashboard');
@@ -117,9 +124,35 @@ const Login: React.FC = () => {
     } catch (error: any) {
       const data = error.response?.data;
       if (data?.requiresVerification) {
-        setVerificationInfo({ email: data.email, message: data.message });
+        setVerificationInfo({ email: data.email, role: data.role, message: data.message });
       } else if (data?.approvalStatus) {
         setApprovalInfo({ status: data.approvalStatus, role: data.role, message: data.message });
+      } else {
+        setError(data?.message || 'Login failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRoleSelect = async (role: string) => {
+    setLoading(true);
+    setError('');
+    try {
+      const result = await loginWithRole(formData.email, formData.password, role);
+      setRoleSelection(null);
+      if (result.user?.role === 'admin') navigate('/admin');
+      else if (result.user?.role === 'seller') navigate('/seller/dashboard');
+      else if (result.user?.role === 'mechanic') navigate('/mechanic/dashboard');
+      else navigate('/dashboard');
+    } catch (error: any) {
+      const data = error.response?.data;
+      if (data?.requiresVerification) {
+        setVerificationInfo({ email: data.email, role: data.role, message: data.message });
+        setRoleSelection(null);
+      } else if (data?.approvalStatus) {
+        setApprovalInfo({ status: data.approvalStatus, role: data.role, message: data.message });
+        setRoleSelection(null);
       } else {
         setError(data?.message || 'Login failed. Please try again.');
       }
@@ -178,13 +211,9 @@ const Login: React.FC = () => {
           {/* Brand */}
           <div className="login-brand">
             <div className="login-brand-icon">
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-                <rect width="36" height="36" rx="10" fill="rgba(255,255,255,0.2)" />
-                <path d="M8 22 C10 16, 14 12, 18 12 C22 12, 26 16, 28 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-                <circle cx="10" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
-                <circle cx="26" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
-                <path d="M13 24 L23 24" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)' }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: '#fff' }}>FM</span>
+              </div>
             </div>
             <span className="login-brand-name">Finding Moto</span>
           </div>
@@ -249,13 +278,9 @@ const Login: React.FC = () => {
         <div className="login-form-card">
           {/* Mobile brand header */}
           <div className="login-mobile-brand">
-            <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
-              <rect width="36" height="36" rx="10" fill="#FF6B00" />
-              <path d="M8 22 C10 16, 14 12, 18 12 C22 12, 26 16, 28 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              <circle cx="10" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
-              <circle cx="26" cy="24" r="3" stroke="white" strokeWidth="2" fill="none"/>
-              <path d="M13 24 L23 24" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'hsl(var(--primary))' }}>
+              <span style={{ fontSize: 13, fontWeight: 900, color: 'hsl(var(--primary-foreground))' }}>FM</span>
+            </div>
             <span>Finding Moto</span>
           </div>
 
@@ -270,6 +295,68 @@ const Login: React.FC = () => {
             </div>
           )}
 
+          {/* Role selection (multi-role same password) */}
+          {roleSelection && (
+            <div className="login-alert login-alert-info">
+              <div className="login-alert-title">
+                <span>👤</span> Multiple Roles Found
+              </div>
+              <p>Your account has multiple roles. Please select which role to sign in as:</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                {roleSelection.roles
+                  .filter(r => r.isActive)
+                  .map(r => (
+                    <button
+                      key={r.role}
+                      type="button"
+                      onClick={() => handleRoleSelect(r.role)}
+                      disabled={loading}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '12px 16px',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '10px',
+                        background: 'hsl(var(--card))',
+                        cursor: 'pointer',
+                        fontSize: '15px',
+                        fontWeight: 500,
+                        transition: 'all 0.2s',
+                        color: 'hsl(var(--foreground))'
+                      }}
+                      onMouseEnter={e => { (e.target as HTMLElement).style.borderColor = 'hsl(var(--primary))'; }}
+                      onMouseLeave={e => { (e.target as HTMLElement).style.borderColor = 'hsl(var(--border))'; }}
+                    >
+                      <span style={{ fontSize: '20px' }}>{ROLE_LABELS[r.role]?.icon || '👤'}</span>
+                      <span>{ROLE_LABELS[r.role]?.label || r.role}</span>
+                      {r.approvalStatus === 'pending' && (
+                        <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#D97706' }}>⏳ Pending</span>
+                      )}
+                      {r.approvalStatus === 'approved' && (
+                        <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#059669' }}>✓ Active</span>
+                      )}
+                    </button>
+                  ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setRoleSelection(null)}
+                style={{
+                  marginTop: '10px',
+                  background: 'none',
+                  border: 'none',
+                  color: 'hsl(var(--muted-foreground))',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  textDecoration: 'underline'
+                }}
+              >
+                ← Back to login
+              </button>
+            </div>
+          )}
+
           {/* Email verification needed */}
           {verificationInfo && (
             <div className="login-alert login-alert-info">
@@ -279,7 +366,7 @@ const Login: React.FC = () => {
               <p>{verificationInfo.message}</p>
               <Link
                 to="/register"
-                state={{ verifyEmail: verificationInfo.email }}
+                state={{ verifyEmail: verificationInfo.email, verifyRole: verificationInfo.role }}
                 className="login-alert-action"
               >
                 Enter Verification Code →

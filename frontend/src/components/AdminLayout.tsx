@@ -9,7 +9,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Wrench,
+  Shield,
   LogOut,
   ArrowLeft,
 } from "lucide-react";
@@ -59,7 +59,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 h-16 border-b border-sidebar-border">
           <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary glow-primary">
-            <Wrench className="h-5 w-5 text-primary-foreground" />
+            <Shield className="h-5 w-5 text-primary-foreground" />
           </div>
           {!collapsed && (
             <div className="overflow-hidden">

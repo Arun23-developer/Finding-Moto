@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Store,
@@ -16,29 +16,99 @@ import {
   Eye,
   CheckCircle,
   Shield,
+  Loader2,
 } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import api from "@/services/api";
 
 // ─── Profile Page ───────────────────────────────────────────────────────────
 export default function SellerProfile() {
-  const { user } = useAuth();
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ totalProducts: 0, totalOrders: 0, totalViews: 0 });
   const [form, setForm] = useState({
-    shopName: user?.shopName || "AutoParts Hub",
-    shopDescription: user?.shopDescription || "Premium quality automobile spare parts for all major brands. We specialize in engine parts, brake systems, and electrical components. Fast delivery across Sri Lanka.",
-    shopLocation: user?.shopLocation || "Colombo 03, Western Province",
-    phone: user?.phone || "+94 77 123 4567",
-    email: user?.email || "seller@findingmoto.lk",
-    website: "www.autopartshub.lk",
+    shopName: "",
+    shopDescription: "",
+    shopLocation: "",
+    phone: "",
+    email: "",
+    firstName: "",
+    lastName: "",
+    website: "",
     openHours: "Mon-Sat: 8:00 AM - 6:00 PM",
   });
 
+  // Fetch profile + stats
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [profileRes, overviewRes] = await Promise.all([
+          api.get("/seller/profile"),
+          api.get("/seller/overview"),
+        ]);
+
+        const p = profileRes.data.data;
+        setForm({
+          shopName: p.shopName || "",
+          shopDescription: p.shopDescription || "",
+          shopLocation: p.shopLocation || "",
+          phone: p.phone || "",
+          email: p.email || "",
+          firstName: p.firstName || "",
+          lastName: p.lastName || "",
+          website: "",
+          openHours: "Mon-Sat: 8:00 AM - 6:00 PM",
+        });
+
+        const s = overviewRes.data.data?.stats || {};
+        setStats({
+          totalProducts: s.totalProducts || 0,
+          totalOrders: s.totalOrders || 0,
+          totalViews: s.totalViews || 0,
+        });
+      } catch (err) {
+        console.error("Failed to load profile:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.put("/seller/profile", {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        phone: form.phone,
+        shopName: form.shopName,
+        shopDescription: form.shopDescription,
+        shopLocation: form.shopLocation,
+      });
+      setEditing(false);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to save profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const shopStats = [
-    { icon: Package, label: "Total Products", value: "48", color: "text-blue-600", bg: "bg-blue-600/10" },
-    { icon: ShoppingCart, label: "Total Orders", value: "156", color: "text-emerald-600", bg: "bg-emerald-600/10" },
+    { icon: Package, label: "Total Products", value: stats.totalProducts.toString(), color: "text-blue-600", bg: "bg-blue-600/10" },
+    { icon: ShoppingCart, label: "Total Orders", value: stats.totalOrders.toString(), color: "text-emerald-600", bg: "bg-emerald-600/10" },
     { icon: Star, label: "Average Rating", value: "4.6", color: "text-amber-600", bg: "bg-amber-600/10" },
-    { icon: Eye, label: "Profile Views", value: "2,450", color: "text-purple-600", bg: "bg-purple-600/10" },
+    { icon: Eye, label: "Profile Views", value: stats.totalViews.toLocaleString(), color: "text-purple-600", bg: "bg-purple-600/10" },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -49,10 +119,19 @@ export default function SellerProfile() {
           <p className="text-sm text-muted-foreground">Manage your shop details and appearance</p>
         </div>
         <button
-          onClick={() => setEditing(!editing)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/25"
+          onClick={() => {
+            if (editing) {
+              handleSave();
+            } else {
+              setEditing(true);
+            }
+          }}
+          disabled={saving}
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/25 disabled:opacity-50"
         >
-          {editing ? (
+          {saving ? (
+            <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+          ) : editing ? (
             <><Save className="h-4 w-4" /> Save Changes</>
           ) : (
             <><Edit3 className="h-4 w-4" /> Edit Profile</>
