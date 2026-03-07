@@ -14,6 +14,7 @@ import orderRoutes from './routes/orderRoutes';
 import adminRoutes from './routes/adminRoutes';
 import reviewRoutes from './routes/reviewRoutes';
 import publicRoutes from './routes/publicRoutes';
+import chatRoutes from './routes/chatRoutes';
 
 const app: Application = express();
 
@@ -41,6 +42,7 @@ app.use('/api/products', productRoutes);   // Arun   — Product Management
 app.use('/api/orders', orderRoutes);       // Saran  — Order Management
 app.use('/api/admin', adminRoutes);        // Sujani — Admin Dashboard
 app.use('/api/reviews', reviewRoutes);     // Sivaganga — Rating & Review
+app.use('/api/chat', chatRoutes);          // Chat — Real-time messaging
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

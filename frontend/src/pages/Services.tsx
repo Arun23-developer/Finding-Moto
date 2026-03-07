@@ -11,8 +11,11 @@ import {
   Calendar,
   Loader2,
   Wrench,
+  MessageSquare,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 interface ServiceDetail {
   name: string;
@@ -35,6 +38,8 @@ interface Garage {
 }
 
 const Services: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedService, setSelectedService] = useState<string>("All Services");
 
@@ -269,6 +274,16 @@ const Services: React.FC = () => {
                       <Button variant="accent" className="flex-1">
                         <Calendar className="h-4 w-4 mr-2" />
                         Book Now
+                      </Button>
+                      <Button
+                        variant="outline"
+                        title="Message this mechanic"
+                        onClick={() => {
+                          if (!user) { navigate('/login'); return; }
+                          navigate(`/chat?user=${garage._id}`);
+                        }}
+                      >
+                        <MessageSquare className="h-4 w-4" />
                       </Button>
                       <Button variant="outline">
                         <Phone className="h-4 w-4" />

@@ -58,7 +58,6 @@ const userSchema = new Schema<IUser>(
     email: {
       type: String,
       required: [true, 'Please add an email'],
-      unique: true,
       lowercase: true,
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please add a valid email']
@@ -161,6 +160,9 @@ const userSchema = new Schema<IUser>(
     timestamps: true
   }
 );
+
+// Compound unique index: same email can have different roles
+userSchema.index({ email: 1, role: 1 }, { unique: true });
 
 // Virtual for full name
 userSchema.virtual('fullName').get(function (this: IUser) {

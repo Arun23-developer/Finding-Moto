@@ -1,14 +1,20 @@
-import { Server } from 'http';
+import { createServer } from 'http';
 import app from './app';
 import config from './config';
 import connectDB from './utils/db';
+import { setupSocket } from './utils/socket';
 
 // Connect to database
 connectDB();
 
 const PORT = config.port;
 
-const server: Server = app.listen(PORT, () => {
+const httpServer = createServer(app);
+
+// Setup Socket.IO
+setupSocket(httpServer);
+
+const server = httpServer.listen(PORT, () => {
   console.log(`Server running in ${config.nodeEnv} mode on port ${PORT}`);
 });
 

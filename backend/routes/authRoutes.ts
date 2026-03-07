@@ -10,6 +10,8 @@ import {
   updateProfile,
   changePassword,
   checkApprovalStatus,
+  addRole,
+  getMyRoles,
 } from '../controllers/authController';
 import { protect } from '../middleware/auth';
 
@@ -27,5 +29,7 @@ router.get('/approval-status', checkApprovalStatus);
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateProfile);
 router.put('/change-password', protect, changePassword);
+router.post('/add-role', protect, addRole);
+router.get('/my-roles', protect, getMyRoles);
 
 export default router;

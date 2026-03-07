@@ -18,6 +18,7 @@ import {
   Truck,
   Store,
   AlertCircle,
+  MessageSquare,
 } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -299,6 +300,36 @@ const ProductDetailPage: React.FC = () => {
                   <Store className="h-4 w-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Brand:</span>
                   <span className="font-medium text-foreground">{product.brand}</span>
+                </div>
+              )}
+
+              {/* Seller info card */}
+              {product.seller && (
+                <div className="p-4 rounded-xl bg-secondary/50 border border-border flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+                      <Store className="h-5 w-5 text-accent" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {product.seller.shopName || `${product.seller.firstName} ${product.seller.lastName}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Seller</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!user) { navigate('/login'); return; }
+                      navigate(`/chat?user=${product.seller._id}`);
+                    }}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    Message
+                  </Button>
                 </div>
               )}
 

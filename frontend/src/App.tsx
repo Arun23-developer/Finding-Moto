@@ -26,7 +26,9 @@ import MechanicNotifications from './pages/mechanic/Notifications';
 import MechanicServices from './pages/mechanic/Services';
 import ProductDetail from './pages/ProductDetail';
 import MyOrders from './pages/MyOrders';
+import BuyerAIChat from './pages/BuyerAIChat';
 import ChangePassword from './pages/ChangePassword';
+import ChatPage from './pages/ChatPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import NotFound from './pages/NotFound';
@@ -144,6 +146,12 @@ function App() {
               <Route path="/my-orders" element={
                 <PrivateRoute><MyOrders /></PrivateRoute>
               } />
+              <Route path="/ai-chat" element={
+                <PrivateRoute><BuyerAIChat /></PrivateRoute>
+              } />
+              <Route path="/chat" element={
+                <PrivateRoute><ChatPage /></PrivateRoute>
+              } />
 
               {/* Seller panel - requires seller role */}
               <Route path="/seller/dashboard" element={
@@ -174,6 +182,11 @@ function App() {
               <Route path="/seller/ai-chat" element={
                 <RoleRoute roles={['seller']}>
                   <SellerLayout><SellerAIChat /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/chat" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><ChatPage /></SellerLayout>
                 </RoleRoute>
               } />
               <Route path="/seller/notifications" element={
@@ -216,6 +229,11 @@ function App() {
               <Route path="/mechanic/ai-chat" element={
                 <RoleRoute roles={['mechanic']}>
                   <MechanicLayout><MechanicAIChat /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/chat" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><ChatPage /></MechanicLayout>
                 </RoleRoute>
               } />
               <Route path="/mechanic/notifications" element={

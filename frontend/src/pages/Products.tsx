@@ -13,7 +13,9 @@ import {
   Heart,
   ShoppingCart,
   Loader2,
+  MessageSquare,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 
 interface Product {
@@ -30,7 +32,7 @@ interface Product {
   inStock: boolean;
   stock: number;
   description: string;
-  seller?: { firstName: string; lastName: string; shopName?: string };
+  seller?: { _id: string; firstName: string; lastName: string; shopName?: string };
 }
 
 type ViewMode = "grid" | "list";
@@ -59,6 +61,7 @@ const Products: React.FC = () => {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [total, setTotal] = useState<number>(0);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const fetchProducts = async (pageNum = 1, append = false) => {
     try {
@@ -292,6 +295,11 @@ const Products: React.FC = () => {
                             <span className="text-sm font-medium">{product.rating}</span>
                             <span className="text-sm text-muted-foreground">({product.reviewCount})</span>
                           </div>
+                          {product.seller && (
+                            <p className="text-xs text-muted-foreground mb-2 truncate">
+                              by {product.seller.shopName || `${product.seller.firstName} ${product.seller.lastName}`}
+                            </p>
+                          )}
                           <div className="flex items-center justify-between">
                             <div>
                               <span className="text-lg font-bold text-foreground">LKR {product.price.toLocaleString()}</span>
@@ -300,6 +308,21 @@ const Products: React.FC = () => {
                               )}
                             </div>
                             <div className="flex items-center gap-2">
+                              {product.seller && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  aria-label="Message seller"
+                                  title="Message seller"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!user) { navigate('/login'); return; }
+                                    navigate(`/chat?user=${product.seller!._id}`);
+                                  }}
+                                >
+                                  <MessageSquare className="h-4 w-4" />
+                                </Button>
+                              )}
                               <Button size="icon" variant="ghost" aria-label="Add to wishlist">
                                 <Heart className="h-4 w-4" />
                               </Button>
@@ -333,11 +356,16 @@ const Products: React.FC = () => {
                       <div className="p-4">
                         <p className="text-xs font-medium text-accent mb-1">{product.brand}</p>
                         <h3 className="font-semibold text-foreground line-clamp-2 mb-2 group-hover:text-accent transition-colors">{product.name}</h3>
-                        <div className="flex items-center gap-1 mb-3">
+                        <div className="flex items-center gap-1 mb-1">
                           <Star className="h-4 w-4 fill-warning text-warning" />
                           <span className="text-sm font-medium text-foreground">{product.rating}</span>
                           <span className="text-sm text-muted-foreground">({product.reviewCount})</span>
                         </div>
+                        {product.seller && (
+                          <p className="text-xs text-muted-foreground mb-3 truncate">
+                            by {product.seller.shopName || `${product.seller.firstName} ${product.seller.lastName}`}
+                          </p>
+                        )}
                         <div className="flex items-center justify-between">
                           <div>
                             <span className="text-lg font-bold text-foreground">LKR {product.price.toLocaleString()}</span>
@@ -345,10 +373,28 @@ const Products: React.FC = () => {
                               <span className="ml-2 text-sm text-muted-foreground line-through">LKR {product.originalPrice.toLocaleString()}</span>
                             )}
                           </div>
-                          <Button size="sm" variant={product.inStock ? "accent" : "outline"} disabled={!product.inStock} className="gap-1">
-                            <ShoppingCart className="h-4 w-4" />
-                            <span className="sr-only sm:not-sr-only">Add</span>
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            {product.seller && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8"
+                                aria-label="Message seller"
+                                title="Message seller"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!user) { navigate('/login'); return; }
+                                  navigate(`/chat?user=${product.seller!._id}`);
+                                }}
+                              >
+                                <MessageSquare className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button size="sm" variant={product.inStock ? "accent" : "outline"} disabled={!product.inStock} className="gap-1">
+                              <ShoppingCart className="h-4 w-4" />
+                              <span className="sr-only sm:not-sr-only">Add</span>
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>

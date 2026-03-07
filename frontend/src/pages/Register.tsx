@@ -88,9 +88,9 @@ const Register: React.FC = () => {
 
   // If redirected from login with unverified email, go straight to OTP step
   useEffect(() => {
-    const state = location.state as { verifyEmail?: string } | null;
+    const state = location.state as { verifyEmail?: string; verifyRole?: string } | null;
     if (state?.verifyEmail) {
-      setFormData(prev => ({ ...prev, email: state.verifyEmail! }));
+      setFormData(prev => ({ ...prev, email: state.verifyEmail!, role: (state.verifyRole as UserRole) || prev.role }));
       setStep('otp');
       startResendCooldown();
     }
@@ -246,7 +246,7 @@ const Register: React.FC = () => {
     setLoading(true);
     setOtpError('');
     try {
-      const result = await verifyOTP(formData.email, otp);
+      const result = await verifyOTP(formData.email, otp, formData.role);
       if (result.token) {
         // Buyer - verified and auto-approved
         navigate('/dashboard');
@@ -269,7 +269,7 @@ const Register: React.FC = () => {
     setLoading(true);
     setOtpError('');
     try {
-      await resendOTP(formData.email);
+      await resendOTP(formData.email, formData.role);
       setOtpValues(['', '', '', '', '', '']);
       startResendCooldown();
       setOtpError('');
