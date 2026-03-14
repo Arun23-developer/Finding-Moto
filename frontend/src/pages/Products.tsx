@@ -117,11 +117,11 @@ const Products: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="page-shell">
       <Header />
-      <main className="flex-1 bg-background">
+      <main className="page-main">
         {/* Page Header */}
-        <section className="bg-secondary py-8 border-b border-border">
+        <section className="section-band-divider bg-secondary py-8">
           <div className="container">
             <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
               Motorcycle Parts & Accessories
@@ -156,7 +156,7 @@ const Products: React.FC = () => {
                 Filters
               </Button>
               <select
-                className="h-10 px-3 rounded-md border border-input bg-background text-sm"
+                className="control-select"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
               >
@@ -187,7 +187,7 @@ const Products: React.FC = () => {
             {/* Sidebar Filters */}
             <aside className={`${showFilters ? "block" : "hidden"} lg:block w-full lg:w-64 shrink-0`}>
               <div className="sticky top-24 space-y-6">
-                <div className="p-4 rounded-xl bg-card border border-border">
+                <div className="sidebar-panel">
                   <h3 className="font-semibold text-foreground mb-4">Categories</h3>
                   <div className="space-y-2">
                     {categories.map((category) => (
@@ -206,7 +206,7 @@ const Products: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-card border border-border">
+                <div className="sidebar-panel">
                   <h3 className="font-semibold text-foreground mb-4">Brands</h3>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {brands.map((brand) => (
@@ -218,7 +218,7 @@ const Products: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-card border border-border">
+                <div className="sidebar-panel">
                   <h3 className="font-semibold text-foreground mb-4">Price Range</h3>
                   <div className="flex items-center gap-2">
                     <Input type="number" placeholder="Min" className="h-9" />
@@ -228,7 +228,7 @@ const Products: React.FC = () => {
                   <Button variant="outline" size="sm" className="w-full mt-3">Apply</Button>
                 </div>
 
-                <div className="p-4 rounded-xl bg-card border border-border">
+                <div className="sidebar-panel">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" className="rounded border-input" />
                     <span className="text-sm text-foreground">In Stock Only</span>
@@ -280,7 +280,7 @@ const Products: React.FC = () => {
 
                     if (viewMode === "list") {
                       return (
-                        <div key={product._id} className="flex gap-4 p-4 rounded-xl bg-card border border-border shadow-card hover:shadow-hover transition-all cursor-pointer" onClick={() => navigate(`/products/${product._id}`)}>
+                        <div key={product._id} className="panel-card-interactive flex gap-4 p-4 cursor-pointer" onClick={() => navigate(`/products/${product._id}`)}>
                           <div className="relative w-32 h-32 shrink-0 rounded-lg overflow-hidden bg-secondary">
                             <img src={imgUrl} alt={product.name} className="w-full h-full object-cover" />
                           {discount > 0 && (
@@ -338,7 +338,7 @@ const Products: React.FC = () => {
                   }
 
                     return (
-                      <div key={product._id} className="group bg-card rounded-xl border border-border shadow-card hover:shadow-hover transition-all duration-300 cursor-pointer" onClick={() => navigate(`/products/${product._id}`)}>
+                      <div key={product._id} className="panel-card-interactive group cursor-pointer" onClick={() => navigate(`/products/${product._id}`)}>
                         <div className="relative aspect-square overflow-hidden rounded-t-xl bg-secondary">
                           <img src={imgUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         {discount > 0 && (

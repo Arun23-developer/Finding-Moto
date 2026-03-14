@@ -1,9 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-@import "tailwindcss";
-
-/* Ensure all source files are scanned for utility classes */
-@source "../**/*.tsx";
-@source inline("to-transparent bg-purple-100 text-purple-600 text-purple-700 border-border/60 border-border/50 from-blue-50/50 to-indigo-50/50 from-indigo-50/50 from-blue-50 from-emerald-50 from-amber-50 from-purple-50 from-violet-50 from-red-50 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-md hover:shadow-sm hover:bg-muted/60 hover:bg-muted/80 hover:bg-muted/50 hover:bg-muted/30 hover:bg-muted/20 bg-muted/20 bg-muted/30 bg-muted/40 bg-muted/50 bg-muted/60 group-hover:scale-105 group-hover:scale-110 group-hover:opacity-100 shadow-blue-500/20 shadow-blue-500/25 shadow-blue-500/30 shadow-blue-600/25 shadow-blue-600/20 shadow-purple-500/20 shadow-emerald-500/20 shadow-emerald-500/25 shadow-amber-500/20 shadow-amber-500/25 shadow-violet-500/20 shadow-amber-600/25 shadow-emerald-600/20 shadow-violet-600/20 shadow-purple-600/20 shadow-indigo-500/25 dark:from-blue-950/20 dark:from-emerald-950/20 dark:from-amber-950/20 dark:from-purple-950/20 dark:from-red-950/20 dark:from-violet-950/20 dark:from-blue-950/60 dark:from-emerald-950/60 dark:from-blue-900/60 dark:from-emerald-900/60 dark:from-amber-900/60 dark:from-purple-900/60 dark:from-violet-900/60 dark:from-red-900/60 dark:bg-blue-900/50 dark:bg-emerald-900/50 dark:bg-amber-900/50 dark:bg-purple-900/50 dark:bg-yellow-900/50 dark:bg-blue-900/40 dark:bg-emerald-900/40 dark:bg-amber-900/40 dark:bg-violet-900/40 dark:bg-red-900/40 dark:bg-gray-900/40 dark:bg-orange-900/40 dark:bg-emerald-950/40 dark:bg-amber-950/40 dark:bg-violet-950/40 dark:bg-red-950/40 dark:bg-blue-950/40 dark:bg-purple-950/40 dark:bg-yellow-950/40 dark:bg-amber-950/20 dark:bg-amber-950/30 dark:bg-emerald-950/30 dark:bg-blue-950/30 dark:bg-violet-950/30 dark:bg-gray-900/30 dark:bg-red-950/30 dark:bg-purple-950/30 dark:bg-yellow-950/30 dark:bg-emerald-950/20 dark:bg-red-950/20 from-emerald-500 from-emerald-600 from-emerald-400 from-emerald-100 to-emerald-700 to-emerald-400 to-emerald-500 from-blue-600 from-blue-500 from-blue-400 from-blue-100 to-indigo-500 to-indigo-600 to-indigo-800 to-blue-300 to-blue-500 to-blue-600 to-blue-700 from-violet-500 from-violet-100 to-violet-700 from-amber-500 from-amber-600 from-amber-100 to-orange-600 to-orange-800 to-amber-600 to-amber-400 from-purple-500 from-purple-600 from-purple-100 to-purple-500 to-purple-600 to-purple-400 border-amber-200 border-blue-200 border-violet-200 border-emerald-200 border-gray-200 border-red-200 border-amber-400 border-blue-400 border-violet-400 border-emerald-400 border-gray-400 border-red-400 dark:border-amber-800 dark:border-blue-800 dark:border-violet-800 dark:border-emerald-800 dark:border-red-800 dark:border-gray-700 dark:border-orange-700 dark:border-purple-700 dark:border-yellow-700 dark:border-amber-600 dark:border-blue-600 dark:border-violet-600 dark:border-emerald-600 dark:border-amber-700 dark:border-blue-700 dark:border-violet-700 dark:border-emerald-700 dark:border-red-700 bg-amber-50 bg-blue-50 bg-violet-50 bg-emerald-50 bg-gray-50 bg-red-50 bg-amber-100 bg-blue-100 bg-emerald-100 bg-violet-100 bg-red-100 bg-purple-100 text-amber-600 text-blue-600 text-violet-600 text-emerald-600 text-red-600 dark:text-amber-400 dark:text-blue-400 dark:text-violet-400 dark:text-emerald-400 dark:text-red-400 dark:text-purple-400 dark:text-yellow-400 dark:text-amber-300 dark:text-blue-300 dark:text-emerald-300 dark:text-violet-300 dark:text-red-300 dark:text-orange-300 dark:text-gray-400 bg-gradient-to-br bg-gradient-to-r bg-gradient-to-t bg-white/15 bg-white/20 hover:bg-white/30 bg-black/50 group-hover:from-blue-600 group-hover:to-indigo-500 group-hover:shadow-md group-hover:shadow-blue-500/20 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/60 hover:border-blue-300 hover:border-blue-200 hover:border-amber-300 hover:border-amber-400 hover:border-violet-300 hover:border-violet-400 hover:border-emerald-300 hover:border-emerald-400 hover:border-gray-400 hover:border-red-400 hover:border-blue-500/50 dark:hover:border-amber-600 dark:hover:border-amber-700 dark:hover:border-blue-600 dark:hover:border-violet-600 dark:hover:border-violet-700 dark:hover:border-emerald-600 dark:hover:border-emerald-700 dark:hover:border-gray-500 dark:hover:border-red-600 hover:bg-blue-50 hover:bg-blue-100 hover:bg-blue-200 hover:bg-blue-700 hover:bg-blue-900/30 hover:bg-amber-100 hover:bg-amber-700 hover:bg-amber-950/30 hover:bg-emerald-100 hover:bg-emerald-950/30 hover:bg-red-50 hover:bg-red-100 hover:bg-red-700 hover:bg-red-950/30 hover:scale-110 dark:hover:bg-blue-900/60 dark:hover:bg-blue-900/40 dark:hover:bg-blue-900/30 dark:hover:bg-blue-950/30 dark:hover:bg-blue-950/40 dark:hover:bg-emerald-900/30 dark:hover:bg-emerald-900/40 dark:hover:bg-amber-900/30 dark:hover:bg-amber-900/40 dark:hover:bg-amber-950/30 dark:hover:bg-amber-950/40 dark:hover:bg-violet-900/30 dark:hover:bg-gray-900/40 dark:hover:bg-red-900/30 dark:hover:bg-red-950/30 dark:hover:bg-amber-700 ring-2 ring-blue-500 ring-blue-500/30 border-amber-100 dark:border-amber-900 animate-ping bg-amber-400 bg-amber-500 bg-destructive/10 border-destructive/20 bg-amber-600 bg-success/15 text-success border-success/20 bg-info/15 text-info border-info/20 bg-warning/15 text-warning border-warning/20 hover:bg-muted hover:bg-destructive/10 hover:text-blue-600 hover:text-blue-700 hover:text-amber-600 hover:text-amber-700 hover:text-emerald-600 hover:text-red-600 hover:underline bg-emerald-600/10 hover:bg-emerald-600/20 bg-blue-600/10 hover:bg-blue-600/20 bg-purple-600/10 bg-amber-600/10 hover:bg-amber-600/20 dark:from-blue-600 dark:to-blue-500 via-amber-700 hover:bg-blue-950/30 hover:bg-muted/40 divide-border/50 bg-white/30 focus:ring-blue-500/40 group-hover:text-blue-600 border-destructive/30 bg-amber-500/10 bg-emerald-500/10 bg-blue-500/10 bg-blue-500/20 dark:bg-blue-950/10 dark:bg-blue-950/20 dark:bg-violet-950/20 dark:bg-red-950/20 dark:bg-red-950/40 dark:text-violet-400 dark:hover:bg-red-950/30 dark:hover:bg-blue-950/30 dark:border-blue-900 dark:bg-emerald-950/20 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400 dark:bg-gray-800 dark:bg-card dark:border-gray-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 bg-indigo-50 text-indigo-600 dark:text-indigo-400 dark:bg-indigo-900/50 lg:grid-cols-5 group-hover:-translate-y-0.5 hover:border-blue-400 dark:hover:border-blue-400 border-t-4 border-t-blue-500 border-t-emerald-500 border-t-amber-500 border-t-purple-500 border-t-orange-500 border-t-violet-500 via-blue-700 via-blue-600 via-indigo-600 from-blue-500 from-orange-500 from-violet-400 from-amber-400 from-slate-400 from-emerald-400 from-blue-400 to-indigo-700 to-blue-500 to-blue-600 to-orange-600 to-violet-500 to-amber-500 to-slate-500 to-emerald-600 to-purple-700 to-indigo-500 backdrop-blur-sm hover:border-purple-200 dark:hover:border-purple-800 hover:border-amber-200 dark:hover:border-amber-800 bg-gray-200 dark:bg-gray-800/40 from-indigo-600 text-blue-500 hover:text-blue-600 text-orange-600 dark:text-orange-400 text-violet-700 text-amber-700 text-blue-700 text-emerald-700 text-slate-700 dark:text-slate-400 shadow-xl bg-white/20 border-white/20 from-amber-400 to-orange-500 drop-shadow from-indigo-500 to-violet-600 from-emerald-500 to-teal-600 to-teal-400 from-violet-500 to-purple-600 lg:col-span-2 border-l-4 border-l-amber-500 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 hover:-translate-y-1 rounded-2xl dark:border-amber-800/50 text-blue-200 text-blue-100/70 text-blue-200/70 text-red-300 hover:bg-white/10 hover:bg-red-500/20 hover:text-red-200 shadow-blue-500/40 ring-white/20 border-white/10 border-indigo-700/30 border-r-indigo-900 bg-indigo-900 from-blue-400 to-indigo-500");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* ===== Finding Moto — Light Grey + Red Accent ===== */
 @layer base {
@@ -180,47 +178,6 @@
   }
 }
 
-/* ===== Custom Color Mappings for Tailwind v4 ===== */
-@theme {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  --color-warning: hsl(var(--warning));
-  --color-success: hsl(var(--success));
-  --color-info: hsl(var(--info));
-  --color-info-foreground: hsl(var(--info-foreground));
-  --color-success-foreground: hsl(var(--success-foreground));
-  --color-warning-foreground: hsl(var(--warning-foreground));
-  --color-sidebar-background: hsl(var(--sidebar-background));
-  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
-  --color-sidebar-primary: hsl(var(--sidebar-primary));
-  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
-  --color-sidebar-accent: hsl(var(--sidebar-accent));
-  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
-  --color-sidebar-border: hsl(var(--sidebar-border));
-  --color-sidebar-ring: hsl(var(--sidebar-ring));
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
-
 /* ===== Admin Panel Utilities ===== */
 @layer utilities {
   .glass-card {
@@ -243,6 +200,166 @@
   .stat-card-hover:hover {
     transform: scale(1.02);
     box-shadow: 0 10px 25px -5px hsl(var(--foreground) / 0.1);
+  }
+}
+
+@layer components {
+  .page-shell {
+    @apply min-h-screen flex flex-col;
+  }
+
+  .page-main {
+    @apply flex-1 bg-background;
+  }
+
+  .page-hero {
+    background: var(--gradient-hero);
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+
+  .page-hero-compact {
+    background: var(--gradient-hero);
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
+
+  .page-hero-content {
+    @apply max-w-3xl mx-auto text-center;
+  }
+
+  .page-hero-title {
+    @apply text-4xl md:text-5xl lg:text-6xl font-black text-primary-foreground mb-6;
+  }
+
+  .page-hero-title-compact {
+    @apply text-4xl md:text-5xl font-black text-primary-foreground mb-6;
+  }
+
+  .page-hero-text {
+    @apply text-lg md:text-xl text-primary-foreground/80;
+  }
+
+  .page-hero-text-spaced {
+    @apply text-lg md:text-xl text-primary-foreground/80 mb-8;
+  }
+
+  .section-band {
+    @apply py-16 md:py-24;
+  }
+
+  .section-band-muted {
+    @apply py-16 md:py-24 bg-secondary;
+  }
+
+  .section-band-divider {
+    @apply py-12 bg-background border-b border-border;
+  }
+
+  .section-heading {
+    @apply text-center mb-12;
+  }
+
+  .section-title {
+    @apply text-3xl md:text-4xl font-bold text-foreground mb-4;
+  }
+
+  .section-copy {
+    @apply text-muted-foreground max-w-2xl mx-auto;
+  }
+
+  .section-badge {
+    @apply inline-block px-4 py-1.5 mb-4 text-sm font-semibold rounded-full bg-accent/10 text-accent;
+  }
+
+  .panel-card {
+    @apply rounded-xl bg-card border border-border;
+  }
+
+  .panel-card-elevated {
+    @apply rounded-xl bg-card border border-border;
+    box-shadow: var(--shadow-card);
+  }
+
+  .panel-card-interactive {
+    @apply rounded-xl bg-card border border-border transition-all duration-300;
+    box-shadow: var(--shadow-card);
+  }
+
+  .panel-card-interactive:hover {
+    box-shadow: var(--shadow-hover);
+  }
+
+  .panel-icon {
+    @apply inline-flex p-3 rounded-lg bg-accent/10 mb-4;
+  }
+
+  .panel-icon-round {
+    @apply inline-flex p-3 rounded-full bg-accent/10 mb-4;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-foreground mb-2;
+  }
+
+  .form-select {
+    @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+
+  .form-textarea {
+    @apply flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none;
+  }
+
+  .filter-chip {
+    @apply px-4 py-2 rounded-full text-sm font-medium transition-colors bg-background text-muted-foreground hover:text-foreground border border-border;
+  }
+
+  .filter-chip.is-active {
+    @apply bg-accent text-accent-foreground border-transparent;
+  }
+
+  .control-select {
+    @apply h-10 px-3 rounded-md border border-input bg-background text-sm;
+  }
+
+  .sidebar-panel {
+    @apply p-4 rounded-xl bg-card border border-border;
+  }
+
+  .tag-chip {
+    @apply px-2 py-1 text-xs font-medium rounded-full bg-secondary text-secondary-foreground;
+  }
+
+  .tag-chip-muted {
+    @apply px-2 py-1 text-xs font-medium rounded-full bg-secondary text-muted-foreground;
+  }
+
+  .empty-state {
+    @apply text-center py-20;
+  }
+
+  .empty-state-icon {
+    @apply h-12 w-12 text-muted-foreground mx-auto mb-4;
+  }
+
+  .loading-screen {
+    @apply min-h-screen flex flex-col items-center justify-center gap-3 bg-background text-foreground;
+  }
+
+  .spinner {
+    @apply h-10 w-10 rounded-full border-4 border-border border-t-primary animate-spin;
+  }
+}
+
+@media (min-width: 768px) {
+  .page-hero {
+    padding-top: 7rem;
+    padding-bottom: 7rem;
+  }
+
+  .page-hero-compact {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
   }
 }
 

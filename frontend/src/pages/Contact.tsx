@@ -118,17 +118,17 @@ const Contact: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="page-shell">
       <Header />
-      <main className="flex-1">
+      <main className="page-main">
         {/* Hero Section */}
-        <section className="hero-gradient py-20 md:py-28">
+        <section className="page-hero">
           <div className="container">
-            <div className="max-w-3xl mx-auto text-center">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-primary-foreground mb-6">
+            <div className="page-hero-content">
+              <h1 className="page-hero-title">
                 Get in Touch
               </h1>
-              <p className="text-lg md:text-xl text-primary-foreground/80">
+              <p className="page-hero-text">
                 Have questions? We'd love to hear from you. Our team is ready to help
                 with any inquiries about parts, services, or partnerships.
               </p>
@@ -137,17 +137,17 @@ const Contact: React.FC = () => {
         </section>
 
         {/* Contact Methods */}
-        <section className="py-12 bg-background border-b border-border">
+        <section className="section-band-divider">
           <div className="container">
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               {contactMethods.map((method, index) => (
                 <a
                   key={method.title}
                   href={method.href}
-                  className="p-6 rounded-xl bg-card border border-border shadow-card hover:shadow-hover hover:border-accent transition-all duration-300 animate-fade-in"
+                  className="panel-card-interactive p-6 hover:border-accent animate-fade-in"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
-                  <div className="inline-flex p-3 rounded-lg bg-accent/10 mb-4">
+                  <div className="panel-icon">
                     <method.icon className="h-6 w-6 text-accent" />
                   </div>
                   <h3 className="font-semibold text-foreground mb-1">{method.title}</h3>
@@ -160,7 +160,7 @@ const Contact: React.FC = () => {
         </section>
 
         {/* Contact Form & Map */}
-        <section className="py-16 md:py-24 bg-background">
+        <section className="section-band">
           <div className="container">
             <div className="grid lg:grid-cols-2 gap-12">
               {/* Form */}
@@ -169,7 +169,7 @@ const Contact: React.FC = () => {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
+                      <label htmlFor="name" className="form-label">
                         Your Name
                       </label>
                       <Input
@@ -182,7 +182,7 @@ const Contact: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label htmlFor="contact-email" className="block text-sm font-medium text-foreground mb-2">
+                      <label htmlFor="contact-email" className="form-label">
                         Email Address
                       </label>
                       <Input
@@ -196,14 +196,14 @@ const Contact: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <label htmlFor="subject" className="block text-sm font-medium text-foreground mb-2">
+                    <label htmlFor="subject" className="form-label">
                       Subject
                     </label>
                     <select
                       id="subject"
                       value={formData.subject}
                       onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, subject: e.target.value })}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      className="form-select"
                       required
                     >
                       <option value="">Select a subject</option>
@@ -213,7 +213,7 @@ const Contact: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="message" className="block text-sm font-medium text-foreground mb-2">
+                    <label htmlFor="message" className="form-label">
                       Message
                     </label>
                     <textarea
@@ -222,7 +222,7 @@ const Contact: React.FC = () => {
                       placeholder="Tell us how we can help..."
                       value={formData.message}
                       onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, message: e.target.value })}
-                      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+                      className="form-textarea"
                       required
                     />
                   </div>
@@ -236,13 +236,13 @@ const Contact: React.FC = () => {
               {/* Map / Info */}
               <div>
                 <h2 className="text-3xl font-bold text-foreground mb-6">Our Office</h2>
-                <div className="rounded-xl overflow-hidden border border-border bg-secondary h-64 mb-6 flex items-center justify-center">
+                <div className="panel-card overflow-hidden bg-secondary h-64 mb-6 flex items-center justify-center">
                   <div className="text-center">
                     <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-sm text-muted-foreground">Interactive map coming soon</p>
                   </div>
                 </div>
-                <div className="p-6 rounded-xl bg-card border border-border">
+                <div className="panel-card p-6">
                   <h3 className="font-semibold text-foreground mb-4">Business Hours</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between">
@@ -271,23 +271,23 @@ const Contact: React.FC = () => {
         </section>
 
         {/* FAQ Section */}
-        <section id="faq" className="py-16 md:py-24 bg-secondary">
+        <section id="faq" className="section-band-muted">
           <div className="container">
-            <div className="text-center mb-12">
-              <div className="inline-flex p-3 rounded-full bg-accent/10 mb-4">
+            <div className="section-heading">
+              <div className="panel-icon-round">
                 <HelpCircle className="h-8 w-8 text-accent" />
               </div>
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              <h2 className="section-title">
                 Frequently Asked Questions
               </h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
+              <p className="section-copy">
                 Find quick answers to common questions about Finding Moto
               </p>
             </div>
 
             <div className="max-w-3xl mx-auto space-y-4">
               {faqs.map((faq, index) => (
-                <div key={index} className="rounded-xl bg-card border border-border overflow-hidden">
+                <div key={index} className="panel-card overflow-hidden">
                   <button
                     onClick={() => setOpenFaq(openFaq === index ? null : index)}
                     className="w-full flex items-center justify-between p-6 text-left hover:bg-secondary/50 transition-colors"

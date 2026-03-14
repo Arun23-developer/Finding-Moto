@@ -113,17 +113,17 @@ const testimonials: Testimonial[] = [
 
 const About: React.FC = () => {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="page-shell">
       <Header />
-      <main className="flex-1">
+      <main className="page-main">
         {/* Hero Section */}
-        <section className="hero-gradient py-20 md:py-28">
+        <section className="page-hero">
           <div className="container">
-            <div className="max-w-3xl mx-auto text-center">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-primary-foreground mb-6">
+            <div className="page-hero-content">
+              <h1 className="page-hero-title">
                 Connecting Riders with the Parts They Need
               </h1>
-              <p className="text-lg md:text-xl text-primary-foreground/80 mb-8">
+              <p className="page-hero-text-spaced">
                 Finding Moto is more than a marketplace—it's a community of passionate riders,
                 trusted sellers, and certified mechanics working together to keep you on the road.
               </p>
@@ -132,7 +132,7 @@ const About: React.FC = () => {
         </section>
 
         {/* Stats */}
-        <section className="py-12 bg-background border-b border-border">
+        <section className="section-band-divider">
           <div className="container">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {stats.map((stat) => (
@@ -146,11 +146,11 @@ const About: React.FC = () => {
         </section>
 
         {/* Mission Section */}
-        <section className="py-16 md:py-24 bg-background">
+        <section className="section-band">
           <div className="container">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <span className="inline-block px-4 py-1.5 mb-4 text-sm font-semibold rounded-full bg-accent/10 text-accent">
+                <span className="section-badge">
                   Our Mission
                 </span>
                 <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
@@ -192,11 +192,11 @@ const About: React.FC = () => {
         </section>
 
         {/* Values Section */}
-        <section className="py-16 md:py-24 bg-secondary">
+        <section className="section-band-muted">
           <div className="container">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Our Core Values</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
+            <div className="section-heading">
+              <h2 className="section-title">Our Core Values</h2>
+              <p className="section-copy">
                 The principles that guide everything we do at Finding Moto
               </p>
             </div>
@@ -205,10 +205,10 @@ const About: React.FC = () => {
               {values.map((value, index) => (
                 <div
                   key={value.title}
-                  className="p-6 rounded-xl bg-card border border-border shadow-card animate-fade-in"
+                  className="panel-card-elevated p-6 animate-fade-in"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
-                  <div className="inline-flex p-3 rounded-lg bg-accent/10 mb-4">
+                  <div className="panel-icon">
                     <value.icon className="h-6 w-6 text-accent" />
                   </div>
                   <h3 className="font-semibold text-foreground mb-2">{value.title}</h3>
@@ -220,11 +220,11 @@ const About: React.FC = () => {
         </section>
 
         {/* Team Section */}
-        <section className="py-16 md:py-24 bg-background">
+        <section className="section-band">
           <div className="container">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Meet Our Team</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
+            <div className="section-heading">
+              <h2 className="section-title">Meet Our Team</h2>
+              <p className="section-copy">
                 Passionate riders and industry experts dedicated to building the best platform for you
               </p>
             </div>
@@ -233,7 +233,7 @@ const About: React.FC = () => {
               {team.map((member, index) => (
                 <div
                   key={member.name}
-                  className="text-center p-6 rounded-xl bg-card border border-border shadow-card hover:shadow-hover transition-all duration-300 animate-fade-in"
+                  className="panel-card-interactive text-center p-6 animate-fade-in"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden ring-4 ring-secondary">
@@ -282,7 +282,7 @@ const About: React.FC = () => {
         </section>
 
         {/* CTA */}
-        <section className="py-16 md:py-24 bg-secondary">
+        <section className="section-band-muted">
           <div className="container text-center">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
               Ready to Join Our Community?
