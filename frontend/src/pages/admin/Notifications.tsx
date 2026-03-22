@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bell, Check, ShoppingCart, UserPlus, AlertTriangle, Package } from "lucide-react";
@@ -19,7 +20,16 @@ const typeColors: Record<string, string> = {
 };
 
 export default function Notifications() {
-  const unread = notifications.filter((n) => !n.read).length;
+  const [items, setItems] = useState(notifications);
+  const unread = items.filter((n) => !n.read).length;
+
+  const markAllRead = () => {
+    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const markRead = (id: number) => {
+    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  };
 
   return (
     <div className="space-y-6">
@@ -28,19 +38,20 @@ export default function Notifications() {
           <h1 className="font-display text-2xl font-bold">Notifications</h1>
           <p className="text-sm text-muted-foreground mt-1">{unread} unread notifications</p>
         </div>
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" className="gap-2" onClick={markAllRead} disabled={unread === 0}>
           <Check className="h-4 w-4" />
           Mark All Read
         </Button>
       </div>
 
       <div className="space-y-3">
-        {notifications.map((notif) => (
+        {items.map((notif) => (
           <Card
             key={notif.id}
             className={`glass-card transition-all duration-200 hover:shadow-md cursor-pointer ${
               !notif.read ? "border-l-2 border-l-primary" : ""
             }`}
+            onClick={() => markRead(notif.id)}
           >
             <CardContent className="p-4 flex items-start gap-4">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${typeColors[notif.type]}`}>

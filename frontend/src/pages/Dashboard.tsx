@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
+import { resolveProductImage } from '@/lib/imageUrl';
 
 interface Product {
   _id: string;
@@ -183,10 +184,7 @@ const Dashboard: React.FC = () => {
   };
 
   const getImageUrl = (product: Product): string => {
-    const img = product.image || product.images?.[0];
-    if (!img) return 'https://placehold.co/400x300?text=No+Image';
-    if (img.startsWith('http')) return img;
-    return `${import.meta.env.VITE_API_URL?.replace('/api', '') || ''}${img}`;
+    return resolveProductImage(product, 'https://placehold.co/400x300?text=No+Image');
   };
 
   const roleConfig = user ? ROLE_CONFIG[user.role] || ROLE_CONFIG.buyer : ROLE_CONFIG.buyer;

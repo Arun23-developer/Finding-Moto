@@ -13,6 +13,7 @@ interface Config {
   googleClientSecret: string | undefined;
   smtpUser: string;
   smtpPass: string;
+  geminiApiKey: string;
 }
 
 const config: Config = {
@@ -25,7 +26,8 @@ const config: Config = {
   googleClientId: process.env.GOOGLE_CLIENT_ID,
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
   smtpUser: process.env.SMTP_USER || '',
-  smtpPass: process.env.SMTP_PASS || ''
+  smtpPass: process.env.SMTP_PASS || '',
+  geminiApiKey: process.env.GEMINI_API_KEY || ''
 };
 
 export default config;

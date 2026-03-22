@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { protect } from '../middleware/auth';
+import { publicChat } from '../controllers/publicChatController';
 import {
   getChatUsers,
   getOrCreateChat,
@@ -9,6 +10,9 @@ import {
 } from '../controllers/chatController';
 
 const router = Router();
+
+// Public chatbot endpoint used by frontend chatbot widget
+router.post('/', publicChat);
 
 // All routes require authentication
 router.use(protect);

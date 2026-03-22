@@ -4,6 +4,7 @@ import {
   getProfile,
   updateProfile,
   getOverview,
+  getMechanicReviews,
   getServices,
   createService,
   updateService,
@@ -18,6 +19,7 @@ router.use(authorize('mechanic'));
 
 // Overview
 router.get('/overview', getOverview);
+router.get('/reviews', getMechanicReviews);
 
 // Profile
 router.get('/profile', getProfile);

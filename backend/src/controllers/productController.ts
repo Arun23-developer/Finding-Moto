@@ -3,6 +3,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import Product from '../models/Product';
 import mongoose from 'mongoose';
+import { refreshProductEmbedding } from '../utils/embeddings';
 
 // @desc    Get seller's products (paginated, filterable)
 // @route   GET /api/products/seller
@@ -61,6 +62,9 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
       type: type || 'product',
     });
 
+    await refreshProductEmbedding(product);
+    await product.save();
+
     res.status(201).json({ success: true, data: product });
   } catch (err: unknown) {
     console.error('createProduct error:', err);
@@ -98,6 +102,17 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
     });
 
     await product.save();
+
+    if (
+      req.body.name !== undefined ||
+      req.body.description !== undefined ||
+      req.body.category !== undefined ||
+      req.body.brand !== undefined
+    ) {
+      await refreshProductEmbedding(product);
+      await product.save();
+    }
+
     res.json({ success: true, data: product });
   } catch (err) {
     console.error('updateProduct error:', err);

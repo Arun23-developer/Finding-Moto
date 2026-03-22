@@ -27,6 +27,8 @@ interface RegisterRequestBody {
   shopName?: string;
   shopDescription?: string;
   shopLocation?: string;
+  sellerSpecializations?: string[];
+  sellerBrands?: string[];
   // Mechanic fields
   specialization?: string;
   experienceYears?: number;
@@ -58,6 +60,8 @@ interface UserResponse {
   shopName?: string;
   shopDescription?: string;
   shopLocation?: string;
+  sellerSpecializations?: string[];
+  sellerBrands?: string[];
   specialization?: string;
   experienceYears?: number;
   workshopLocation?: string;
@@ -122,6 +126,8 @@ const formatUser = (user: IUser): UserResponse => ({
   shopName: user.shopName,
   shopDescription: user.shopDescription,
   shopLocation: user.shopLocation,
+  sellerSpecializations: user.sellerSpecializations || [],
+  sellerBrands: user.sellerBrands || [],
   specialization: user.specialization,
   experienceYears: user.experienceYears,
   workshopLocation: user.workshopLocation,
@@ -635,10 +641,12 @@ export const updateProfile = async (
 
     // Role-specific fields
     if (user.role === 'seller') {
-      const { shopName, shopDescription, shopLocation } = req.body;
+      const { shopName, shopDescription, shopLocation, sellerSpecializations, sellerBrands } = req.body;
       if (shopName) user.shopName = shopName;
       if (shopDescription !== undefined) user.shopDescription = shopDescription;
       if (shopLocation !== undefined) user.shopLocation = shopLocation;
+      if (sellerSpecializations !== undefined) user.sellerSpecializations = Array.isArray(sellerSpecializations) ? sellerSpecializations : [];
+      if (sellerBrands !== undefined) user.sellerBrands = Array.isArray(sellerBrands) ? sellerBrands : [];
     }
 
     if (user.role === 'mechanic') {
@@ -654,6 +662,45 @@ export const updateProfile = async (
     res.json({
       message: 'Profile updated successfully',
       user: formatUser(user)
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ message: errorMessage });
+  }
+};
+
+// @desc    Upload avatar image
+// @route   POST /api/auth/upload-avatar
+// @access  Private
+export const uploadAvatar = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'Not authorized' });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ message: 'No image file provided' });
+      return;
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    user.avatar = avatarUrl;
+    await user.save();
+
+    res.json({
+      message: 'Avatar uploaded successfully',
+      avatar: avatarUrl,
+      user: formatUser(user),
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

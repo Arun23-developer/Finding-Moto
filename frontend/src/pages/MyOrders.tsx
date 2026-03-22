@@ -13,8 +13,11 @@ import {
   XCircle,
   ShoppingBag,
   ChevronDown,
+  Star,
 } from "lucide-react";
 import api from "../services/api";
+import { resolveMediaUrl } from "@/lib/imageUrl";
+import reviewService from "@/services/reviewService";
 
 interface OrderItem {
   product: string;
@@ -51,6 +54,7 @@ const MyOrders: React.FC = () => {
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [reviewedProductIds, setReviewedProductIds] = useState<Set<string>>(new Set());
 
   const fetchOrders = async () => {
     try {
@@ -58,10 +62,16 @@ const MyOrders: React.FC = () => {
       setError("");
       const params: Record<string, string> = {};
       if (statusFilter !== "all") params.status = statusFilter;
-      const { data: res } = await api.get("/orders/my", { params });
-      if (res.success) {
-        setOrders(res.data);
+      const [{ data: orderRes }, myReviews] = await Promise.all([
+        api.get("/orders/my", { params }),
+        reviewService.getMyReviews(),
+      ]);
+
+      if (orderRes.success) {
+        setOrders(orderRes.data);
       }
+
+      setReviewedProductIds(new Set(myReviews.map((r) => r.productId)));
     } catch {
       setError("Failed to load orders.");
     } finally {
@@ -88,9 +98,7 @@ const MyOrders: React.FC = () => {
   };
 
   const getImageUrl = (img?: string): string => {
-    if (!img) return "https://placehold.co/80x80?text=Item";
-    if (img.startsWith("http")) return img;
-    return `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${img}`;
+    return resolveMediaUrl(img, "https://placehold.co/80x80?text=Item");
   };
 
   return (
@@ -202,6 +210,26 @@ const MyOrders: React.FC = () => {
                           <p className="text-sm text-muted-foreground">
                             LKR {item.price.toLocaleString()} × {item.qty}
                           </p>
+                          {order.status === "delivered" && (
+                            <div className="mt-2">
+                              {reviewedProductIds.has(item.product) ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-600">
+                                  <Star className="h-3.5 w-3.5 fill-green-600 text-green-600" />
+                                  Reviewed
+                                </span>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs"
+                                  onClick={() => navigate(`/products/${item.product}`)}
+                                >
+                                  <Star className="h-3.5 w-3.5 mr-1" />
+                                  Rate & Review
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-foreground">

@@ -68,11 +68,11 @@ frontend/
 │   ├── pages/       # Page components
 │   ├── services/    # API services
 │   ├── styles/      # CSS files
-│   ├── App.jsx      # Main App component
-│   └── main.jsx     # Entry point
+│   ├── App.tsx      # Main App component
+│   └── main.tsx     # Entry point
 ├── .env
 ├── package.json
-└── vite.config.js
+└── vite.config.ts
 ```
 
 ## Available Pages

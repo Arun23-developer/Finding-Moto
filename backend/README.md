@@ -76,18 +76,26 @@ The server will run on `http://localhost:5000`
 ### Health Check
 - `GET /api/health` - Server health status
 
+### AI Endpoints (Protected)
+- `POST /api/ai/chat` - Existing AI assistant chat
+- `POST /api/ai/gemini/chat` - Gemini-powered contextual chat with role policy
+
 ## Project Structure
 
 ```
 backend/
-├── config/          # Configuration files
-├── controllers/     # Route controllers
-├── models/         # Mongoose models
-├── routes/         # API routes
-├── middleware/     # Custom middleware
-├── utils/          # Utility functions
-├── app.js          # Express app setup
-└── server.js       # Server entry point
+├── src/
+│   ├── config/      # Configuration files
+│   ├── controllers/ # Route controllers
+│   ├── middleware/  # Custom middleware
+│   ├── models/      # Mongoose models
+│   ├── routes/      # API routes
+│   ├── utils/       # Utility functions
+│   ├── app.ts       # Express app setup
+│   └── server.ts    # Server entry point
+├── scripts/         # Seed/backfill scripts
+├── uploads/         # Uploaded files
+└── dist/            # Compiled output
 ```
 
 ## Technologies

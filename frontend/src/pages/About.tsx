@@ -2,6 +2,7 @@ import React from "react";
 import { Header } from "../components/layout/Header";
 import { Footer } from "../components/layout/Footer";
 import { Button } from "../components/ui/button";
+import { Link } from "react-router-dom";
 import {
   Target,
   Users,
@@ -292,11 +293,11 @@ const About: React.FC = () => {
               there's a place for you at Finding Moto.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="accent" size="xl">
-                Get Started Today
+              <Button variant="accent" size="xl" asChild>
+                <Link to="/register">Get Started Today</Link>
               </Button>
-              <Button variant="outline" size="xl">
-                Contact Us
+              <Button variant="outline" size="xl" asChild>
+                <Link to="/contact">Contact Us</Link>
               </Button>
             </div>
           </div>

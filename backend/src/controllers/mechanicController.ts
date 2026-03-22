@@ -1,6 +1,9 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import Service from '../models/Service';
+import Product from '../models/Product';
+import Review from '../models/Review';
+import mongoose from 'mongoose';
 
 // @desc    Get mechanic profile
 // @route   GET /api/mechanic/profile
@@ -106,6 +109,68 @@ export const getOverview = async (req: AuthRequest, res: Response): Promise<void
     });
   } catch (err) {
     console.error('getOverview error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Get mechanic reviews summary
+// @route   GET /api/mechanic/reviews
+// @access  Private/Mechanic
+export const getMechanicReviews = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const mechanicId = req.user!._id as mongoose.Types.ObjectId;
+
+    const products = await Product.find({ seller: mechanicId }).select('_id name').lean();
+    const productIds = products.map((p) => p._id);
+    const productMap = new Map(products.map((p) => [p._id.toString(), p.name]));
+
+    const reviews = await Review.find({ productId: { $in: productIds } })
+      .sort({ createdAt: -1 })
+      .populate('buyer', 'firstName lastName avatar')
+      .lean();
+
+    const total = reviews.length;
+    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+    const average = total > 0 ? Math.round((sum / total) * 10) / 10 : 0;
+
+    const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    reviews.forEach((r) => {
+      dist[r.rating] = (dist[r.rating] || 0) + 1;
+    });
+
+    const distribution = [5, 4, 3, 2, 1].map((stars) => ({
+      stars,
+      count: dist[stars],
+      percentage: total > 0 ? Math.round((dist[stars] / total) * 100) : 0,
+    }));
+
+    const recommended = total > 0
+      ? Math.round(((dist[4] + dist[5]) / total) * 100)
+      : 0;
+
+    const enrichedReviews = reviews.map((r) => {
+      const buyer = r.buyer as unknown as { firstName?: string; lastName?: string } | null;
+      return {
+        _id: r._id,
+        productId: r.productId,
+        productName: productMap.get(r.productId.toString()) || 'Service',
+        rating: r.rating,
+        comment: r.comment,
+        createdAt: r.createdAt,
+        customerName: buyer ? `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() : 'Customer',
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        stats: { average, total, recommended },
+        distribution,
+        reviews: enrichedReviews,
+      },
+    });
+  } catch (err) {
+    console.error('getMechanicReviews error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

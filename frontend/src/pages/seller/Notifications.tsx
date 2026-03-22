@@ -24,21 +24,6 @@ interface Notification {
   read: boolean;
 }
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  { id: 1, type: "order", title: "New Order Received", message: "Kamal Perera placed an order for Brake Pad Set - Toyota (×2). Total: LKR 9,000", time: "2 minutes ago", read: false },
-  { id: 2, type: "order", title: "Order Confirmed", message: "Order #FM-2040 has been confirmed. Please prepare for shipment.", time: "1 hour ago", read: false },
-  { id: 3, type: "review", title: "New Review", message: "Ruwan Fernando left a 5-star review on Headlight Assembly: \"Amazing quality! Very bright and clear.\"", time: "3 hours ago", read: false },
-  { id: 4, type: "stock", title: "Low Stock Alert", message: "Air Filter - Suzuki Swift is now out of stock. Consider restocking to avoid missed sales.", time: "5 hours ago", read: false },
-  { id: 5, type: "order", title: "Order Delivered", message: "Order #FM-2038 has been successfully delivered to Saman Kumara.", time: "8 hours ago", read: true },
-  { id: 6, type: "system", title: "Profile Verified", message: "Congratulations! Your seller profile has been verified. You now have the verified seller badge.", time: "1 day ago", read: true },
-  { id: 7, type: "promotion", title: "Weekend Sale Reminder", message: "Don't forget to set up your weekend promotions. Sellers with active promotions get 40% more visibility.", time: "1 day ago", read: true },
-  { id: 8, type: "review", title: "New Review", message: "Mahesh Wijesinghe left a 5-star review on Clutch Kit - Nissan: \"Outstanding quality!\"", time: "2 days ago", read: true },
-  { id: 9, type: "stock", title: "Stock Running Low", message: "Timing Belt - Mitsubishi has only 5 units remaining. Consider restocking soon.", time: "2 days ago", read: true },
-  { id: 10, type: "order", title: "Order Cancelled", message: "Order #FM-2036 has been cancelled by Priya Mendis. Reason: Wrong item ordered.", time: "3 days ago", read: true },
-  { id: 11, type: "system", title: "Platform Update", message: "Finding Moto has added new AI-powered features for sellers. Check the AI Assistant tab for details.", time: "4 days ago", read: true },
-  { id: 12, type: "promotion", title: "Monthly Performance", message: "Your shop performance for January 2026: 42 orders fulfilled, LKR 284,500 revenue. Great job!", time: "5 days ago", read: true },
-];
-
 const typeConfig: Record<string, { icon: typeof Bell; color: string; bg: string }> = {
   order: { icon: ShoppingCart, color: "text-blue-600", bg: "bg-blue-600/10" },
   review: { icon: Star, color: "text-amber-600", bg: "bg-amber-600/10" },
@@ -51,7 +36,7 @@ type FilterType = "all" | "order" | "review" | "stock" | "system" | "promotion";
 
 // ─── Notifications Page ─────────────────────────────────────────────────────
 export default function SellerNotifications() {
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [filter, setFilter] = useState<FilterType>("all");
 
   const unreadCount = notifications.filter((n) => !n.read).length;

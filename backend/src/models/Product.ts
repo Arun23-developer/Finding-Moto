@@ -19,6 +19,7 @@ export interface IProduct extends Document {
   sales: number;
   sku?: string;
   type: ProductType;
+  embedding: number[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -90,6 +91,10 @@ const productSchema = new Schema<IProduct>(
       type: String,
       enum: ['product', 'service'],
       default: 'product',
+    },
+    embedding: {
+      type: [Number],
+      default: [],
     },
   },
   { timestamps: true }

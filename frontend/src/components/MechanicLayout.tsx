@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { resolveMediaUrl } from "@/lib/imageUrl";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/mechanic/dashboard" },
@@ -108,7 +109,11 @@ export function MechanicLayout({ children }: MechanicLayoutProps) {
           <div className="px-4 py-3 border-b border-[#2D3A42]">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center ring-2 ring-blue-500/30">
-                <span className="text-sm font-bold text-blue-400">{getInitials()}</span>
+                {user?.avatar ? (
+                  <img src={resolveMediaUrl(user.avatar, "https://placehold.co/80x80?text=M")} alt="Mechanic avatar" className="w-full h-full rounded-full object-cover" />
+                ) : (
+                  <span className="text-sm font-bold text-blue-400">{getInitials()}</span>
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-white truncate">
@@ -232,7 +237,11 @@ export function MechanicLayout({ children }: MechanicLayoutProps) {
                 className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-[#C0C0C0] transition-colors"
               >
                 <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                  <span className="text-xs font-bold text-blue-600">{getInitials()}</span>
+                  {user?.avatar ? (
+                    <img src={resolveMediaUrl(user.avatar, "https://placehold.co/80x80?text=M")} alt="Mechanic avatar" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    <span className="text-xs font-bold text-blue-600">{getInitials()}</span>
+                  )}
                 </div>
                 <div className="hidden sm:block text-left">
                   <p className="text-sm font-medium leading-none text-[#1F2937]">

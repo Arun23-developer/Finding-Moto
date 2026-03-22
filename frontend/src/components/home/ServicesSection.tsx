@@ -128,8 +128,8 @@ export const ServicesSection: React.FC = () => {
                   ))}
                 </div>
 
-                <Button variant="accent" className="w-full">
-                  Book Appointment
+                <Button variant="accent" className="w-full" asChild>
+                  <Link to="/services">Book Appointment</Link>
                 </Button>
               </div>
             </div>

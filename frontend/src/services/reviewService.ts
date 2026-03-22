@@ -8,6 +8,12 @@ export interface ReviewData {
 export interface Review {
   _id: string;
   productId: string;
+  buyer?: {
+    _id?: string;
+    firstName?: string;
+    lastName?: string;
+    avatar?: string | null;
+  };
   rating: number;
   comment: string;
   createdAt: string;
@@ -24,7 +30,13 @@ const addReview = async (productId: string, reviewData: ReviewData): Promise<Rev
   return response.data;
 };
 
+const getMyReviews = async (): Promise<Review[]> => {
+  const response = await api.get('/reviews/my');
+  return response.data;
+};
+
 export default {
   getReviews,
   addReview,
+  getMyReviews,
 };

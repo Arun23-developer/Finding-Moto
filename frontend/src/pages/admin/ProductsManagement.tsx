@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search, Package, Loader2, AlertCircle, RefreshCw, ImageIcon } from "lucide-react";
 import api from "@/services/api";
+import { resolveMediaUrl } from "@/lib/imageUrl";
 
 interface Product {
   _id: string;
@@ -130,7 +131,7 @@ export default function ProductsManagement() {
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center overflow-hidden">
                             {product.images?.[0] ? (
-                              <img src={product.images[0]} alt="" className="w-full h-full object-cover" />
+                              <img src={resolveMediaUrl(product.images[0], "https://placehold.co/80x80?text=Item")} alt="" className="w-full h-full object-cover" />
                             ) : (
                               <ImageIcon className="h-4 w-4 text-muted-foreground" />
                             )}

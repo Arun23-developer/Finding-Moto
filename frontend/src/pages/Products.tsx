@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
+import { resolveProductImage } from "@/lib/imageUrl";
+import { toast } from "@/hooks/use-toast";
 
 interface Product {
   _id: string;
@@ -51,6 +53,18 @@ const Products: React.FC = () => {
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("popular");
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [minPrice, setMinPrice] = useState<string>("");
+  const [maxPrice, setMaxPrice] = useState<string>("");
+  const [inStockOnly, setInStockOnly] = useState<boolean>(false);
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem("wishlistProductIds");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>(["All"]);
@@ -74,6 +88,10 @@ const Products: React.FC = () => {
       };
       if (searchQuery) params.search = searchQuery;
       if (selectedCategory !== "All") params.category = selectedCategory;
+      if (selectedBrands.length > 0) params.brand = selectedBrands[0];
+      if (minPrice) params.minPrice = minPrice;
+      if (maxPrice) params.maxPrice = maxPrice;
+      if (inStockOnly) params.inStockOnly = "true";
 
       const { data: res } = await api.get("/public/products", { params });
 
@@ -100,6 +118,38 @@ const Products: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, sortBy]);
 
+  useEffect(() => {
+    localStorage.setItem("wishlistProductIds", JSON.stringify(wishlist));
+  }, [wishlist]);
+
+  const toggleWishlist = (productId: string) => {
+    setWishlist((prev) => {
+      const exists = prev.includes(productId);
+      const next = exists ? prev.filter((id) => id !== productId) : [...prev, productId];
+      toast({
+        title: exists ? "Removed from wishlist" : "Added to wishlist",
+        description: exists ? "Product removed successfully." : "Product saved for later.",
+      });
+      return next;
+    });
+  };
+
+  const handleAddToCart = (product: Product) => {
+    navigate(`/products/${product._id}`);
+  };
+
+  const applyFilters = () => {
+    fetchProducts(1);
+  };
+
+  const toggleBrand = (brand: string, checked: boolean) => {
+    setSelectedBrands((prev) => {
+      if (!checked) return prev.filter((b) => b !== brand);
+      if (prev.includes(brand)) return prev;
+      return [brand];
+    });
+  };
+
   // Debounced search
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -108,13 +158,6 @@ const Products: React.FC = () => {
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
-
-  const getImageUrl = (product: Product): string => {
-    const img = product.image || product.images?.[0];
-    if (!img) return "https://placehold.co/400x400?text=No+Image";
-    if (img.startsWith("http")) return img;
-    return `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${img}`;
-  };
 
   return (
     <div className="page-shell">
@@ -211,7 +254,12 @@ const Products: React.FC = () => {
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {brands.map((brand) => (
                       <label key={brand} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="checkbox" className="rounded border-input" />
+                        <input
+                          type="checkbox"
+                          className="rounded border-input"
+                          checked={selectedBrands.includes(brand)}
+                          onChange={(e) => toggleBrand(brand, e.target.checked)}
+                        />
                         <span className="text-muted-foreground hover:text-foreground">{brand}</span>
                       </label>
                     ))}
@@ -221,16 +269,21 @@ const Products: React.FC = () => {
                 <div className="sidebar-panel">
                   <h3 className="font-semibold text-foreground mb-4">Price Range</h3>
                   <div className="flex items-center gap-2">
-                    <Input type="number" placeholder="Min" className="h-9" />
+                    <Input type="number" placeholder="Min" className="h-9" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
                     <span className="text-muted-foreground">-</span>
-                    <Input type="number" placeholder="Max" className="h-9" />
+                    <Input type="number" placeholder="Max" className="h-9" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
                   </div>
-                  <Button variant="outline" size="sm" className="w-full mt-3">Apply</Button>
+                  <Button variant="outline" size="sm" className="w-full mt-3" onClick={applyFilters}>Apply</Button>
                 </div>
 
                 <div className="sidebar-panel">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="rounded border-input" />
+                    <input
+                      type="checkbox"
+                      className="rounded border-input"
+                      checked={inStockOnly}
+                      onChange={(e) => setInStockOnly(e.target.checked)}
+                    />
                     <span className="text-sm text-foreground">In Stock Only</span>
                   </label>
                 </div>
@@ -276,7 +329,7 @@ const Products: React.FC = () => {
                     const discount = product.originalPrice
                       ? Math.round((1 - product.price / product.originalPrice) * 100)
                       : 0;
-                    const imgUrl = getImageUrl(product);
+                    const imgUrl = resolveProductImage(product, "https://placehold.co/400x400?text=No+Image");
 
                     if (viewMode === "list") {
                       return (
@@ -323,10 +376,10 @@ const Products: React.FC = () => {
                                   <MessageSquare className="h-4 w-4" />
                                 </Button>
                               )}
-                              <Button size="icon" variant="ghost" aria-label="Add to wishlist">
-                                <Heart className="h-4 w-4" />
+                              <Button size="icon" variant="ghost" aria-label="Add to wishlist" onClick={(e) => { e.stopPropagation(); toggleWishlist(product._id); }}>
+                                <Heart className={`h-4 w-4 ${wishlist.includes(product._id) ? "fill-current" : ""}`} />
                               </Button>
-                              <Button size="sm" variant="accent" disabled={!product.inStock}>
+                              <Button size="sm" variant="accent" disabled={!product.inStock} onClick={(e) => { e.stopPropagation(); handleAddToCart(product); }}>
                                 <ShoppingCart className="h-4 w-4 mr-1" />
                                 {product.inStock ? "Add" : "Out of Stock"}
                               </Button>
@@ -344,8 +397,15 @@ const Products: React.FC = () => {
                         {discount > 0 && (
                           <span className="absolute top-3 left-3 px-2 py-1 text-xs font-bold rounded bg-accent text-accent-foreground">-{discount}%</span>
                         )}
-                        <button className="absolute top-3 right-3 p-2 rounded-full bg-background/80 backdrop-blur hover:bg-accent hover:text-accent-foreground transition-colors" aria-label="Add to wishlist">
-                          <Heart className="h-4 w-4" />
+                        <button
+                          className="absolute top-3 right-3 p-2 rounded-full bg-background/80 backdrop-blur hover:bg-accent hover:text-accent-foreground transition-colors"
+                          aria-label="Add to wishlist"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleWishlist(product._id);
+                          }}
+                        >
+                          <Heart className={`h-4 w-4 ${wishlist.includes(product._id) ? "fill-current" : ""}`} />
                         </button>
                         {!product.inStock && (
                           <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center">
@@ -390,7 +450,16 @@ const Products: React.FC = () => {
                                 <MessageSquare className="h-4 w-4" />
                               </Button>
                             )}
-                            <Button size="sm" variant={product.inStock ? "accent" : "outline"} disabled={!product.inStock} className="gap-1">
+                            <Button
+                              size="sm"
+                              variant={product.inStock ? "accent" : "outline"}
+                              disabled={!product.inStock}
+                              className="gap-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddToCart(product);
+                              }}
+                            >
                               <ShoppingCart className="h-4 w-4" />
                               <span className="sr-only sm:not-sr-only">Add</span>
                             </Button>

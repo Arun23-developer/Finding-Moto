@@ -1,8 +1,10 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  Users,
+  Store,
+  Wrench,
   Package,
+  Briefcase,
   ShoppingCart,
   Bell,
   Mail,
@@ -19,8 +21,10 @@ import { useAuth } from "@/context/AuthContext";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/admin" },
-  { title: "Users", icon: Users, path: "/admin/users" },
+  { title: "Sellers", icon: Store, path: "/admin/users?tab=seller", basePath: "/admin/users", tab: "seller" },
+  { title: "Mechanics", icon: Wrench, path: "/admin/users?tab=mechanic", basePath: "/admin/users", tab: "mechanic" },
   { title: "Products", icon: Package, path: "/admin/products" },
+  { title: "Services", icon: Briefcase, path: "/admin/services" },
   { title: "Orders", icon: ShoppingCart, path: "/admin/orders" },
   { title: "Notifications", icon: Bell, path: "/admin/notifications" },
   { title: "Contacts", icon: Mail, path: "/admin/contacts" },
@@ -36,6 +40,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const currentTab = new URLSearchParams(location.search).get("tab");
+
+  const isItemActive = (item: typeof navItems[number]) => {
+    if (item.basePath) {
+      return location.pathname === item.basePath && currentTab === item.tab;
+    }
+    return location.pathname === item.path;
+  };
+
+  const activeTitle =
+    navItems.find((item) => isItemActive(item))?.title ||
+    (location.pathname === "/admin/users" ? "Users" : "Dashboard");
 
   const handleLogout = () => {
     logout();
@@ -63,10 +79,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <h1 className="text-lg font-bold text-sidebar-primary-foreground tracking-tight">
+              <h1 className="text-lg font-bold text-foreground tracking-tight">
                 Finding Moto
               </h1>
-              <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest">
+              <p className="text-[10px] text-sidebar-foreground uppercase tracking-widest">
                 Admin Panel
               </p>
             </div>
@@ -76,7 +92,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {/* Nav Items */}
         <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const isActive = isItemActive(item);
             return (
               <Link
                 key={item.path}
@@ -126,11 +142,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
-        <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-6 border-b border-border bg-background/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-6 border-b border-border bg-background/95 backdrop-blur-md">
           <div>
-            <h2 className="text-lg font-semibold">
-              {navItems.find((i) => i.path === location.pathname)?.title || "Dashboard"}
-            </h2>
+            <h2 className="text-lg font-semibold">{activeTitle}</h2>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">

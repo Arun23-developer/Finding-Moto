@@ -11,8 +11,14 @@ import {
   RotateCcw,
   Loader2,
   ChevronRight,
+  BarChart3,
+  ShieldCheck,
+  Star,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { askMechanicAIAssistant, MechanicAIReport } from "@/services/aiAssistantService";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface ChatMessage {
@@ -20,7 +26,16 @@ interface ChatMessage {
   role: "user" | "assistant";
   text: string;
   timestamp: Date;
+  report?: MechanicAIReport;
 }
+
+interface StoredMechanicImage {
+  dataUrl: string;
+  name: string;
+}
+
+const MECHANIC_AI_IMAGE_STORAGE_KEY = "mechanic-ai-pending-image";
+const MAX_IMAGE_FILE_SIZE = 6 * 1024 * 1024;
 
 // ─── Quick Action Suggestions ───────────────────────────────────────────────
 const quickActions = [
@@ -51,6 +66,25 @@ const quickActions = [
     prompt: "Explain the step-by-step process for replacing a motorcycle clutch kit",
     color: "text-emerald-600",
     bg: "bg-emerald-600/10 hover:bg-emerald-600/20",
+  },
+];
+
+const reportQuickActions = [
+  {
+    label: "Current Report",
+    prompt: "Generate my current mechanic report with jobs, services, revenue, and review summary.",
+  },
+  {
+    label: "Jobs Report",
+    prompt: "Generate current jobs report with total jobs, pending jobs, in-progress jobs, and completed jobs.",
+  },
+  {
+    label: "Revenue Report",
+    prompt: "Generate current revenue report with total revenue, monthly revenue, and average job value.",
+  },
+  {
+    label: "Review Report",
+    prompt: "Generate review report with total reviews and average rating.",
   },
 ];
 
@@ -208,32 +242,113 @@ function getAIResponse(prompt: string): string {
   return `Great question! Here are some thoughts:\n\n${aiResponses.tips}\n\nFeel free to ask about **repair diagnostics**, **service quotes**, or **technical guides** for more specific help!`;
 }
 
+const fmtCurrency = (value: number): string => `LKR ${Math.round(value).toLocaleString()}`;
+
 // ─── AI Chat Page ───────────────────────────────────────────────────────────
 export default function MechanicAIChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 0,
       role: "assistant",
-      text: "👋 Hello! I'm your AI workshop assistant. I can help you with:\n\n• **Repair diagnostics** for common vehicle issues\n• **Service quotes** and estimates\n• **Business tips** to grow your workshop\n• **Technical guides** for repair procedures\n\nTry one of the quick actions below, or ask me anything!",
+      text: "👋 Hello! I'm your AI workshop assistant.\n\nI can generate live reports for mechanics:\n• Current jobs status\n• Service and revenue summary\n• Review performance\n\nUse Report Actions for your real current workshop report.",
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [selectedImageDataUrl, setSelectedImageDataUrl] = useState<string | null>(null);
+  const [selectedImageName, setSelectedImageName] = useState<string>("");
+  const [imageError, setImageError] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = (text: string) => {
-    if (!text.trim() || isTyping) return;
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(MECHANIC_AI_IMAGE_STORAGE_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as StoredMechanicImage;
+      if (parsed?.dataUrl && parsed?.name) {
+        setSelectedImageDataUrl(parsed.dataUrl);
+        setSelectedImageName(parsed.name);
+      }
+    } catch (error) {
+      console.error("Failed to restore stored image:", error);
+      localStorage.removeItem(MECHANIC_AI_IMAGE_STORAGE_KEY);
+    }
+  }, []);
+
+  const clearSelectedImage = () => {
+    setSelectedImageDataUrl(null);
+    setSelectedImageName("");
+    setImageError("");
+    localStorage.removeItem(MECHANIC_AI_IMAGE_STORAGE_KEY);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleImagePick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setImageError("Please select a valid image file.");
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_FILE_SIZE) {
+      setImageError("Image is too large. Please use an image under 6MB.");
+      return;
+    }
+
+    setImageError("");
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : "";
+      if (!dataUrl) {
+        return;
+      }
+
+      setSelectedImageDataUrl(dataUrl);
+      setSelectedImageName(file.name);
+      try {
+        localStorage.setItem(
+          MECHANIC_AI_IMAGE_STORAGE_KEY,
+          JSON.stringify({ dataUrl, name: file.name } satisfies StoredMechanicImage)
+        );
+      } catch (error) {
+        console.error("Failed to persist selected image:", error);
+        setImageError("Image selected, but browser storage is full. You can still send this message.");
+      }
+    };
+    reader.onerror = () => {
+      console.error("Failed to read selected image");
+      setImageError("Failed to read this image. Please try another file.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const sendMessage = async (text: string) => {
+    if ((!text.trim() && !selectedImageDataUrl) || isTyping) return;
+
+    const normalizedText = text.trim() || "Analyze this motorcycle issue from the image and provide diagnosis, probable causes, and next repair steps.";
+    const userVisibleText = selectedImageName
+      ? `${normalizedText}\n\n[Image attached: ${selectedImageName}]`
+      : normalizedText;
 
     const userMsg: ChatMessage = {
       id: Date.now(),
       role: "user",
-      text: text.trim(),
+      text: userVisibleText,
       timestamp: new Date(),
     };
 
@@ -241,17 +356,32 @@ export default function MechanicAIChat() {
     setInput("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      const response = getAIResponse(text);
+    try {
+      const response = await askMechanicAIAssistant(normalizedText, {
+        imageDataUrl: selectedImageDataUrl || undefined,
+        productName: normalizedText,
+      });
       const aiMsg: ChatMessage = {
         id: Date.now() + 1,
         role: "assistant",
-        text: response,
+        text: response.answer,
+        timestamp: new Date(),
+        report: response.report,
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+    } catch (error: any) {
+      const fallback = getAIResponse(text);
+      const serverMsg = error?.message || 'Live AI is temporarily unavailable.';
+      const aiMsg: ChatMessage = {
+        id: Date.now() + 1,
+        role: "assistant",
+        text: `${fallback}\n\n(${serverMsg})`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, aiMsg]);
+    } finally {
       setIsTyping(false);
-    }, 1200);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -270,6 +400,7 @@ export default function MechanicAIChat() {
         timestamp: new Date(),
       },
     ]);
+    clearSelectedImage();
   };
 
   return (
@@ -282,7 +413,7 @@ export default function MechanicAIChat() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">AI Workshop Assistant</h1>
-            <p className="text-sm text-muted-foreground">Powered by AI - Get smart diagnostics and business tips</p>
+            <p className="text-sm text-muted-foreground">Mechanic-only AI with live workshop reports and diagnostics</p>
           </div>
         </div>
         <button
@@ -320,6 +451,39 @@ export default function MechanicAIChat() {
                         : "bg-muted rounded-bl-md"
                     )}
                   >
+                    {msg.role === "assistant" && msg.report && (
+                      <div className="mb-3 rounded-xl border border-amber-200 bg-white p-3 text-slate-800">
+                        <div className="flex items-center gap-2 mb-2">
+                          <BarChart3 className="h-4 w-4 text-amber-600" />
+                          <p className="text-xs font-semibold text-amber-700">Current Mechanic Report</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                          <div className="rounded-md bg-amber-50 px-2 py-1.5">Total Jobs: <strong>{msg.report.totalJobs}</strong></div>
+                          <div className="rounded-md bg-amber-50 px-2 py-1.5">Pending: <strong>{msg.report.pendingJobs}</strong></div>
+                          <div className="rounded-md bg-blue-50 px-2 py-1.5">In Progress: <strong>{msg.report.inProgressJobs}</strong></div>
+                          <div className="rounded-md bg-blue-50 px-2 py-1.5">Completed: <strong>{msg.report.completedJobs}</strong></div>
+                          <div className="rounded-md bg-emerald-50 px-2 py-1.5">Revenue: <strong>{fmtCurrency(msg.report.totalRevenue)}</strong></div>
+                          <div className="rounded-md bg-emerald-50 px-2 py-1.5">This Month: <strong>{fmtCurrency(msg.report.monthlyRevenue)}</strong></div>
+                          <div className="rounded-md bg-violet-50 px-2 py-1.5">Services: <strong>{msg.report.totalServices}</strong></div>
+                          <div className="rounded-md bg-violet-50 px-2 py-1.5">Rating: <strong>{msg.report.averageRating}/5</strong></div>
+                        </div>
+
+                        {msg.report.topRequestedServices.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-[11px] font-semibold text-slate-700 mb-1">Top Requested Services</p>
+                            <div className="space-y-1">
+                              {msg.report.topRequestedServices.slice(0, 3).map((item) => (
+                                <div key={item.name} className="flex justify-between text-[10px] rounded bg-slate-50 px-2 py-1">
+                                  <span className="truncate pr-2">{item.name}</span>
+                                  <span className="font-semibold">Req {item.requests}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="whitespace-pre-wrap leading-relaxed">
                       {msg.text.split(/(\*\*.*?\*\*)/g).map((part, i) => {
                         if (part.startsWith("**") && part.endsWith("**")) {
@@ -380,30 +544,84 @@ export default function MechanicAIChat() {
                     </button>
                   ))}
                 </div>
+
+                <p className="text-xs text-muted-foreground mt-3 mb-2 font-medium">Report Actions (Mechanic Only)</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {reportQuickActions.map((action) => (
+                    <button
+                      key={action.label}
+                      onClick={() => sendMessage(action.prompt)}
+                      className="flex items-center gap-2 p-3 rounded-xl text-left text-sm font-medium transition-all bg-slate-100 hover:bg-slate-200"
+                    >
+                      <BarChart3 className="h-4 w-4 text-slate-700" />
+                      <span>{action.label}</span>
+                      <ChevronRight className="h-3 w-3 ml-auto opacity-50" />
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
             {/* Input */}
             <div className="p-4 border-t border-border">
+              {selectedImageDataUrl && (
+                <div className="mb-3 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <img src={selectedImageDataUrl} alt="Selected upload" className="h-10 w-10 rounded object-cover border border-amber-200" />
+                    <div className="truncate">
+                      <p className="font-medium text-amber-900 truncate">{selectedImageName}</p>
+                      <p className="text-amber-700">Image ready for AI diagnosis</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearSelectedImage}
+                    className="rounded p-1 text-amber-700 hover:bg-amber-100"
+                    aria-label="Remove selected image"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImagePick}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isTyping}
+                  className="p-2.5 rounded-xl border border-input bg-background hover:bg-muted transition-colors disabled:opacity-50"
+                  title="Attach workshop image"
+                >
+                  <ImagePlus className="h-4 w-4" />
+                </button>
                 <input
                   ref={inputRef}
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ask about diagnostics, service quotes, technical guides..."
+                  placeholder="Ask about diagnostics, service quotes, reports, technical guides..."
                   disabled={isTyping}
                   className="flex-1 px-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50"
                 />
                 <button
                   onClick={() => sendMessage(input)}
-                  disabled={!input.trim() || isTyping}
+                  disabled={(!input.trim() && !selectedImageDataUrl) || isTyping}
                   className="p-2.5 rounded-xl bg-amber-600 text-white hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-amber-600/25"
                 >
                   <Send className="h-4 w-4" />
                 </button>
               </div>
+              {imageError && (
+                <p className="text-[11px] text-red-500 mt-2 text-center">{imageError}</p>
+              )}
               <p className="text-[10px] text-muted-foreground mt-2 text-center">
                 AI responses are for guidance only. Always verify diagnostics with hands-on inspection.
               </p>
@@ -413,6 +631,20 @@ export default function MechanicAIChat() {
 
         {/* Sidebar - Suggestions */}
         <div className="space-y-4">
+          <Card className="glass-card border-amber-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-amber-600" /> Mechanic Report Mode
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-xs text-muted-foreground">
+              <p className="rounded-lg bg-amber-50 text-amber-700 px-3 py-2">Reports are generated only for mechanic accounts using current workshop data.</p>
+              <div className="flex items-center gap-2"><BarChart3 className="h-3.5 w-3.5 text-amber-600" /> Jobs and revenue metrics</div>
+              <div className="flex items-center gap-2"><Wrench className="h-3.5 w-3.5 text-blue-600" /> Active service overview</div>
+              <div className="flex items-center gap-2"><Star className="h-3.5 w-3.5 text-violet-600" /> Review performance</div>
+            </CardContent>
+          </Card>
+
           <Card className="glass-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -421,6 +653,8 @@ export default function MechanicAIChat() {
             </CardHeader>
             <CardContent className="space-y-2">
               {[
+                "Generate my current mechanic report",
+                "Give me jobs and revenue report now",
                 "Diagnose unusual engine noise on a Yamaha FZ",
                 "How to fix a motorcycle electrical short circuit?",
                 "Service quote for brake pad replacement",

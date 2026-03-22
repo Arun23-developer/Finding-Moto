@@ -157,6 +157,7 @@ export const getPublicProduct = async (req: Request, res: Response): Promise<voi
     const reviews = await Review.find({ productId: id })
       .sort({ createdAt: -1 })
       .limit(20)
+      .populate('buyer', 'firstName lastName avatar')
       .lean();
 
     const reviewStats = await Review.aggregate([

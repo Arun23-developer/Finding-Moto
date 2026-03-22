@@ -73,82 +73,6 @@ const statusIcons: Record<string, React.ReactNode> = {
   Cancelled: <span className="h-3 w-3">✕</span>,
 };
 
-// ─── Mock Fallback Data ────────────────────────────────────────────────────
-const MOCK_STATS: DashboardStats = {
-  revenue: 387500,
-  totalOrders: 48,
-  pendingOrders: 6,
-  deliveredOrders: 31,
-  totalProducts: 24,
-  activeProducts: 19,
-  totalViews: 1243,
-};
-
-const MOCK_RECENT_ORDERS: RecentOrder[] = [
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d001",
-    buyer: { name: "Kavindu Perera", email: "kavindu@gmail.com" },
-    items: [{ name: "Honda CB Hornet Brake Pad Set" }],
-    totalAmount: 7000,
-    status: "pending",
-    createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
-  },
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d002",
-    buyer: { name: "Nimal Fernando", email: "nimal.f@gmail.com" },
-    items: [{ name: "Yamaha FZ Chain Sprocket Kit" }],
-    totalAmount: 8400,
-    status: "pending",
-    createdAt: new Date(Date.now() - 5 * 3600000).toISOString(),
-  },
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d003",
-    buyer: { name: "Sanjay Wickrama", email: "sanjay.w@hotmail.com" },
-    items: [{ name: "Bajaj Pulsar 150 Air Filter" }],
-    totalAmount: 950,
-    status: "confirmed",
-    createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
-  },
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d004",
-    buyer: { name: "Tharushi Silva", email: "tharushi@yahoo.com" },
-    items: [{ name: "TVS Apache RTR 160 Clutch Cable" }],
-    totalAmount: 6250,
-    status: "shipped",
-    createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-  },
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d005",
-    buyer: { name: "Ruwan Jayasuriya", email: "ruwan.j@gmail.com" },
-    items: [{ name: "Full-Face Helmet (Matte Black)" }],
-    totalAmount: 8500,
-    status: "delivered",
-    createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-  },
-];
-
-const MOCK_TOP_PRODUCTS: TopProduct[] = [
-  { name: "Honda CB Hornet Brake Pad Set", category: "Brake Parts", sales: 42, price: 3500, stock: 18 },
-  { name: "Engine Oil 10W-40 (1L)", category: "Lubricants", sales: 36, price: 1200, stock: 45 },
-  { name: "Full-Face Helmet (Matte Black)", category: "Riding Gear", sales: 28, price: 8500, stock: 7 },
-  { name: "LED Headlight Bulb H4", category: "Lighting", sales: 23, price: 2800, stock: 3 },
-  { name: "Yamaha FZ Chain Sprocket Kit", category: "Transmission", sales: 19, price: 4800, stock: 0 },
-];
-
-const generateMockWeeklySales = (): WeeklySale[] => {
-  const sales: WeeklySale[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    sales.push({
-      _id: d.toISOString().split('T')[0],
-      revenue: Math.floor(Math.random() * 25000) + 5000,
-      orders: Math.floor(Math.random() * 8) + 1,
-    });
-  }
-  return sales;
-};
-
 export default function SellerDashboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -172,28 +96,22 @@ export default function SellerDashboard() {
         const s = overviewRes.data.data.stats;
         const ro = overviewRes.data.data.recentOrders;
         const tp = overviewRes.data.data.topProducts;
-        // Use real data if it exists, otherwise use mock data
-        setStats(s && s.totalOrders > 0 ? s : MOCK_STATS);
-        setRecentOrders(ro && ro.length > 0 ? ro : MOCK_RECENT_ORDERS);
-        setTopProducts(tp && tp.length > 0 ? tp : MOCK_TOP_PRODUCTS);
+        setStats(s || null);
+        setRecentOrders(ro || []);
+        setTopProducts(tp || []);
       } else {
-        setStats(MOCK_STATS);
-        setRecentOrders(MOCK_RECENT_ORDERS);
-        setTopProducts(MOCK_TOP_PRODUCTS);
+        setStats(null);
+        setRecentOrders([]);
+        setTopProducts([]);
       }
 
-      if (analyticsRes.data.success && analyticsRes.data.data.dailyRevenue?.length > 0) {
-        setWeeklySales(analyticsRes.data.data.dailyRevenue);
-      } else {
-        setWeeklySales(generateMockWeeklySales());
-      }
+      setWeeklySales(analyticsRes.data.success ? (analyticsRes.data.data.dailyRevenue || []) : []);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
-      // Fallback to mock data on error
-      setStats(MOCK_STATS);
-      setRecentOrders(MOCK_RECENT_ORDERS);
-      setTopProducts(MOCK_TOP_PRODUCTS);
-      setWeeklySales(generateMockWeeklySales());
+      setStats(null);
+      setRecentOrders([]);
+      setTopProducts([]);
+      setWeeklySales([]);
     } finally {
       setLoading(false);
     }

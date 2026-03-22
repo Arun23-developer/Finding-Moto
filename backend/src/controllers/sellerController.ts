@@ -177,10 +177,13 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        avatar: (user as unknown as Record<string, unknown>).avatar,
         phone: (user as unknown as Record<string, unknown>).phone,
         shopName: (user as unknown as Record<string, unknown>).shopName,
         shopDescription: (user as unknown as Record<string, unknown>).shopDescription,
         shopLocation: (user as unknown as Record<string, unknown>).shopLocation,
+        sellerSpecializations: (user as unknown as Record<string, unknown>).sellerSpecializations,
+        sellerBrands: (user as unknown as Record<string, unknown>).sellerBrands,
         role: user.role,
         createdAt: (user as unknown as Record<string, unknown>).createdAt,
       },
@@ -194,7 +197,7 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
 export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = req.user!;
-    const { name, firstName, lastName, phone, shopName, shopDescription, shopLocation } = req.body;
+    const { name, firstName, lastName, phone, shopName, shopDescription, shopLocation, sellerSpecializations, sellerBrands } = req.body;
 
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
@@ -209,6 +212,8 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
     if (shopName !== undefined) userRecord.shopName = shopName;
     if (shopDescription !== undefined) userRecord.shopDescription = shopDescription;
     if (shopLocation !== undefined) userRecord.shopLocation = shopLocation;
+    if (sellerSpecializations !== undefined) userRecord.sellerSpecializations = Array.isArray(sellerSpecializations) ? sellerSpecializations : [];
+    if (sellerBrands !== undefined) userRecord.sellerBrands = Array.isArray(sellerBrands) ? sellerBrands : [];
 
     await (user as unknown as { save(): Promise<unknown> }).save();
 

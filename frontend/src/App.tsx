@@ -42,6 +42,7 @@ import { MechanicLayout } from './components/MechanicLayout';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminUsersManagement from './pages/admin/UsersManagement';
 import AdminProductsManagement from './pages/admin/ProductsManagement';
+import AdminServicesManagement from './pages/admin/ServicesManagement';
 import AdminOrdersManagement from './pages/admin/OrdersManagement';
 import AdminNotifications from './pages/admin/Notifications';
 import AdminContactManagement from './pages/admin/ContactManagement';
@@ -116,7 +117,7 @@ export const RoleRoute: React.FC<RoleRouteProps> = ({ children, roles }) => {
   return <>{children}</>;
 };
 
-function App() {
+const App = (): JSX.Element => {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <AuthProvider>
@@ -268,6 +269,13 @@ function App() {
                 <RoleRoute roles={['admin']}>
                   <AdminLayout>
                     <AdminProductsManagement />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/services" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminServicesManagement />
                   </AdminLayout>
                 </RoleRoute>
               } />

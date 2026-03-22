@@ -30,6 +30,8 @@ export interface IUser extends Document {
   shopName?: string;
   shopDescription?: string;
   shopLocation?: string;
+  sellerSpecializations?: string[];
+  sellerBrands?: string[];
   // Mechanic-specific fields
   specialization?: string;
   experienceYears?: number;
@@ -134,6 +136,14 @@ const userSchema = new Schema<IUser>(
       type: String,
       trim: true,
       default: null
+    },
+    sellerSpecializations: {
+      type: [String],
+      default: [],
+    },
+    sellerBrands: {
+      type: [String],
+      default: [],
     },
     // Mechanic-specific fields
     specialization: {

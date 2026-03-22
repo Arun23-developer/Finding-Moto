@@ -2,6 +2,7 @@ import mongoose, { Document, Schema, Types } from 'mongoose';
 
 export interface IReview extends Document {
   productId: Types.ObjectId;
+  buyer: Types.ObjectId;
   rating: number;
   comment: string;
   createdAt: Date;
@@ -15,6 +16,11 @@ const reviewSchema = new Schema<IReview>(
       required: true,
       ref: 'Product',
     },
+    buyer: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: 'User',
+    },
     rating: {
       type: Number,
       required: true,
@@ -27,6 +33,17 @@ const reviewSchema = new Schema<IReview>(
     },
   },
   { timestamps: true }
+);
+
+reviewSchema.index(
+  { productId: 1, buyer: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      productId: { $exists: true },
+      buyer: { $exists: true },
+    },
+  }
 );
 
 const Review = mongoose.model<IReview>('Review', reviewSchema);

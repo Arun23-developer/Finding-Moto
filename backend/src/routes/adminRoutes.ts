@@ -10,6 +10,7 @@ import {
   getAdminOverview,
   getAdminProducts,
   getAdminOrders,
+  getAdminServices,
 } from '../controllers/adminController';
 
 const router = express.Router();
@@ -24,6 +25,7 @@ router.get('/overview', getAdminOverview);
 // Products & Orders (admin-level, no seller filter)
 router.get('/products', getAdminProducts);
 router.get('/orders', getAdminOrders);
+router.get('/services', getAdminServices);
 
 // User management
 router.get('/pending', getPendingApprovals);

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { askAIAssistant } from "@/services/aiAssistantService";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface ChatMessage {
@@ -198,18 +199,29 @@ export default function BuyerAIChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = (text: string) => {
+  const sendMessage = async (text: string) => {
     if (!text.trim() || isTyping) return;
     const userMsg: ChatMessage = { id: Date.now(), role: "user", text: text.trim(), timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      const aiMsg: ChatMessage = { id: Date.now() + 1, role: "assistant", text: getAIResponse(text), timestamp: new Date() };
+    try {
+      const response = await askAIAssistant(text.trim(), "buyer");
+      const aiMsg: ChatMessage = { id: Date.now() + 1, role: "assistant", text: response, timestamp: new Date() };
       setMessages(prev => [...prev, aiMsg]);
+    } catch (error: any) {
+      const serverMsg = error?.message || 'Live AI is temporarily unavailable.';
+      const aiMsg: ChatMessage = {
+        id: Date.now() + 1,
+        role: "assistant",
+        text: `${getAIResponse(text)}\n\n(${serverMsg})`,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, aiMsg]);
+    } finally {
       setIsTyping(false);
-    }, 1200);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

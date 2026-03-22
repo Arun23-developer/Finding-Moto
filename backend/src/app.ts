@@ -15,6 +15,7 @@ import adminRoutes from './routes/adminRoutes';
 import reviewRoutes from './routes/reviewRoutes';
 import publicRoutes from './routes/publicRoutes';
 import chatRoutes from './routes/chatRoutes';
+import aiRoutes from './routes/aiRoutes';
 
 const app: Application = express();
 
@@ -23,15 +24,15 @@ app.use(cors({
   origin: [config.clientUrl, 'http://localhost:8080', 'http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '12mb' }));
+app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 
 if (config.nodeEnv === 'development') {
   app.use(morgan('dev'));
 }
 
 // Serve uploaded images as static files
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '..', '..', 'uploads')));
 
 // Routes
 app.use('/api/public', publicRoutes);       // Public — No auth required (products/mechanics browsing)
@@ -43,6 +44,7 @@ app.use('/api/orders', orderRoutes);       // Saran  — Order Management
 app.use('/api/admin', adminRoutes);        // Sujani — Admin Dashboard
 app.use('/api/reviews', reviewRoutes);     // Sivaganga — Rating & Review
 app.use('/api/chat', chatRoutes);          // Chat — Real-time messaging
+app.use('/api/ai', aiRoutes);              // AI assistant — Gemini-powered
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

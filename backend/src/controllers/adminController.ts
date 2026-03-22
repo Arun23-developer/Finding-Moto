@@ -7,6 +7,7 @@ import { AuthRequest } from '../middleware/auth';
 import User from '../models/User';
 import Product from '../models/Product';
 import Order from '../models/Order';
+import Service from '../models/Service';
 import { sendApprovalEmail } from '../utils/email';
 
 // Helper: format user for responses
@@ -382,6 +383,39 @@ export const getAdminOrders = async (
     res.json({ success: true, data: result, count: result.length });
   } catch (err) {
     console.error('getAdminOrders error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ─── Admin — All Services ──────────────────────────────────────────────────
+
+export const getAdminServices = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { search, active } = req.query;
+    const filter: Record<string, unknown> = {};
+
+    if (active === 'true') filter.active = true;
+    if (active === 'false') filter.active = false;
+
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { category: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const services = await Service.find(filter)
+      .sort({ createdAt: -1 })
+      .populate('mechanic', 'firstName lastName workshopName')
+      .lean();
+
+    res.json({ success: true, data: services, count: services.length });
+  } catch (err) {
+    console.error('getAdminServices error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
