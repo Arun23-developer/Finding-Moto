@@ -1,33 +1,26 @@
-import mongoose, { Document, Schema, Types } from "mongoose";
+import mongoose, { Document, Schema } from "mongoose";
 
 export interface IReview extends Document {
-  productId: Types.ObjectId;
-  userId: Types.ObjectId;   //  added
-  userName: string;
+  productId: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
   rating: number;
   comment: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const reviewSchema = new Schema<IReview>(
+const ReviewSchema: Schema = new Schema(
   {
     productId: {
-      type: Schema.Types.ObjectId,
-      required: true,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
+      required: true,
     },
 
-    userId: {                         //  NEW FIELD
-      type: Schema.Types.ObjectId,
-      required: true,
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-    },
-
-    userName: {
-      type: String,
       required: true,
-      trim: true,
     },
 
     rating: {
@@ -44,10 +37,11 @@ const reviewSchema = new Schema<IReview>(
     },
   },
   {
-    timestamps: true,
+    timestamps: true, // createdAt, updatedAt auto வரும்
   }
 );
 
-const Review = mongoose.model<IReview>("Review", reviewSchema);
+// 🔥 ஒரே user ஒரே productக்கு ஒரு review மட்டும்
+ReviewSchema.index({ productId: 1, userId: 1 }, { unique: true });
 
-export default Review;
+export default mongoose.model<IReview>("Review", ReviewSchema);

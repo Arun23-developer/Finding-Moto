@@ -2,110 +2,106 @@ import { Request, Response } from "express";
 import Review from "../models/Review";
 import mongoose from "mongoose";
 
-//  Add Review (with user + duplicate check)
-export const addReview = async (req: Request, res: Response): Promise<void> => {
+// ✅ CREATE REVIEW
+export const createReview = async (req: Request, res: Response) => {
   try {
-    const { rating, comment, userId, userName } = req.body;
-    const { productId } = req.params;
+    const { productId, rating, comment } = req.body;
 
-    //  validation
     if (!rating || rating < 1 || rating > 5) {
-      res.status(400).json({ message: "Rating must be between 1 and 5" });
-      return;
+      return res.status(400).json({ message: "Invalid rating" });
     }
 
-    //  check duplicate review
-    const existing = await Review.findOne({ productId, userId });
-    if (existing) {
-      res.status(400).json({ message: "You already reviewed this product" });
-      return;
-    }
-
-    const newReview = new Review({
+    const review = new Review({
       productId,
-      userId,
-      userName,
+      userId: req.user.id,
       rating,
       comment,
     });
 
-    const savedReview = await newReview.save();
-    res.status(201).json(savedReview);
+    await review.save();
+    res.status(201).json(review);
   } catch (error) {
-    res.status(500).json({ message: "Error adding review", error });
+    res.status(500).json({ message: "Error creating review" });
   }
 };
 
-
-//  Get Reviews + Average Rating
-export const getReviews = async (req: Request, res: Response): Promise<void> => {
+// ✅ GET REVIEWS BY PRODUCT
+export const getReviewsByProduct = async (req: Request, res: Response) => {
   try {
     const { productId } = req.params;
 
-    const reviews = await Review.find({ productId }).sort({
-      createdAt: -1,
-    });
+    const reviews = await Review.find({ productId })
+      .populate("userId", "name")
+      .sort({ createdAt: -1 });
 
-    //  calculate average rating
-    const avgRating =
-      reviews.length > 0
-        ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
-        : 0;
-
-    res.json({
-      reviews,
-      averageRating: avgRating,
-      totalReviews: reviews.length,
-    });
+    res.json(reviews);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching reviews", error });
+    res.status(500).json({ message: "Error fetching reviews" });
   }
 };
 
-
-// Delete Review
-export const deleteReview = async (req: Request, res: Response): Promise<void> => {
+// ✅ UPDATE REVIEW
+export const updateReview = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-
-    const review = await Review.findByIdAndDelete(id);
+    const review = await Review.findById(req.params.id);
 
     if (!review) {
-      res.status(404).json({ message: "Review not found" });
-      return;
+      return res.status(404).json({ message: "Review not found" });
     }
 
-    res.json({ message: "Review deleted successfully" });
+    // Only owner can update
+    if (review.userId.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    review.rating = req.body.rating || review.rating;
+    review.comment = req.body.comment || review.comment;
+
+    await review.save();
+    res.json(review);
   } catch (error) {
-    res.status(500).json({ message: "Error deleting review", error });
+    res.status(500).json({ message: "Error updating review" });
   }
 };
 
-
-//  Update Review (EDIT feature )
-export const updateReview = async (req: Request, res: Response): Promise<void> => {
+// ✅ DELETE REVIEW
+export const deleteReview = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const { rating, comment } = req.body;
+    const review = await Review.findById(req.params.id);
 
-    if (rating && (rating < 1 || rating > 5)) {
-      res.status(400).json({ message: "Invalid rating" });
-      return;
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
     }
 
-    const updated = await Review.findByIdAndUpdate(
-      id,
-      { rating, comment },
-      { new: true }
-    );
-
-    if (!updated) {
-      res.status(404).json({ message: "Review not found" });
-      return;
-    }
-
-    res.json(updated);
+    await review.deleteOne();
+    res.json({ message: "Review deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Error updating review", error });
+    res.status(500).json({ message: "Error deleting review" });
+  }
+};
+
+// ✅ GET AVERAGE RATING
+export const getAverageRating = async (req: Request, res: Response) => {
+  try {
+    const { productId } = req.params;
+
+    const result = await Review.aggregate([
+      {
+        $match: {
+          productId: new mongoose.Types.ObjectId(productId),
+        },
+      },
+      {
+        $group: {
+          _id: "$productId",
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]);
+
+    res.json(result[0] || { averageRating: 0, totalReviews: 0 });
+  } catch (error) {
+    res.status(500).json({ message: "Error calculating rating" });
   }
 };
