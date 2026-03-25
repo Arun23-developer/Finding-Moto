@@ -47,13 +47,98 @@ const sortOptions: { label: string; value: string }[] = [
   { label: "Best Rating", value: "rating" },
 ];
 
+const CATEGORY_TREE: Array<{ value: string; label: string; children: Array<{ value: string; label: string }> }> = [
+  {
+    value: "engine_system",
+    label: "Engine System",
+    children: [
+      { value: "engine_system/piston", label: "Piston" },
+      { value: "engine_system/cylinder_block", label: "Cylinder Block" },
+      { value: "engine_system/crankshaft", label: "Crankshaft" },
+      { value: "engine_system/camshaft", label: "Camshaft" },
+      { value: "engine_system/spark_plug", label: "Spark Plug" },
+    ],
+  },
+  {
+    value: "fuel_system",
+    label: "Fuel System",
+    children: [
+      { value: "fuel_system/fuel_injector", label: "Fuel Injector" },
+      { value: "fuel_system/fuel_tank", label: "Fuel Tank" },
+      { value: "fuel_system/fuel_pump", label: "Fuel Pump" },
+      { value: "fuel_system/fuel_filter", label: "Fuel Filter" },
+    ],
+  },
+  {
+    value: "brake_system",
+    label: "Brake System",
+    children: [
+      { value: "brake_system/brake_disc", label: "Brake Disc" },
+      { value: "brake_system/brake_pad", label: "Brake Pad" },
+      { value: "brake_system/brake_caliper", label: "Brake Caliper" },
+    ],
+  },
+  {
+    value: "transmission_system",
+    label: "Transmission System",
+    children: [
+      { value: "transmission_system/clutch_plate", label: "Clutch Plate" },
+      { value: "transmission_system/chain_sprocket", label: "Chain Sprocket" },
+      { value: "transmission_system/drive_chain", label: "Drive Chain" },
+    ],
+  },
+  {
+    value: "suspension_system",
+    label: "Suspension System",
+    children: [
+      { value: "suspension_system/front_fork", label: "Front Fork" },
+      { value: "suspension_system/rear_shock_absorber", label: "Rear Shock Absorber" },
+      { value: "suspension_system/swing_arm", label: "Swing Arm" },
+    ],
+  },
+  {
+    value: "electrical_system",
+    label: "Electrical System",
+    children: [
+      { value: "electrical_system/battery", label: "Battery" },
+      { value: "electrical_system/headlight", label: "Headlight" },
+      { value: "electrical_system/ecu", label: "ECU" },
+      { value: "electrical_system/starter_motor", label: "Starter Motor" },
+      { value: "electrical_system/wiring_harness", label: "Wiring Harness" },
+      { value: "electrical_system/indicators", label: "Indicators" },
+    ],
+  },
+  {
+    value: "body_parts",
+    label: "Body Parts",
+    children: [
+      { value: "body_parts/seat", label: "Seat" },
+      { value: "body_parts/mirrors", label: "Mirrors" },
+      { value: "body_parts/mudguard", label: "Mudguard" },
+      { value: "body_parts/side_panel", label: "Side Panel" },
+      { value: "body_parts/number_plate_holder", label: "Number Plate Holder" },
+    ],
+  },
+  {
+    value: "wheels",
+    label: "Wheels",
+    children: [
+      { value: "wheels/tyre", label: "Tyre" },
+      { value: "wheels/rim", label: "Rim" },
+      { value: "wheels/spokes", label: "Spokes" },
+    ],
+  },
+];
+
 const Products: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("popular");
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedBrand, setSelectedBrand] = useState<string>("All Brands");
+  const [brandSearchQuery, setBrandSearchQuery] = useState<string>("");
+  const [categorySearchQuery, setCategorySearchQuery] = useState<string>("");
   const [minPrice, setMinPrice] = useState<string>("");
   const [maxPrice, setMaxPrice] = useState<string>("");
   const [inStockOnly, setInStockOnly] = useState<boolean>(false);
@@ -88,7 +173,7 @@ const Products: React.FC = () => {
       };
       if (searchQuery) params.search = searchQuery;
       if (selectedCategory !== "All") params.category = selectedCategory;
-      if (selectedBrands.length > 0) params.brand = selectedBrands[0];
+      if (selectedBrand && selectedBrand !== "All Brands") params.brand = selectedBrand;
       if (minPrice) params.minPrice = minPrice;
       if (maxPrice) params.maxPrice = maxPrice;
       if (inStockOnly) params.inStockOnly = "true";
@@ -116,7 +201,7 @@ const Products: React.FC = () => {
   useEffect(() => {
     fetchProducts(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory, sortBy]);
+  }, [selectedCategory, sortBy, selectedBrand]);
 
   useEffect(() => {
     localStorage.setItem("wishlistProductIds", JSON.stringify(wishlist));
@@ -142,13 +227,39 @@ const Products: React.FC = () => {
     fetchProducts(1);
   };
 
-  const toggleBrand = (brand: string, checked: boolean) => {
-    setSelectedBrands((prev) => {
-      if (!checked) return prev.filter((b) => b !== brand);
-      if (prev.includes(brand)) return prev;
-      return [brand];
-    });
+  const handleBrandSelect = (brand: string) => {
+    setSelectedBrand(brand);
   };
+
+  const filteredBrands = brands.filter((brand) =>
+    brand.toLowerCase().includes(brandSearchQuery.toLowerCase())
+  );
+
+  const q = categorySearchQuery.trim().toLowerCase();
+  const filteredCategoryTree = CATEGORY_TREE
+    .map((group) => {
+      const groupMatches =
+        group.label.toLowerCase().includes(q) || group.value.toLowerCase().includes(q);
+      const children = group.children.filter(
+        (child) =>
+          child.label.toLowerCase().includes(q) || child.value.toLowerCase().includes(q)
+      );
+      if (!q || groupMatches) {
+        return { ...group, children: group.children };
+      }
+      if (children.length > 0) {
+        return { ...group, children };
+      }
+      return null;
+    })
+    .filter((group): group is { value: string; label: string; children: Array<{ value: string; label: string }> } => group !== null);
+
+  const knownCategoryValues = new Set(
+    CATEGORY_TREE.flatMap((group) => [group.value, ...group.children.map((child) => child.value)])
+  );
+  const extraCategories = categories
+    .filter((c) => c !== "All" && !knownCategoryValues.has(c));
+  const filteredExtraCategories = extraCategories.filter((c) => c.toLowerCase().includes(q));
 
   // Debounced search
   useEffect(() => {
@@ -232,8 +343,55 @@ const Products: React.FC = () => {
               <div className="sticky top-24 space-y-6">
                 <div className="sidebar-panel">
                   <h3 className="font-semibold text-foreground mb-4">Categories</h3>
-                  <div className="space-y-2">
-                    {categories.map((category) => (
+                  <Input
+                    type="text"
+                    placeholder="Search category..."
+                    className="h-9 mb-3"
+                    value={categorySearchQuery}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCategorySearchQuery(e.target.value)}
+                  />
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                    <button
+                      onClick={() => setSelectedCategory("All")}
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                        selectedCategory === "All"
+                          ? "bg-accent text-accent-foreground font-medium"
+                          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      }`}
+                    >
+                      All
+                    </button>
+                    {filteredCategoryTree.map((group) => (
+                      <div key={group.value}>
+                        <button
+                          onClick={() => setSelectedCategory(group.value)}
+                          className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                            selectedCategory === group.value
+                              ? "bg-accent text-accent-foreground font-medium"
+                              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          }`}
+                        >
+                          {group.label}
+                        </button>
+                        <div className="pl-3 space-y-1.5">
+                          {group.children.map((child) => (
+                            <button
+                              key={child.value}
+                              onClick={() => setSelectedCategory(child.value)}
+                              className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${
+                                selectedCategory === child.value
+                                  ? "bg-accent/80 text-accent-foreground font-medium"
+                                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                              }`}
+                            >
+                              {child.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                    {filteredExtraCategories.map((category) => (
                       <button
                         key={category}
                         onClick={() => setSelectedCategory(category)}
@@ -246,23 +404,38 @@ const Products: React.FC = () => {
                         {category}
                       </button>
                     ))}
+
+                    {q && filteredCategoryTree.length === 0 && filteredExtraCategories.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No categories found.</p>
+                    )}
                   </div>
                 </div>
 
                 <div className="sidebar-panel">
                   <h3 className="font-semibold text-foreground mb-4">Brands</h3>
+                  <Input
+                    type="text"
+                    placeholder="Search brand..."
+                    className="h-9 mb-3"
+                    value={brandSearchQuery}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBrandSearchQuery(e.target.value)}
+                  />
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {brands.map((brand) => (
+                    {filteredBrands.map((brand) => (
                       <label key={brand} className="flex items-center gap-2 text-sm cursor-pointer">
                         <input
-                          type="checkbox"
+                          type="radio"
+                          name="brand-filter"
                           className="rounded border-input"
-                          checked={selectedBrands.includes(brand)}
-                          onChange={(e) => toggleBrand(brand, e.target.checked)}
+                          checked={selectedBrand === brand}
+                          onChange={() => handleBrandSelect(brand)}
                         />
                         <span className="text-muted-foreground hover:text-foreground">{brand}</span>
                       </label>
                     ))}
+                    {filteredBrands.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No brands found.</p>
+                    )}
                   </div>
                 </div>
 
@@ -353,6 +526,18 @@ const Products: React.FC = () => {
                               by {product.seller.shopName || `${product.seller.firstName} ${product.seller.lastName}`}
                             </p>
                           )}
+                          {product.seller && (
+                            <button
+                              type="button"
+                              className="text-xs text-accent hover:underline mb-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/seller/${product.seller!._id}`);
+                              }}
+                            >
+                              View seller profile
+                            </button>
+                          )}
                           <div className="flex items-center justify-between">
                             <div>
                               <span className="text-lg font-bold text-foreground">LKR {product.price.toLocaleString()}</span>
@@ -425,6 +610,18 @@ const Products: React.FC = () => {
                           <p className="text-xs text-muted-foreground mb-3 truncate">
                             by {product.seller.shopName || `${product.seller.firstName} ${product.seller.lastName}`}
                           </p>
+                        )}
+                        {product.seller && (
+                          <button
+                            type="button"
+                            className="text-xs text-accent hover:underline mb-3"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/seller/${product.seller!._id}`);
+                            }}
+                          >
+                            View seller profile
+                          </button>
                         )}
                         <div className="flex items-center justify-between">
                           <div>

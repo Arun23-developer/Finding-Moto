@@ -1,6 +1,7 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import compression from 'compression';
 import path from 'path';
 import config from './config';
 import { errorHandler } from './middleware/errorHandler';
@@ -26,6 +27,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '12mb' }));
 app.use(express.urlencoded({ extended: true, limit: '12mb' }));
+app.use(compression({ threshold: 1024 }));
 
 if (config.nodeEnv === 'development') {
   app.use(morgan('dev'));

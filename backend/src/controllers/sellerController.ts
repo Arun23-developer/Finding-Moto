@@ -265,7 +265,7 @@ export const getSellerReviews = async (req: AuthRequest, res: Response): Promise
     const enrichedReviews = reviews.map((r) => ({
       _id: r._id,
       productId: r.productId,
-      productName: productMap.get(r.productId.toString()) || 'Unknown Product',
+      productName: r.productId ? productMap.get(r.productId.toString()) || 'Unknown Product' : 'Unknown Product',
       rating: r.rating,
       comment: r.comment,
       createdAt: r.createdAt,

@@ -363,19 +363,31 @@ const ProductDetailPage: React.FC = () => {
                       <p className="text-xs text-muted-foreground">Seller</p>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!user) { navigate('/login'); return; }
-                      navigate(`/chat?user=${product.seller._id}`);
-                    }}
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    Message
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/seller/${product.seller._id}`);
+                      }}
+                    >
+                      View Profile
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!user) { navigate('/login'); return; }
+                        navigate(`/chat?user=${product.seller._id}`);
+                      }}
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      Message
+                    </Button>
+                  </div>
                 </div>
               )}
 

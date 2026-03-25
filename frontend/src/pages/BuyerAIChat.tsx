@@ -192,12 +192,14 @@ export default function BuyerAIChat() {
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [messages, isTyping]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isTyping) return;
@@ -285,7 +287,7 @@ export default function BuyerAIChat() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 900, width: '100%', margin: '0 auto', padding: '16px 16px 0' }}>
 
         {/* Messages */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div ref={messagesContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
           {messages.map(msg => (
             <div key={msg.id} style={{ display: 'flex', gap: 10, justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
               {msg.role === 'assistant' && (
@@ -344,7 +346,6 @@ export default function BuyerAIChat() {
             </div>
           )}
 
-          <div ref={messagesEndRef} />
         </div>
 
         {/* Quick Actions (only show initially) */}

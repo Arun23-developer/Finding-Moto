@@ -276,7 +276,7 @@ const Dashboard: React.FC = () => {
         <aside style={{
           width: 64, background: '#fff', borderRight: '1px solid #E5E7EB',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
-          paddingTop: 16, gap: 4, position: 'sticky', top: 64, height: 'calc(100vh - 64px)',
+          paddingTop: 16, gap: 4, position: 'fixed', top: 64, left: 0, height: 'calc(100vh - 64px)',
           flexShrink: 0
         }}>
           {[
@@ -335,7 +335,7 @@ const Dashboard: React.FC = () => {
         </aside>
 
         {/* ── Right Content Area ── */}
-        <div style={{ flex: 1, maxWidth: 1400, margin: '0 auto', padding: '24px 16px' }}>
+        <div style={{ flex: 1, maxWidth: 1400, margin: '0 auto', padding: '24px 16px', marginLeft: 64, width: 'calc(100% - 64px)' }}>
 
         {/* ── Top Row: My Orders + Account (compact) ── */}
         <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>

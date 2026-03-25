@@ -68,7 +68,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "sidebar-gradient flex flex-col border-r border-sidebar-border transition-all duration-300 sticky top-0 h-screen",
+          "sidebar-gradient fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-sidebar-border transition-all duration-300",
           collapsed ? "w-[70px]" : "w-[260px]"
         )}
       >
@@ -140,7 +140,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={cn("flex min-h-screen flex-1 min-w-0 flex-col", collapsed ? "ml-[70px]" : "ml-[260px]")}>
         {/* Top Bar */}
         <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-6 border-b border-border bg-background/95 backdrop-blur-md">
           <div>

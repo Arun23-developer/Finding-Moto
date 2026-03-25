@@ -37,10 +37,54 @@ interface Product {
   createdAt: string;
 }
 
-const productCategories = ["Brakes", "Engine Parts", "Electrical", "Cooling", "Transmission", "Body Parts", "Accessories"];
+const productCategories = [
+  "engine_system/piston",
+  "engine_system/cylinder_block",
+  "engine_system/crankshaft",
+  "engine_system/camshaft",
+  "engine_system/spark_plug",
+  "fuel_system/fuel_injector",
+  "fuel_system/fuel_tank",
+  "fuel_system/fuel_pump",
+  "fuel_system/fuel_filter",
+  "brake_system/brake_disc",
+  "brake_system/brake_pad",
+  "brake_system/brake_caliper",
+  "transmission_system/clutch_plate",
+  "transmission_system/chain_sprocket",
+  "transmission_system/drive_chain",
+  "suspension_system/front_fork",
+  "suspension_system/rear_shock_absorber",
+  "suspension_system/swing_arm",
+  "electrical_system/battery",
+  "electrical_system/headlight",
+  "electrical_system/ecu",
+  "electrical_system/starter_motor",
+  "electrical_system/wiring_harness",
+  "electrical_system/indicators",
+  "body_parts/seat",
+  "body_parts/mirrors",
+  "body_parts/mudguard",
+  "body_parts/side_panel",
+  "body_parts/number_plate_holder",
+  "wheels/tyre",
+  "wheels/rim",
+  "wheels/spokes",
+];
 const serviceCategories = ["Full Service", "Oil Change", "Brake Service", "Engine Tune-up", "Tire Replacement", "Battery Service", "Body Repair", "Custom Work"];
 const allCategories = ["All", ...productCategories, ...serviceCategories];
 const categories = allCategories;
+
+const formatCategoryLabel = (value: string): string => {
+  if (!value.includes("/")) return value;
+  const [parent, child] = value.split("/");
+  const toTitle = (part: string) =>
+    part
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  return `${toTitle(parent)} / ${toTitle(child)}`;
+};
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: "Active", color: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800" },
@@ -307,7 +351,7 @@ function ProductModal({
               <label className="text-sm font-medium mb-1.5 block">Category *</label>
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
                 <option value="">Select {form.type === "service" ? "service type" : "category"}</option>
-                {currentCategories.map((c) => (<option key={c} value={c}>{c}</option>))}
+                {currentCategories.map((c) => (<option key={c} value={c}>{formatCategoryLabel(c)}</option>))}
               </select>
             </div>
             <div>
@@ -515,7 +559,7 @@ export default function SellerProducts() {
               ))}
             </div>
             <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
-              {categories.map((c) => (<option key={c} value={c}>{c}</option>))}
+              {categories.map((c) => (<option key={c} value={c}>{formatCategoryLabel(c)}</option>))}
             </select>
           </div>
         </CardContent>

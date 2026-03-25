@@ -153,7 +153,7 @@ export const getMechanicReviews = async (req: AuthRequest, res: Response): Promi
       return {
         _id: r._id,
         productId: r.productId,
-        productName: productMap.get(r.productId.toString()) || 'Service',
+        productName: r.productId ? productMap.get(r.productId.toString()) || 'Service' : 'Service',
         rating: r.rating,
         comment: r.comment,
         createdAt: r.createdAt,

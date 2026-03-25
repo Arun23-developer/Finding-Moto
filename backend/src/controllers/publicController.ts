@@ -6,6 +6,59 @@ import User from '../models/User';
 import Service from '../models/Service';
 import mongoose from 'mongoose';
 
+const PRODUCT_CATEGORY_TREE: Record<string, string[]> = {
+  engine_system: ['piston', 'cylinder_block', 'crankshaft', 'camshaft', 'spark_plug'],
+  fuel_system: ['fuel_injector', 'fuel_tank', 'fuel_pump', 'fuel_filter'],
+  brake_system: ['brake_disc', 'brake_pad', 'brake_caliper'],
+  transmission_system: ['clutch_plate', 'chain_sprocket', 'drive_chain'],
+  suspension_system: ['front_fork', 'rear_shock_absorber', 'swing_arm'],
+  electrical_system: ['battery', 'headlight', 'ecu', 'starter_motor', 'wiring_harness', 'indicators'],
+  body_parts: ['seat', 'mirrors', 'mudguard', 'side_panel', 'number_plate_holder'],
+  wheels: ['tyre', 'rim', 'spokes'],
+};
+
+const TOP_LEVEL_CATEGORIES = Object.keys(PRODUCT_CATEGORY_TREE);
+const SUBCATEGORY_VALUES = TOP_LEVEL_CATEGORIES.flatMap((parent) =>
+  PRODUCT_CATEGORY_TREE[parent].map((child) => `${parent}/${child}`)
+);
+
+const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const enrichProductsWithReviews = async (
+  products: Array<Record<string, any>>
+): Promise<Array<Record<string, any>>> => {
+  if (products.length === 0) {
+    return [];
+  }
+
+  const productIds = products.map((p) => p._id);
+  const reviewStats = await Review.aggregate([
+    { $match: { productId: { $in: productIds } } },
+    {
+      $group: {
+        _id: '$productId',
+        avgRating: { $avg: '$rating' },
+        reviewCount: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const reviewMap = new Map(
+    reviewStats.map((r) => [r._id.toString(), { avgRating: r.avgRating, reviewCount: r.reviewCount }])
+  );
+
+  return products.map((p) => {
+    const stats = reviewMap.get(p._id.toString());
+    return {
+      ...p,
+      rating: stats ? Math.round(stats.avgRating * 10) / 10 : 0,
+      reviewCount: stats ? stats.reviewCount : 0,
+      inStock: p.stock > 0,
+      image: p.images?.[0] || null,
+    };
+  });
+};
+
 // @desc    Get all active products (public browsing)
 // @route   GET /api/public/products
 // @access  Public
@@ -32,7 +85,13 @@ export const getPublicProducts = async (req: Request, res: Response): Promise<vo
       ];
     }
     if (category && category !== 'All') {
-      filter.category = { $regex: `^${category}$`, $options: 'i' };
+      if (TOP_LEVEL_CATEGORIES.includes(category)) {
+        const escaped = escapeRegex(category);
+        filter.category = { $regex: `^${escaped}(/|$)`, $options: 'i' };
+      } else {
+        const escaped = escapeRegex(category);
+        filter.category = { $regex: `^${escaped}$`, $options: 'i' };
+      }
     }
     if (brand && brand !== 'All Brands') {
       filter.brand = { $regex: `^${brand}$`, $options: 'i' };
@@ -114,11 +173,15 @@ export const getPublicProducts = async (req: Request, res: Response): Promise<vo
       Product.distinct('brand', { status: 'active', brand: { $ne: '' } }),
     ]);
 
+    const mergedCategories = Array.from(new Set([...TOP_LEVEL_CATEGORIES, ...SUBCATEGORY_VALUES, ...categoriesList]))
+      .filter(Boolean)
+      .sort();
+
     res.json({
       success: true,
       data: enrichedProducts,
       filters: {
-        categories: ['All', ...categoriesList.sort()],
+        categories: ['All', ...mergedCategories],
         brands: ['All Brands', ...brandsList.sort()],
       },
       meta: { page, limit, total, pages: Math.ceil(total / limit) },
@@ -322,6 +385,141 @@ export const getPublicMechanics = async (req: Request, res: Response): Promise<v
     });
   } catch (err) {
     console.error('getPublicMechanics error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Get public seller profile with active products
+// @route   GET /api/public/sellers/:id
+// @access  Public
+export const getPublicSellerProfile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ success: false, message: 'Invalid seller id' });
+      return;
+    }
+
+    const seller = await User.findOne({
+      _id: id,
+      role: 'seller',
+      approvalStatus: 'approved',
+      isActive: true,
+    })
+      .select('firstName lastName phone avatar shopName shopDescription shopLocation sellerSpecializations sellerBrands')
+      .lean();
+
+    if (!seller) {
+      res.status(404).json({ success: false, message: 'Seller not found' });
+      return;
+    }
+
+    const products = await Product.find({ seller: seller._id, status: { $in: ['active', 'out_of_stock'] } })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const enrichedProducts = await enrichProductsWithReviews(products as Array<Record<string, any>>);
+
+    const sellerReviewStats = await Review.aggregate([
+      { $match: { sellerId: new mongoose.Types.ObjectId(id) } },
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: '$rating' },
+          reviewCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const stats = sellerReviewStats[0] || { avgRating: 0, reviewCount: 0 };
+
+    res.json({
+      success: true,
+      data: {
+        seller: {
+          ...seller,
+          name: seller.shopName || `${seller.firstName} ${seller.lastName}`,
+        },
+        stats: {
+          rating: Math.round((stats.avgRating || 0) * 10) / 10,
+          reviewCount: stats.reviewCount || 0,
+          productCount: enrichedProducts.length,
+        },
+        products: enrichedProducts,
+      },
+    });
+  } catch (err) {
+    console.error('getPublicSellerProfile error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Get public mechanic profile with services and products
+// @route   GET /api/public/mechanics/:id
+// @access  Public
+export const getPublicMechanicProfile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ success: false, message: 'Invalid mechanic id' });
+      return;
+    }
+
+    const mechanic = await User.findOne({
+      _id: id,
+      role: 'mechanic',
+      approvalStatus: 'approved',
+      isActive: true,
+    })
+      .select('firstName lastName phone avatar specialization experienceYears workshopLocation workshopName')
+      .lean();
+
+    if (!mechanic) {
+      res.status(404).json({ success: false, message: 'Mechanic not found' });
+      return;
+    }
+
+    const [services, products] = await Promise.all([
+      Service.find({ mechanic: mechanic._id, active: true }).sort({ createdAt: -1 }).lean(),
+      Product.find({ seller: mechanic._id, status: { $in: ['active', 'out_of_stock'] } }).sort({ createdAt: -1 }).lean(),
+    ]);
+
+    const enrichedProducts = await enrichProductsWithReviews(products as Array<Record<string, any>>);
+
+    const mechanicReviewStats = await Review.aggregate([
+      { $match: { mechanicId: new mongoose.Types.ObjectId(id) } },
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: '$rating' },
+          reviewCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const stats = mechanicReviewStats[0] || { avgRating: 0, reviewCount: 0 };
+
+    res.json({
+      success: true,
+      data: {
+        mechanic: {
+          ...mechanic,
+          name: mechanic.workshopName || `${mechanic.firstName} ${mechanic.lastName}`,
+        },
+        stats: {
+          rating: Math.round((stats.avgRating || 0) * 10) / 10,
+          reviewCount: stats.reviewCount || 0,
+          serviceCount: services.length,
+          productCount: enrichedProducts.length,
+        },
+        services,
+        products: enrichedProducts,
+      },
+    });
+  } catch (err) {
+    console.error('getPublicMechanicProfile error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

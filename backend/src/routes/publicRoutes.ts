@@ -5,6 +5,8 @@ import {
   getPublicProduct,
   getTrendingProducts,
   getPublicMechanics,
+  getPublicMechanicProfile,
+  getPublicSellerProfile,
   getPublicMechanicServices,
   getPublicAllServices,
 } from '../controllers/publicController';
@@ -18,9 +20,11 @@ router.get('/products', getPublicProducts);
 
 // Mechanics / Garages (public listing)
 router.get('/mechanics', getPublicMechanics);
+router.get('/sellers/:id', getPublicSellerProfile);
 
 // Mechanic services (public)
 router.get('/mechanics/:id/services', getPublicMechanicServices);
+router.get('/mechanics/:id', getPublicMechanicProfile);
 router.get('/services', getPublicAllServices);
 
 export default router;

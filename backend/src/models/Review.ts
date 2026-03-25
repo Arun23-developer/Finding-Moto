@@ -1,7 +1,9 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 
 export interface IReview extends Document {
-  productId: Types.ObjectId;
+  productId?: Types.ObjectId;
+  sellerId?: Types.ObjectId;
+  mechanicId?: Types.ObjectId;
   buyer: Types.ObjectId;
   rating: number;
   comment: string;
@@ -13,8 +15,18 @@ const reviewSchema = new Schema<IReview>(
   {
     productId: {
       type: Schema.Types.ObjectId,
-      required: true,
       ref: 'Product',
+      default: null,
+    },
+    sellerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    mechanicId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
     buyer: {
       type: Schema.Types.ObjectId,
@@ -40,7 +52,29 @@ reviewSchema.index(
   {
     unique: true,
     partialFilterExpression: {
-      productId: { $exists: true },
+      productId: { $exists: true, $ne: null },
+      buyer: { $exists: true },
+    },
+  }
+);
+
+reviewSchema.index(
+  { sellerId: 1, buyer: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      sellerId: { $exists: true, $ne: null },
+      buyer: { $exists: true },
+    },
+  }
+);
+
+reviewSchema.index(
+  { mechanicId: 1, buyer: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      mechanicId: { $exists: true, $ne: null },
       buyer: { $exists: true },
     },
   }

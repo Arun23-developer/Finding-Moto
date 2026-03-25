@@ -308,13 +308,15 @@ export default function SellerAIChat() {
   const [selectedImageDataUrl, setSelectedImageDataUrl] = useState<string | null>(null);
   const [selectedImageName, setSelectedImageName] = useState<string>("");
   const [imageError, setImageError] = useState<string>("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [messages, isTyping]);
 
   useEffect(() => {
     try {
@@ -479,7 +481,7 @@ export default function SellerAIChat() {
         <div className="lg:col-span-3">
           <Card className="glass-card flex flex-col h-[calc(100vh-220px)] min-h-[500px]">
             {/* Messages */}
-            <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+            <CardContent ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -585,7 +587,6 @@ export default function SellerAIChat() {
                 </div>
               )}
 
-              <div ref={messagesEndRef} />
             </CardContent>
 
             {/* Report Actions (shown when few messages) */}

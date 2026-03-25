@@ -72,7 +72,7 @@ export function MechanicLayout({ children }: MechanicLayoutProps) {
       <aside
         className={cn(
           "flex flex-col border-r border-[#2D3A42] transition-all duration-300 z-50",
-          "fixed lg:sticky top-0 h-screen",
+          "fixed top-0 h-screen",
           collapsed ? "lg:w-[70px]" : "lg:w-[260px]",
           mobileOpen ? "w-[260px] translate-x-0" : "w-[260px] -translate-x-full lg:translate-x-0"
         )}
@@ -204,7 +204,7 @@ export function MechanicLayout({ children }: MechanicLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={cn("flex min-h-screen flex-1 min-w-0 flex-col", collapsed ? "lg:ml-[70px]" : "lg:ml-[260px]")}>
         {/* Top Bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 border-b border-[#BEBEBE] backdrop-blur-xl" style={{ background: 'rgba(224,224,224,0.9)' }}>
           <div className="flex items-center gap-3">
