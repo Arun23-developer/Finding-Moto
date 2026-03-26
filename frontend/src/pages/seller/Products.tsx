@@ -71,9 +71,7 @@ const productCategories = [
   "wheels/rim",
   "wheels/spokes",
 ];
-const serviceCategories = ["Full Service", "Oil Change", "Brake Service", "Engine Tune-up", "Tire Replacement", "Battery Service", "Body Repair", "Custom Work"];
-const allCategories = ["All", ...productCategories, ...serviceCategories];
-const categories = allCategories;
+const categories = ["All", ...productCategories];
 
 const formatCategoryLabel = (value: string): string => {
   if (!value.includes("/")) return value;
@@ -102,7 +100,7 @@ interface ProductFormData {
   stock: string;
   sku: string;
   description: string;
-  type: "product" | "service";
+  type: "product";
 }
 
 function ProductModal({
@@ -134,7 +132,7 @@ function ProductModal({
   const [imageUrlInput, setImageUrlInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const currentCategories = form.type === "service" ? serviceCategories : productCategories;
+  const currentCategories = productCategories;
 
   // Reset form when product changes
   useEffect(() => {
@@ -148,7 +146,7 @@ function ProductModal({
         stock: product?.stock?.toString() || "",
         sku: product?.sku || "",
         description: product?.description || "",
-        type: product?.type || "product",
+        type: "product",
       });
       setImages(product?.images || []);
       setImageUrlInput("");
@@ -215,11 +213,11 @@ function ProductModal({
         brand: form.brand,
         price: Number(form.price),
         originalPrice: form.originalPrice ? Number(form.originalPrice) : undefined,
-        stock: form.type === "service" ? 99 : Number(form.stock),
+        stock: Number(form.stock),
         sku: form.sku,
         description: form.description,
         images,
-        type: form.type,
+        type: "product",
       };
 
       if (product) {
@@ -243,7 +241,7 @@ function ProductModal({
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
         <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-xl font-bold">{product ? `Edit ${form.type === "service" ? "Service" : "Product"}` : `Add New ${form.type === "service" ? "Service" : "Product"}`}</h2>
+          <h2 className="text-xl font-bold">{product ? "Edit Product" : "Add New Product"}</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors">
             <X className="h-5 w-5" />
           </button>
@@ -256,37 +254,6 @@ function ProductModal({
               <p>{error}</p>
             </div>
           )}
-
-          {/* Type Selector */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">Type</label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, type: "product", category: "" })}
-                className={cn(
-                  "flex-1 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all flex items-center justify-center gap-2",
-                  form.type === "product"
-                    ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
-                    : "border-border hover:border-blue-300"
-                )}
-              >
-                <Package className="h-4 w-4" /> Product
-              </button>
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, type: "service", category: "", stock: "99" })}
-                className={cn(
-                  "flex-1 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all flex items-center justify-center gap-2",
-                  form.type === "service"
-                    ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400"
-                    : "border-border hover:border-violet-300"
-                )}
-              >
-                <span className="text-base">🔧</span> Service
-              </button>
-            </div>
-          </div>
 
           {/* Image Upload */}
           <div>
@@ -340,38 +307,36 @@ function ProductModal({
           {/* Two-col grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium mb-1.5 block">{form.type === "service" ? "Service Name" : "Product Name"} *</label>
-              <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={form.type === "service" ? "e.g., Full Motorcycle Service" : "e.g., Brake Pad Set - Honda"} className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+              <label className="text-sm font-medium mb-1.5 block">Product Name *</label>
+              <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g., Brake Pad Set - Honda" className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">SKU / Code</label>
-              <input type="text" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder={form.type === "service" ? "e.g., SVC-FUL-001" : "e.g., BRK-HND-001"} className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+              <input type="text" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="e.g., BRK-HND-001" className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Category *</label>
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
-                <option value="">Select {form.type === "service" ? "service type" : "category"}</option>
+                <option value="">Select category</option>
                 {currentCategories.map((c) => (<option key={c} value={c}>{formatCategoryLabel(c)}</option>))}
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium mb-1.5 block">{form.type === "service" ? "Provider / Shop" : "Brand"}</label>
-              <input type="text" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder={form.type === "service" ? "e.g., My Garage" : "e.g., Honda, Yamaha"} className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+              <label className="text-sm font-medium mb-1.5 block">Brand</label>
+              <input type="text" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="e.g., Honda, Yamaha" className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1.5 block">{form.type === "service" ? "Service Fee (LKR)" : "Price (LKR)"} *</label>
+              <label className="text-sm font-medium mb-1.5 block">Price (LKR) *</label>
               <input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="0.00" className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1.5 block">{form.type === "service" ? "Regular Price (LKR)" : "Original Price (LKR)"}</label>
+              <label className="text-sm font-medium mb-1.5 block">Original Price (LKR)</label>
               <input type="number" value={form.originalPrice} onChange={(e) => setForm({ ...form, originalPrice: e.target.value })} placeholder="0.00" className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
             </div>
-            {form.type !== "service" && (
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Stock Quantity *</label>
-                <input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} placeholder="0" className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
-              </div>
-            )}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Stock Quantity *</label>
+              <input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} placeholder="0" className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+            </div>
           </div>
 
           <div>
@@ -454,11 +419,12 @@ export default function SellerProducts() {
     setError(null);
     try {
       const params: Record<string, string> = {};
+      params.type = "product";
       if (statusFilter !== "all") params.status = statusFilter;
       if (search) params.search = search;
       const res = await api.get("/products", { params });
       const data = res.data.data || [];
-      setProducts(data);
+      setProducts(data.filter((p: Product) => p.type !== "service"));
     } catch (err: any) {
       setProducts([]);
       setError(err?.response?.data?.message || "Failed to load products");
@@ -492,46 +458,25 @@ export default function SellerProducts() {
 
   const activeCount = products.filter((p) => p.status === "active").length;
   const outOfStockCount = products.filter((p) => p.status === "out_of_stock").length;
-  const serviceCount = products.filter((p) => p.type === "service").length;
   const productCount = products.filter((p) => p.type !== "service").length;
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Products & Services</h1>
-          <p className="text-sm text-muted-foreground">{products.length} items listed ({products.filter(p => p.type === "service").length} services, {products.filter(p => p.type !== "service").length} products)</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={fetchProducts} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors">
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} /> Refresh
-          </button>
-          <button onClick={() => setAddModalOpen(true)} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/25">
-            <Plus className="h-4 w-4" /> Add Product / Service
-          </button>
-        </div>
+      <div className="flex items-center justify-end gap-2">
+        <button onClick={fetchProducts} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors">
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} /> Refresh
+        </button>
+        <button onClick={() => setAddModalOpen(true)} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/25">
+          <Plus className="h-4 w-4" /> Add Product
+        </button>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="rounded-lg border p-4 bg-card">
           <p className="text-2xl font-bold">{products.length}</p>
-          <p className="text-xs text-muted-foreground">Total Items</p>
-        </div>
-        <div className="rounded-lg border p-4 bg-blue-50 dark:bg-blue-950/20">
-          <div className="flex items-center gap-2 mb-1">
-            <Package className="h-4 w-4 text-blue-600" />
-          </div>
-          <p className="text-2xl font-bold text-blue-600">{productCount}</p>
-          <p className="text-xs text-muted-foreground">Products</p>
-        </div>
-        <div className="rounded-lg border p-4 bg-violet-50 dark:bg-violet-950/20">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm">🔧</span>
-          </div>
-          <p className="text-2xl font-bold text-violet-600">{serviceCount}</p>
-          <p className="text-xs text-muted-foreground">Services</p>
+          <p className="text-xs text-muted-foreground">All</p>
         </div>
         <div className="rounded-lg border p-4 bg-emerald-50 dark:bg-emerald-950/20">
           <p className="text-2xl font-bold text-emerald-600">{activeCount}</p>
@@ -552,7 +497,7 @@ export default function SellerProducts() {
               <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or SKU..." className="w-full pl-10 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
             </div>
             <div className="flex gap-1.5 flex-wrap">
-              {["all", "active", "inactive", "out_of_stock"].map((s) => (
+              {["all", "active", "out_of_stock"].map((s) => (
                 <button key={s} onClick={() => setStatusFilter(s)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors", statusFilter === s ? "bg-blue-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80")}>
                   {s === "all" ? "All" : s === "out_of_stock" ? "Out of Stock" : s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
@@ -606,18 +551,13 @@ export default function SellerProducts() {
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-blue-600/10 flex items-center justify-center overflow-hidden flex-shrink-0">
                             {product.images?.[0] ? (
-                              <img src={resolveMediaUrl(product.images[0])} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-lg">' + (product.type === 'service' ? '🔧' : '📦') + '</span>'; }} />
+                              <img src={resolveMediaUrl(product.images[0])} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-lg">📦</span>'; }} />
                             ) : (
-                              product.type === "service" ? <span className="text-lg">🔧</span> : <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                              <ImageIcon className="h-5 w-5 text-muted-foreground" />
                             )}
                           </div>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium truncate max-w-[200px]">{product.name}</p>
-                              {product.type === "service" && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400">SERVICE</span>
-                              )}
-                            </div>
+                            <p className="font-medium truncate max-w-[200px]">{product.name}</p>
                             <p className="text-xs text-muted-foreground">{product.sku}</p>
                           </div>
                         </div>

@@ -10,9 +10,6 @@ import {
   ImagePlus,
   X,
   BarChart3,
-  Boxes,
-  Star,
-  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { askSellerAIAssistant, SellerAIReport } from "@/services/aiAssistantService";
@@ -678,48 +675,6 @@ export default function SellerAIChat() {
 
         {/* Sidebar - Suggestions */}
         <div className="space-y-4">
-          <Card className="glass-card border-blue-200">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-blue-600" /> Seller Report Mode
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-xs text-muted-foreground">
-              <p className="rounded-lg bg-blue-50 text-blue-700 px-3 py-2">Reports are generated only for seller accounts using current website data.</p>
-              <div className="flex items-center gap-2"><BarChart3 className="h-3.5 w-3.5 text-blue-600" /> Sales and revenue metrics</div>
-              <div className="flex items-center gap-2"><Boxes className="h-3.5 w-3.5 text-amber-600" /> Live stock and low-stock alerts</div>
-              <div className="flex items-center gap-2"><Star className="h-3.5 w-3.5 text-violet-600" /> Review count and average rating</div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-purple-600" /> Suggested Prompts
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {[
-                "Generate my current seller report",
-                "Give me sales + stock + review report now",
-                "What's a good price for NGK spark plugs?",
-                "Write a description for a timing belt kit",
-                "How to handle negative reviews?",
-                "Best selling auto parts in Sri Lanka",
-                "Tips for product photography",
-                "How to write a return policy?",
-              ].map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => sendMessage(prompt)}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </CardContent>
-          </Card>
-
           <Card className="glass-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">AI Capabilities</CardTitle>

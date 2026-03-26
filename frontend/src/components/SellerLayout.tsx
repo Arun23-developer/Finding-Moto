@@ -6,7 +6,6 @@ import {
   Star,
   UserCircle,
   Bot,
-  Bell,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -30,7 +29,6 @@ const navItems = [
   { title: "Chat", icon: MessageSquare, path: "/seller/chat" },
   { title: "Profile", icon: UserCircle, path: "/seller/profile" },
   { title: "AI Assistant", icon: Bot, path: "/seller/ai-chat" },
-  { title: "Notifications", icon: Bell, path: "/seller/notifications" },
 ];
 
 interface SellerLayoutProps {
@@ -220,15 +218,6 @@ export function SellerLayout({ children }: SellerLayoutProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Notifications */}
-            <Link
-              to="/seller/notifications"
-              className="relative p-2 rounded-lg hover:bg-muted transition-colors"
-            >
-              <Bell className="h-5 w-5 text-foreground" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full" />
-            </Link>
-
             {/* Profile Dropdown */}
             <div className="relative">
               <button
@@ -267,13 +256,6 @@ export function SellerLayout({ children }: SellerLayoutProps) {
                       className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                     >
                       <UserCircle className="h-4 w-4" /> Shop Profile
-                    </Link>
-                    <Link
-                      to="/seller/notifications"
-                      onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-                    >
-                      <Bell className="h-4 w-4" /> Notifications
                     </Link>
                     <Link
                       to="/change-password"

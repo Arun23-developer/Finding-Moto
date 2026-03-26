@@ -8,19 +8,19 @@ dotenv.config();
 const sampleUsers = [
   // ─── Sellers ──────────────────────────────────────────────────────
   {
-    firstName: 'Kamal',
-    lastName: 'Perera',
-    email: 'seller@gmail.com',
+    firstName: 'Nanthujan',
+    lastName: 'Sivapalan',
+    email: 'nanthujan0@gmail.com',
     password: 'seller123',
-    phone: '+94 77 123 4567',
+    phone: '+94 77 912 3488',
     role: 'seller' as const,
     isEmailVerified: true,
     isActive: true,
     approvalStatus: 'approved' as const,
     approvedAt: new Date(),
-    shopName: 'Kamal Auto Parts',
-    shopDescription: 'Premium quality spare parts for Japanese and European vehicles. Over 10 years in the automobile spare parts industry.',
-    shopLocation: 'No. 45, Galle Road, Colombo 03',
+    shopName: 'Nanthu Moto Garage Supply',
+    shopDescription: 'Curated motorcycle spare parts and performance accessories inspired by popular online moto catalogs and rider communities.',
+    shopLocation: 'Stanley Road, Jaffna',
   },
   {
     firstName: 'Nimal',
@@ -40,36 +40,36 @@ const sampleUsers = [
 
   // ─── Mechanics ────────────────────────────────────────────────────
   {
-    firstName: 'Ruwan',
-    lastName: 'Fernando',
-    email: 'mechanic@gmail.com',
+    firstName: 'P. Saravanappiriyan',
+    lastName: 'Thiruchelvam',
+    email: 'psaravanappiriyan@gmail.com',
     password: 'mechanic123',
-    phone: '+94 76 345 6789',
+    phone: '+94 76 398 1174',
     role: 'mechanic' as const,
     isEmailVerified: true,
     isActive: true,
     approvalStatus: 'approved' as const,
     approvedAt: new Date(),
-    specialization: 'Engine & Transmission',
-    experienceYears: 12,
-    workshopName: 'Fernando Auto Care',
-    workshopLocation: '78, Main Street, Galle',
+    specialization: 'Engine Overhaul & Performance Tuning',
+    experienceYears: 11,
+    workshopName: 'Saravan Moto Works',
+    workshopLocation: 'Kopay, Jaffna',
   },
   {
-    firstName: 'Saman',
-    lastName: 'Kumara',
-    email: 'mechanic2@gmail.com',
+    firstName: 'Nanthujan',
+    lastName: 'Sivapalan',
+    email: 'nanthujan0@gmail.com',
     password: 'mechanic123',
-    phone: '+94 70 456 7890',
+    phone: '+94 77 912 3488',
     role: 'mechanic' as const,
     isEmailVerified: true,
     isActive: true,
     approvalStatus: 'approved' as const,
     approvedAt: new Date(),
-    specialization: 'Electrical & Diagnostics',
-    experienceYears: 8,
-    workshopName: 'Kumara Auto Electrical',
-    workshopLocation: '56, Temple Road, Matara',
+    specialization: 'Electrical, Sensors & Diagnostics',
+    experienceYears: 9,
+    workshopName: 'Nanthu Bike Diagnostics',
+    workshopLocation: 'Stanley Road, Jaffna',
   },
 ];
 
@@ -79,7 +79,7 @@ const seedUsers = async (): Promise<void> => {
     console.log('MongoDB Connected');
 
     for (const userData of sampleUsers) {
-      const existing = await User.findOne({ email: userData.email });
+      const existing = await User.findOne({ email: userData.email, role: userData.role });
       if (existing) {
         console.log(`✓ Already exists: ${existing.email} (${existing.role})`);
       } else {
@@ -94,10 +94,10 @@ const seedUsers = async (): Promise<void> => {
     }
 
     console.log('\n── Sample Credentials ──────────────────────');
-    console.log('Seller 1:   seller@gmail.com    / seller123');
+    console.log('Seller 1:   nanthujan0@gmail.com / seller123');
     console.log('Seller 2:   seller2@gmail.com   / seller123');
-    console.log('Mechanic 1: mechanic@gmail.com  / mechanic123');
-    console.log('Mechanic 2: mechanic2@gmail.com / mechanic123');
+    console.log('Mechanic 1: psaravanappiriyan@gmail.com / mechanic123');
+    console.log('Mechanic 2: nanthujan0@gmail.com / mechanic123');
     console.log('────────────────────────────────────────────\n');
 
     await mongoose.disconnect();

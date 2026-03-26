@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Header } from "../components/layout/Header";
 import { Footer } from "../components/layout/Footer";
@@ -77,6 +77,7 @@ const ProductDetailPage: React.FC = () => {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState("");
   const [reviewSuccess, setReviewSuccess] = useState("");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const fetchProduct = async () => {
     if (!id) return;
@@ -101,6 +102,31 @@ const ProductDetailPage: React.FC = () => {
 
   const getImageUrl = (img: string | null): string =>
     resolveMediaUrl(img, "https://placehold.co/600x600?text=No+Image");
+
+  const productImages = useMemo(() => {
+    if (!product) return [] as string[];
+
+    const unique: string[] = [];
+    const seen = new Set<string>();
+    const candidates = [product.image, ...(product.images || [])];
+
+    candidates.forEach((img) => {
+      if (!img || !img.trim()) return;
+      if (seen.has(img)) return;
+      seen.add(img);
+      unique.push(img);
+    });
+
+    return unique;
+  }, [product]);
+
+  useEffect(() => {
+    if (!product) {
+      setSelectedImage(null);
+      return;
+    }
+    setSelectedImage(product.image || product.images?.[0] || null);
+  }, [product]);
 
   const handlePlaceOrder = async () => {
     if (!shippingAddress.trim()) {
@@ -200,7 +226,7 @@ const ProductDetailPage: React.FC = () => {
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
 
-  const mainImage = getImageUrl(product.image || product.images?.[0] || null);
+  const mainImage = getImageUrl(selectedImage || productImages[0] || null);
 
   // Order success screen
   if (orderSuccess) {
@@ -256,13 +282,24 @@ const ProductDetailPage: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
               </div>
-              {product.images && product.images.length > 1 && (
+              {productImages.length > 1 && (
                 <div className="flex gap-3 overflow-x-auto">
-                  {product.images.map((img, i) => (
-                    <div key={i} className="w-20 h-20 rounded-lg overflow-hidden bg-secondary border border-border shrink-0">
-                      <img src={getImageUrl(img)} alt="" className="w-full h-full object-cover" />
-                    </div>
-                  ))}
+                  {productImages.map((img, i) => {
+                    const isSelected = (selectedImage || productImages[0]) === img;
+                    return (
+                      <button
+                        key={`${img}-${i}`}
+                        type="button"
+                        onClick={() => setSelectedImage(img)}
+                        className={`w-20 h-20 rounded-lg overflow-hidden bg-secondary border shrink-0 transition-colors ${
+                          isSelected ? "border-accent ring-2 ring-accent/30" : "border-border hover:border-accent/60"
+                        }`}
+                        aria-label={`View product image ${i + 1}`}
+                      >
+                        <img src={getImageUrl(img)} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

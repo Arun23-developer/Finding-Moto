@@ -6,7 +6,6 @@ import {
   Star,
   UserCircle,
   Bot,
-  Bell,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -31,7 +30,6 @@ const navItems = [
   { title: "Chat", icon: MessageSquare, path: "/mechanic/chat" },
   { title: "Profile", icon: UserCircle, path: "/mechanic/profile" },
   { title: "AI Assistant", icon: Bot, path: "/mechanic/ai-chat" },
-  { title: "Notifications", icon: Bell, path: "/mechanic/notifications" },
 ];
 
 interface MechanicLayoutProps {
@@ -221,15 +219,6 @@ export function MechanicLayout({ children }: MechanicLayoutProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Notifications */}
-            <Link
-              to="/mechanic/notifications"
-              className="relative p-2 rounded-lg hover:bg-[#C0C0C0] transition-colors"
-            >
-              <Bell className="h-5 w-5 text-[#374151]" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full" />
-            </Link>
-
             {/* Profile Dropdown */}
             <div className="relative">
               <button
@@ -268,13 +257,6 @@ export function MechanicLayout({ children }: MechanicLayoutProps) {
                       className="flex items-center gap-2 px-3 py-2 text-sm text-[#374151] hover:bg-[#F3F4F6] transition-colors"
                     >
                       <UserCircle className="h-4 w-4" /> Workshop Profile
-                    </Link>
-                    <Link
-                      to="/mechanic/notifications"
-                      onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 text-sm text-[#374151] hover:bg-[#F3F4F6] transition-colors"
-                    >
-                      <Bell className="h-4 w-4" /> Notifications
                     </Link>
                     <Link
                       to="/change-password"

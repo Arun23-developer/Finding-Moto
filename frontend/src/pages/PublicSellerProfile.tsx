@@ -169,6 +169,22 @@ const PublicSellerProfile: React.FC = () => {
             {profile.seller.shopDescription && (
               <p className="mt-4 text-sm text-muted-foreground leading-relaxed">{profile.seller.shopDescription}</p>
             )}
+
+            {Array.isArray(profile.seller.sellerSpecializations) && profile.seller.sellerSpecializations.length > 0 && (
+              <div className="mt-5">
+                <h3 className="text-sm font-semibold text-foreground mb-2">Services Offered</h3>
+                <div className="flex flex-wrap gap-2">
+                  {profile.seller.sellerSpecializations.map((service) => (
+                    <span
+                      key={service}
+                      className="inline-flex items-center px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-medium"
+                    >
+                      {service}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
 
           <section>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
@@ -167,7 +167,7 @@ const Register: React.FC = () => {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
+  const handleGoogleSuccess = useCallback(async (credentialResponse: any) => {
     setError('');
     setLoading(true);
     try {
@@ -178,11 +178,11 @@ const Register: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [googleAuth, navigate]);
 
-  const handleGoogleError = () => {
+  const handleGoogleError = useCallback(() => {
     setError('Google sign-in was unsuccessful. Please try again.');
-  };
+  }, []);
 
   // OTP cooldown timer
   const startResendCooldown = () => {

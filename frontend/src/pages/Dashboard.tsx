@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import { resolveProductImage } from '@/lib/imageUrl';
+import { getMyChats } from '../services/chatService';
 
 interface Product {
   _id: string;
@@ -106,6 +107,7 @@ const Dashboard: React.FC = () => {
   const [loadingMechanics, setLoadingMechanics] = useState(false);
   const [selectedSpecialization, setSelectedSpecialization] = useState('All Services');
   const [specializations, setSpecializations] = useState<string[]>(['All Services']);
+  const [unreadChatsCount, setUnreadChatsCount] = useState(0);
 
   // Redirect non-buyer roles
   useEffect(() => {
@@ -161,6 +163,22 @@ const Dashboard: React.FC = () => {
       fetchMechanics();
     }
   }, [activeTab, garages.length, loadingMechanics, fetchMechanics]);
+
+  const fetchUnreadChatsCount = useCallback(async () => {
+    try {
+      const conversations = await getMyChats();
+      const unreadTotal = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
+      setUnreadChatsCount(unreadTotal);
+    } catch {
+      setUnreadChatsCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUnreadChatsCount();
+    const intervalId = setInterval(fetchUnreadChatsCount, 30000);
+    return () => clearInterval(intervalId);
+  }, [fetchUnreadChatsCount]);
 
   // Debounced mechanic search
   useEffect(() => {
@@ -281,10 +299,7 @@ const Dashboard: React.FC = () => {
         }}>
           {[
             { icon: '🏠', label: 'Home', path: '/', active: false },
-            { icon: '💬', label: 'Chat', path: '/chat', active: false, highlight: true },
-            { icon: '🏍️', label: 'Products', path: '/products', active: false },
-            { icon: '📦', label: 'Orders', path: '/my-orders', active: false },
-            { icon: '🔧', label: 'Services', path: '/services', active: false },
+            { icon: '💬', label: 'Chats', path: '/chat', active: false, highlight: true },
           ].map(item => (
             <button
               key={item.label}
@@ -303,35 +318,18 @@ const Dashboard: React.FC = () => {
             >
               <span style={{ fontSize: 20 }}>{item.icon}</span>
               <span style={{ fontSize: 9, fontWeight: 600, color: item.highlight ? '#4F46E5' : '#6B7280' }}>{item.label}</span>
-              {item.highlight && (
+              {item.highlight && unreadChatsCount > 0 && (
                 <span style={{
-                  position: 'absolute', top: 6, right: 6,
-                  width: 8, height: 8, borderRadius: '50%',
-                  background: '#4F46E5'
-                }} />
+                  position: 'absolute', top: 4, right: 2,
+                  minWidth: 16, height: 16, borderRadius: 999,
+                  background: '#DC2626', color: '#fff',
+                  fontSize: 10, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 4px', lineHeight: 1
+                }}>{unreadChatsCount > 99 ? '99+' : unreadChatsCount}</span>
               )}
             </button>
           ))}
-
-          {/* Divider */}
-          <div style={{ width: 32, height: 1, background: '#E5E7EB', margin: '8px 0' }} />
-
-          <button
-            title="Change Password"
-            onClick={() => navigate('/change-password')}
-            style={{
-              width: 48, height: 48, borderRadius: 12, border: 'none',
-              background: 'transparent', cursor: 'pointer',
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 2,
-              transition: 'background 0.2s'
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-          >
-            <span style={{ fontSize: 20 }}>🔒</span>
-            <span style={{ fontSize: 9, fontWeight: 600, color: '#6B7280' }}>Settings</span>
-          </button>
         </aside>
 
         {/* ── Right Content Area ── */}

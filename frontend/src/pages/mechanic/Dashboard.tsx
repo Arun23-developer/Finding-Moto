@@ -1,21 +1,23 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Wrench,
-  DollarSign,
-  Star,
   ArrowUpRight,
   Clock,
   CheckCircle,
   Activity,
   AlertTriangle,
-  TrendingUp,
-  TrendingDown,
   BarChart3,
-  CalendarDays,
+  Package,
+  RefreshCw,
+  Search,
+  ImageIcon,
+  Edit3,
+  Trash2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import { resolveMediaUrl } from "@/lib/imageUrl";
 import { useEffect, useMemo, useState } from "react";
 import api from "@/services/api";
 import {
@@ -81,11 +83,33 @@ interface DashboardService {
   active: boolean;
 }
 
+interface Product {
+  _id: string;
+  name: string;
+  category: string;
+  brand: string;
+  price: number;
+  originalPrice?: number;
+  stock: number;
+  images: string[];
+  status: "active" | "inactive" | "out_of_stock";
+  views: number;
+  sales: number;
+  sku: string;
+  createdAt: string;
+}
+
 interface ServiceCategoryData {
   category: string;
   services: number;
   avgPrice: number;
 }
+
+const productStatusConfig: Record<string, { label: string; color: string }> = {
+  active: { label: "Active", color: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800" },
+  inactive: { label: "Inactive", color: "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700" },
+  out_of_stock: { label: "Out of Stock", color: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800" },
+};
 
 const categoryIcons: Record<string, string> = {
   General: '🔧',
@@ -106,14 +130,21 @@ const statusDonutColors: Record<ServiceRequest['status'], string> = {
 };
 
 // ─── Dashboard Overview ─────────────────────────────────────────────────────
+const productCategories = ["All", "Bikes", "Brakes", "Lubricants", "Engine Parts", "Drive", "Filters", "Cables", "Electrical", "Accessories"];
+
 export default function MechanicDashboard() {
   const { user } = useAuth();
   const [dashServices, setDashServices] = useState<DashboardService[]>([]);
   const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("All");
 
   useEffect(() => {
-    Promise.all([api.get('/mechanic/services'), api.get('/orders')])
-      .then(([servicesRes, ordersRes]) => {
+    Promise.all([api.get('/mechanic/services'), api.get('/orders'), api.get('/products')])
+      .then(([servicesRes, ordersRes, productsRes]) => {
         if (servicesRes.data.success) {
           setDashServices(servicesRes.data.data.filter((s: DashboardService) => s.active).slice(0, 6));
         }
@@ -145,19 +176,19 @@ export default function MechanicDashboard() {
         });
 
         setServiceRequests(mappedRequests);
+
+        if (productsRes.data.success) {
+          setProducts(productsRes.data.data || []);
+        }
       })
       .catch(() => {
         setDashServices([]);
         setServiceRequests([]);
+        setProducts([]);
       });
   }, []);
 
-  const totalEarnings = serviceRequests.filter((r) => r.status === 'completed').reduce((s, r) => s + r.amount, 0);
-  const pendingRequests = serviceRequests.filter((r) => r.status === 'pending' || r.status === 'accepted').length;
   const completedJobs = serviceRequests.filter((r) => r.status === 'completed').length;
-  const inProgressJobs = serviceRequests.filter((r) => r.status === 'in_progress').length;
-  const completedRevenue = serviceRequests.filter((r) => r.status === 'completed').reduce((sum, r) => sum + r.amount, 0);
-  const avgRating = 4.8;
 
   const weeklyStats = useMemo(() => {
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -230,67 +261,20 @@ export default function MechanicDashboard() {
   const totalRequestsForPie = requestStatusData.reduce((sum, d) => sum + d.value, 0);
   const completionRate = serviceRequests.length > 0 ? Math.round((completedJobs / serviceRequests.length) * 100) : 0;
   const attentionItems = serviceRequests.filter((r) => r.status === 'pending' || r.status === 'accepted');
+  const inProgressJobs = serviceRequests.filter((r) => r.status === 'in_progress').length;
   const formatDate = (date: string) => new Date(date).toLocaleDateString();
+  const mechanicName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.firstName || 'Mechanic';
+  const workshopLabel = (user as any)?.workshopName || (user as any)?.specialization || 'My Workshop';
 
   return (
     <div className="space-y-6">
-      {/* Welcome Banner */}
-      <Card className="overflow-hidden border-0 shadow-xl">
-        <div className="relative p-6 sm:p-8 bg-gradient-to-r from-amber-600 via-orange-600 to-red-700 text-white">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-4 right-10 w-32 h-32 rounded-full bg-white/20 blur-2xl" />
-            <div className="absolute bottom-2 left-20 w-24 h-24 rounded-full bg-white/15 blur-xl" />
-          </div>
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <p className="text-amber-100 text-sm font-medium mb-1 flex items-center gap-1.5">
-                <CalendarDays className="h-4 w-4" />
-                {new Date().toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </p>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Welcome back, {user?.firstName || 'Mechanic'}! 🔧</h1>
-              <p className="text-amber-100 mt-1.5 text-sm">Here is your workshop performance overview.</p>
-            </div>
-            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/20 backdrop-blur-sm border border-white/20 shadow-lg">
-              <Wrench className="h-5 w-5" />
-              <span className="text-sm font-bold">
-                {(user as any)?.workshopName || (user as any)?.specialization || 'My Workshop'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Earnings', value: fmt(totalEarnings), sub: `${completedJobs} completed`, icon: DollarSign, iconGradient: 'from-emerald-500 to-teal-600', border: 'border-t-emerald-500', trend: true },
-          { label: 'Pending Requests', value: `${pendingRequests}`, sub: `${inProgressJobs} in progress`, icon: Clock, iconGradient: 'from-amber-500 to-orange-600', border: 'border-t-amber-500', trend: pendingRequests < 4 },
-          { label: 'Completed Jobs', value: `${completedJobs}`, sub: `LKR ${completedRevenue.toLocaleString()} revenue`, icon: CheckCircle, iconGradient: 'from-blue-500 to-indigo-600', border: 'border-t-blue-500', trend: true },
-          { label: 'Rating', value: `${avgRating}`, sub: 'Based on 45 reviews', icon: Star, iconGradient: 'from-violet-500 to-fuchsia-600', border: 'border-t-violet-500', trend: true },
-        ].map(kpi => (
-          <Card key={kpi.label} className={cn("glass-card border-t-4 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 group", kpi.border)}>
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{kpi.label}</p>
-                  <p className="text-2xl font-extrabold text-foreground">{kpi.value}</p>
-                  <div className="flex items-center gap-1.5">
-                    {kpi.trend ? <TrendingUp className="h-3 w-3 text-emerald-500" /> : <TrendingDown className="h-3 w-3 text-red-500" />}
-                    <p className={cn("text-xs font-bold", kpi.trend ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>{kpi.sub}</p>
-                  </div>
-                </div>
-                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br shadow-lg group-hover:scale-110 transition-transform", kpi.iconGradient)}>
-                  <kpi.icon className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="px-1">
+        <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+          {workshopLabel}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Welcome back, {mechanicName}.
+        </p>
       </div>
 
       {/* Analytics Row: Weekly Revenue + Request Status */}
@@ -492,87 +476,6 @@ export default function MechanicDashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Request Pipeline */}
-      <Card className="glass-card">
-        <CardHeader className="pb-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg font-bold">Request Pipeline</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">Track service requests through each stage</p>
-            </div>
-            <Link to="/mechanic/orders" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
-              Manage <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {[
-              { label: 'Pending', count: serviceRequests.filter((r) => r.status === 'pending').length, icon: Clock, gradient: 'from-amber-400 to-amber-500', labelColor: 'text-amber-700 dark:text-amber-400', pulse: serviceRequests.some((r) => r.status === 'pending') },
-              { label: 'Accepted', count: serviceRequests.filter((r) => r.status === 'accepted').length, icon: CheckCircle, gradient: 'from-blue-400 to-blue-500', labelColor: 'text-blue-700 dark:text-blue-400', pulse: false },
-              { label: 'In Progress', count: inProgressJobs, icon: Activity, gradient: 'from-violet-400 to-violet-500', labelColor: 'text-violet-700 dark:text-violet-400', pulse: false },
-              { label: 'Completed', count: completedJobs, icon: CheckCircle, gradient: 'from-emerald-400 to-emerald-500', labelColor: 'text-emerald-700 dark:text-emerald-400', pulse: false },
-              { label: 'Total', count: serviceRequests.length, icon: Wrench, gradient: 'from-slate-400 to-slate-500', labelColor: 'text-slate-700 dark:text-slate-400', pulse: false },
-            ].map((item) => (
-              <Link
-                key={item.label}
-                to="/mechanic/orders"
-                className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-border bg-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1 text-center relative"
-              >
-                {item.pulse && (
-                  <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
-                  </span>
-                )}
-                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br shadow-lg", item.gradient)}>
-                  <item.icon className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-extrabold text-foreground">{item.count}</p>
-                  <p className={cn("text-[11px] font-bold uppercase tracking-wider", item.labelColor)}>{item.label}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Services Offered */}
-      <Card className="glass-card">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold">Services Offered</CardTitle>
-            <Link to="/mechanic/services" className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
-              View All <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {dashServices.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {dashServices.map((svc) => (
-                <div key={svc._id} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border hover:bg-muted/30 transition-colors text-center">
-                  <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center text-xl">
-                    {categoryIcons[svc.category] || '🔧'}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold">{svc.name}</p>
-                    <p className="text-[10px] text-amber-600 font-medium">LKR {svc.price.toLocaleString()}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Wrench className="h-8 w-8 text-muted-foreground/30 mb-2" />
-              <p className="text-sm text-muted-foreground">No services added yet</p>
-              <Link to="/mechanic/services" className="text-xs text-amber-600 mt-1 hover:underline">Add your first service</Link>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Needs Attention */}
       {attentionItems.length > 0 && (

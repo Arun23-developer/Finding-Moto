@@ -1,6 +1,15 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = (() => {
+  const configuredApiUrl = (import.meta.env.VITE_API_URL || '').trim();
+  if (configuredApiUrl) return configuredApiUrl;
+
+  // In local development, call backend directly so auth requests still work
+  // even if Vite proxy/session temporarily disconnects.
+  if (import.meta.env.DEV) return 'http://localhost:5000/api';
+
+  return '/api';
+})();
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,

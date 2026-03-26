@@ -18,14 +18,12 @@ const SellerOrders = lazy(() => import('./pages/seller/Orders'));
 const SellerReviews = lazy(() => import('./pages/seller/Reviews'));
 const SellerProfile = lazy(() => import('./pages/seller/Profile'));
 const SellerAIChat = lazy(() => import('./pages/seller/AIChat'));
-const SellerNotifications = lazy(() => import('./pages/seller/Notifications'));
 const MechanicDashboard = lazy(() => import('./pages/mechanic/Dashboard'));
 const MechanicProducts = lazy(() => import('./pages/mechanic/Products'));
 const MechanicOrders = lazy(() => import('./pages/mechanic/Orders'));
 const MechanicReviews = lazy(() => import('./pages/mechanic/Reviews'));
 const MechanicProfile = lazy(() => import('./pages/mechanic/Profile'));
 const MechanicAIChat = lazy(() => import('./pages/mechanic/AIChat'));
-const MechanicNotifications = lazy(() => import('./pages/mechanic/Notifications'));
 const MechanicServices = lazy(() => import('./pages/mechanic/Services'));
 const ProductDetail = lazy(() => import('./pages/ProductDetail'));
 const MyOrders = lazy(() => import('./pages/MyOrders'));
@@ -201,11 +199,6 @@ const App = (): JSX.Element => {
                   <SellerLayout><ChatPage /></SellerLayout>
                 </RoleRoute>
               } />
-              <Route path="/seller/notifications" element={
-                <RoleRoute roles={['seller']}>
-                  <SellerLayout><SellerNotifications /></SellerLayout>
-                </RoleRoute>
-              } />
 
               {/* Mechanic panel - requires mechanic role */}
               <Route path="/mechanic/dashboard" element={
@@ -246,11 +239,6 @@ const App = (): JSX.Element => {
               <Route path="/mechanic/chat" element={
                 <RoleRoute roles={['mechanic']}>
                   <MechanicLayout><ChatPage /></MechanicLayout>
-                </RoleRoute>
-              } />
-              <Route path="/mechanic/notifications" element={
-                <RoleRoute roles={['mechanic']}>
-                  <MechanicLayout><MechanicNotifications /></MechanicLayout>
                 </RoleRoute>
               } />
 

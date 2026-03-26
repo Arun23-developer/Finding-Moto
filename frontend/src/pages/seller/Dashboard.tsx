@@ -132,6 +132,7 @@ export default function SellerDashboard() {
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const totalWeeklyRevenue = weeklySales.reduce((sum, d) => sum + d.revenue, 0);
   const fmt = (n: number) => `LKR ${n.toLocaleString()}`;
+  const sellerFullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Seller';
 
   // Chart data
   const revenueChartData = useMemo(() =>
@@ -182,55 +183,14 @@ export default function SellerDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Banner */}
-      <Card className="overflow-hidden border-0 shadow-xl">
-        <div className="relative p-6 sm:p-8 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 text-white">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-4 right-10 w-32 h-32 rounded-full bg-white/20 blur-2xl" />
-            <div className="absolute bottom-2 left-20 w-24 h-24 rounded-full bg-white/15 blur-xl" />
-          </div>
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <p className="text-blue-200 text-sm font-medium mb-1">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-              </p>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Welcome back, {user?.firstName || "Seller"}! 🏪</h1>
-              <p className="text-blue-100 mt-1.5 text-sm">Here's your store performance overview.</p>
-            </div>
-            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/20 backdrop-blur-sm border border-white/20 shadow-lg">
-              <Package className="h-5 w-5" />
-              <span className="text-sm font-bold">{user?.shopName || "My Shop"}</span>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Revenue', value: fmt(stats?.revenue ?? 0), sub: `${stats?.deliveredOrders ?? 0} delivered`, icon: DollarSign, iconGradient: 'from-emerald-500 to-teal-600', border: 'border-t-emerald-500', trend: stats?.revenue ? true : false },
-          { label: 'Total Orders', value: `${stats?.totalOrders ?? 0}`, sub: `${stats?.pendingOrders ?? 0} pending`, icon: ShoppingCart, iconGradient: 'from-blue-500 to-blue-600', border: 'border-t-blue-500', trend: true },
-          { label: 'Products', value: `${stats?.totalProducts ?? 0}`, sub: `${stats?.activeProducts ?? 0} active`, icon: Package, iconGradient: 'from-orange-500 to-orange-600', border: 'border-t-orange-500', trend: true },
-          { label: 'Store Views', value: `${stats?.totalViews ?? 0}`, sub: 'All-time views', icon: Eye, iconGradient: 'from-violet-500 to-purple-600', border: 'border-t-violet-500', trend: true },
-        ].map(kpi => (
-          <Card key={kpi.label} className={cn("glass-card border-t-4 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 group", kpi.border)}>
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{kpi.label}</p>
-                  <p className="text-2xl font-extrabold text-foreground">{kpi.value}</p>
-                  <div className="flex items-center gap-1.5">
-                    {kpi.trend ? <TrendingUp className="h-3 w-3 text-emerald-500" /> : <TrendingDown className="h-3 w-3 text-red-500" />}
-                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{kpi.sub}</p>
-                  </div>
-                </div>
-                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br shadow-lg group-hover:scale-110 transition-transform", kpi.iconGradient)}>
-                  <kpi.icon className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Store Header */}
+      <div className="px-1">
+        <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+          {user?.shopName || "My Shop"}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Welcome back, {sellerFullName}.
+        </p>
       </div>
 
       {/* Analytics Row: Revenue Chart + Order Status Donut */}
@@ -425,48 +385,6 @@ export default function SellerDashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Order Pipeline */}
-      <Card className="glass-card">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg font-bold">Order Pipeline</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">Track orders through each stage</p>
-            </div>
-            <Link to="/seller/orders" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors">
-              Manage <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {[
-              { label: 'Pending', count: stats?.pendingOrders ?? 0, icon: Clock, gradient: 'from-amber-400 to-amber-500', labelColor: 'text-amber-700 dark:text-amber-400', pulse: (stats?.pendingOrders ?? 0) > 0 },
-              { label: 'Confirmed', count: recentOrders.filter(o => o.status.toLowerCase() === 'confirmed').length, icon: CheckCircle, gradient: 'from-blue-400 to-blue-500', labelColor: 'text-blue-700 dark:text-blue-400', pulse: false },
-              { label: 'Shipped', count: recentOrders.filter(o => o.status.toLowerCase() === 'shipped').length, icon: Truck, gradient: 'from-violet-400 to-violet-500', labelColor: 'text-violet-700 dark:text-violet-400', pulse: false },
-              { label: 'Delivered', count: stats?.deliveredOrders ?? 0, icon: CheckCircle, gradient: 'from-emerald-400 to-emerald-500', labelColor: 'text-emerald-700 dark:text-emerald-400', pulse: false },
-              { label: 'Total', count: stats?.totalOrders ?? 0, icon: ShoppingCart, gradient: 'from-slate-400 to-slate-500', labelColor: 'text-slate-700 dark:text-slate-400', pulse: false },
-            ].map(item => (
-              <Link key={item.label} to="/seller/orders" className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-border bg-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1 text-center relative">
-                {item.pulse && (
-                  <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
-                  </span>
-                )}
-                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br shadow-lg", item.gradient)}>
-                  <item.icon className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-extrabold text-foreground">{item.count}</p>
-                  <p className={cn("text-[11px] font-bold uppercase tracking-wider", item.labelColor)}>{item.label}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Needs Attention */}
       {recentOrders.filter(o => o.status.toLowerCase() === 'pending').length > 0 && (

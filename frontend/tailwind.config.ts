@@ -1,12 +1,8 @@
-const withOpacity = (cssVar) => ({ opacityValue }) => {
-  if (opacityValue === undefined) {
-    return `hsl(var(${cssVar}))`;
-  }
+import type { Config } from 'tailwindcss';
 
-  return `hsl(var(${cssVar}) / ${opacityValue})`;
-};
+const withOpacity = (cssVar: `--${string}`): string => `hsl(var(${cssVar}) / <alpha-value>)`;
 
-module.exports = {
+const config = {
   darkMode: ['class'],
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
@@ -57,4 +53,6 @@ module.exports = {
     }
   },
   plugins: []
-};
+} satisfies Config;
+
+export default config;

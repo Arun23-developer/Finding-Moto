@@ -26,7 +26,7 @@ import { resolveMediaUrl } from "@/lib/imageUrl";
 
 // ─── Profile Page ───────────────────────────────────────────────────────────
 export default function SellerProfile() {
-  const defaultSpecializations = ["Engine Parts", "Brake Systems", "Electrical Components", "Filters & Fluids", "Body Parts", "Suspension", "Transmission"];
+  const defaultSpecializations: string[] = [];
   const defaultBrands = ["Yamaha", "Honda", "Suzuki", "Kawasaki", "KTM", "Bajaj", "TVS", "Royal Enfield"];
 
   const { user, updateProfile, uploadAvatar } = useAuth();
@@ -66,9 +66,7 @@ export default function SellerProfile() {
         const p = profileRes.data.data;
         setAvatar(p.avatar || user?.avatar || null);
         setSellerSpecializations(
-          Array.isArray(p.sellerSpecializations) && p.sellerSpecializations.length > 0
-            ? p.sellerSpecializations
-            : defaultSpecializations
+          Array.isArray(p.sellerSpecializations) ? p.sellerSpecializations : defaultSpecializations
         );
         setSellerBrands(
           Array.isArray(p.sellerBrands) && p.sellerBrands.length > 0
@@ -341,10 +339,10 @@ export default function SellerProfile() {
             </CardContent>
           </Card>
 
-          {/* Specializations */}
+          {/* Services Offered */}
           <Card className="glass-card">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Specializations</CardTitle>
+              <CardTitle className="text-base font-semibold">Services Offered</CardTitle>
             </CardHeader>
             <CardContent>
               {editing && (
@@ -359,7 +357,7 @@ export default function SellerProfile() {
                         addTag(specializationInput, sellerSpecializations, setSellerSpecializations, () => setSpecializationInput(""));
                       }
                     }}
-                    placeholder="Add specialization"
+                    placeholder="Add service offered"
                     className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                   />
                   <button
@@ -383,6 +381,9 @@ export default function SellerProfile() {
                     )}
                   </span>
                 ))}
+                {!editing && sellerSpecializations.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No services added yet.</p>
+                )}
               </div>
             </CardContent>
           </Card>

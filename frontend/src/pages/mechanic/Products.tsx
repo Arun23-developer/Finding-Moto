@@ -361,6 +361,7 @@ function DeleteModal({
 export default function MechanicProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -370,8 +371,13 @@ export default function MechanicProducts() {
   const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async (manualRefresh: boolean = false) => {
     try {
+      if (manualRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError("");
       const params: Record<string, string> = { limit: "100" };
       if (statusFilter !== "all") params.status = statusFilter;
@@ -381,12 +387,17 @@ export default function MechanicProducts() {
       setError("Failed to load products");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [statusFilter]);
 
   useEffect(() => {
-    fetchProducts();
+    fetchProducts(false);
   }, [fetchProducts]);
+
+  const handleRefresh = () => {
+    fetchProducts(true);
+  };
 
   const handleDelete = async () => {
     if (!deleteProduct) return;
@@ -430,7 +441,7 @@ export default function MechanicProducts() {
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
         <AlertCircle className="h-8 w-8 mb-3 text-red-500" />
         <p className="font-medium">{error}</p>
-        <button onClick={fetchProducts} className="mt-3 inline-flex items-center gap-2 text-sm text-amber-600 hover:underline">
+        <button onClick={() => fetchProducts(false)} className="mt-3 inline-flex items-center gap-2 text-sm text-amber-600 hover:underline">
           <RefreshCw className="h-4 w-4" /> Retry
         </button>
       </div>
@@ -440,11 +451,14 @@ export default function MechanicProducts() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Spare Parts & Inventory</h1>
-          <p className="text-sm text-muted-foreground">{products.length} total parts in inventory</p>
-        </div>
+      <div className="flex items-center justify-end gap-2">
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors"
+        >
+          <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} /> Refresh
+        </button>
         <button
           onClick={() => setAddModalOpen(true)}
           className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors shadow-md shadow-amber-600/25"

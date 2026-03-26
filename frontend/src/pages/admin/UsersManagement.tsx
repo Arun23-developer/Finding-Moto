@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -171,22 +172,22 @@ export default function UsersManagement() {
   }, [searchParams, activeTab]);
 
   useEffect(() => {
-    const current = searchParams.get("tab");
-    if (activeTab === "all") {
-      if (current) {
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.delete("tab");
-        setSearchParams(nextParams, { replace: true });
-      }
-      return;
-    }
+    setSearchParams((prev) => {
+      const nextParams = new URLSearchParams(prev);
+      const current = nextParams.get("tab");
 
-    if (current !== activeTab) {
-      const nextParams = new URLSearchParams(searchParams);
-      nextParams.set("tab", activeTab);
-      setSearchParams(nextParams, { replace: true });
-    }
-  }, [activeTab, searchParams, setSearchParams]);
+      if (activeTab === "all") {
+        if (current) nextParams.delete("tab");
+        return nextParams;
+      }
+
+      if (current !== activeTab) {
+        nextParams.set("tab", activeTab);
+      }
+
+      return nextParams;
+    }, { replace: true });
+  }, [activeTab, setSearchParams]);
 
   // ── Stats ────────────────────────────────────────────────────────
   const stats = {
@@ -548,6 +549,9 @@ export default function UsersManagement() {
               )}
               {modalAction === "approve" ? "Approve Account" : "Reject / Revoke Account"}
             </DialogTitle>
+            <DialogDescription>
+              Review user details and confirm your approval decision.
+            </DialogDescription>
           </DialogHeader>
 
           {modalUser && (
@@ -660,6 +664,9 @@ export default function UsersManagement() {
               )}
               {toggleUser?.isActive ? "Deactivate User?" : "Activate User?"}
             </DialogTitle>
+            <DialogDescription>
+              Confirm account access change for this user.
+            </DialogDescription>
           </DialogHeader>
           {toggleUser && (
             <p className="text-sm text-muted-foreground py-2">
@@ -692,6 +699,9 @@ export default function UsersManagement() {
               <Eye className="h-5 w-5 text-primary" />
               User Details
             </DialogTitle>
+            <DialogDescription>
+              View full account and role-specific details.
+            </DialogDescription>
           </DialogHeader>
           {detailLoading ? (
             <div className="flex items-center justify-center py-12">

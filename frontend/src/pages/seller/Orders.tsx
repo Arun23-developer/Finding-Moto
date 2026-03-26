@@ -236,9 +236,7 @@ export default function SellerOrders() {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string> = {};
-      if (statusFilter !== "all") params.status = statusFilter;
-      const res = await api.get("/orders", { params });
+      const res = await api.get("/orders");
       const data = res.data.data || [];
       setOrders(data);
     } catch (err: any) {
@@ -247,7 +245,7 @@ export default function SellerOrders() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
     fetchOrders();
@@ -272,10 +270,15 @@ export default function SellerOrders() {
   };
 
   const filtered = orders.filter((o) => {
+    const matchesStatus = statusFilter === "all" || o.status === statusFilter;
     const buyerName = getBuyerName(o.buyer).toLowerCase();
     const id = o._id.toLowerCase();
     const itemNames = o.items.map((i) => i.name.toLowerCase()).join(" ");
-    return buyerName.includes(search.toLowerCase()) || id.includes(search.toLowerCase()) || itemNames.includes(search.toLowerCase());
+    const matchesSearch =
+      buyerName.includes(search.toLowerCase()) ||
+      id.includes(search.toLowerCase()) ||
+      itemNames.includes(search.toLowerCase());
+    return matchesStatus && matchesSearch;
   });
 
   const statusCounts = {
@@ -429,29 +432,6 @@ export default function SellerOrders() {
           </button>
         </div>
       )}
-
-      {/* Status Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {(["pending", "confirmed", "shipped", "delivered", "cancelled"] as const).map((status) => {
-          const Icon = statusConfig[status].icon;
-          return (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(statusFilter === status ? "all" : status)}
-              className={cn(
-                "rounded-lg border p-4 text-left transition-all",
-                statusFilter === status ? "ring-2 ring-blue-500 border-blue-500" : "hover:border-blue-300"
-              )}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Icon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground capitalize">{status}</span>
-              </div>
-              <p className="text-2xl font-bold">{statusCounts[status]}</p>
-            </button>
-          );
-        })}
-      </div>
 
       {/* Search + Filters */}
       <Card className="glass-card">
