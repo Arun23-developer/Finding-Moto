@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { resolveMediaUrl } from "@/lib/imageUrl";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/seller/dashboard" },
@@ -70,7 +71,7 @@ export function SellerLayout({ children }: SellerLayoutProps) {
       <aside
         className={cn(
           "flex flex-col border-r border-indigo-700/30 transition-all duration-300 z-50",
-          "fixed lg:sticky top-0 h-screen",
+          "fixed top-0 h-screen",
           collapsed ? "lg:w-[70px]" : "lg:w-[260px]",
           mobileOpen ? "w-[260px] translate-x-0" : "w-[260px] -translate-x-full lg:translate-x-0"
         )}
@@ -107,7 +108,11 @@ export function SellerLayout({ children }: SellerLayoutProps) {
           <div className="px-4 py-3 border-b border-white/10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center ring-2 ring-white/20 shadow-md">
-                <span className="text-sm font-bold text-white">{getInitials()}</span>
+                {user?.avatar ? (
+                  <img src={resolveMediaUrl(user.avatar, "https://placehold.co/80x80?text=S")} alt="Seller avatar" className="w-full h-full rounded-full object-cover" />
+                ) : (
+                  <span className="text-sm font-bold text-white">{getInitials()}</span>
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-white truncate">
@@ -198,7 +203,7 @@ export function SellerLayout({ children }: SellerLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={cn("flex min-h-screen flex-1 min-w-0 flex-col", collapsed ? "lg:ml-[70px]" : "lg:ml-[260px]")}>
         {/* Top Bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 border-b border-border bg-card/90 backdrop-blur-xl">
           <div className="flex items-center gap-3">
@@ -231,7 +236,11 @@ export function SellerLayout({ children }: SellerLayoutProps) {
                 className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted transition-colors"
               >
                 <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{getInitials()}</span>
+                  {user?.avatar ? (
+                    <img src={resolveMediaUrl(user.avatar, "https://placehold.co/80x80?text=S")} alt="Seller avatar" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{getInitials()}</span>
+                  )}
                 </div>
                 <div className="hidden sm:block text-left">
                   <p className="text-sm font-medium leading-none text-foreground">

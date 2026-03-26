@@ -4,6 +4,7 @@ import { Menu, X, Search, ShoppingCart, User, LogOut, LayoutDashboard, Settings 
 import { Button } from "../ui/button";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
+import { resolveMediaUrl } from "@/lib/imageUrl";
 
 interface NavLink {
   name: string;
@@ -83,10 +84,10 @@ export const Header: React.FC = () => {
 
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center gap-2">
-          <Button variant="ghost" size="icon" aria-label="Search">
+          <Button variant="ghost" size="icon" aria-label="Search" onClick={() => navigate("/products") }>
             <Search className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" aria-label="Cart">
+          <Button variant="ghost" size="icon" aria-label="Cart" onClick={() => navigate("/my-orders") }>
             <ShoppingCart className="h-5 w-5" />
           </Button>
 
@@ -98,7 +99,7 @@ export const Header: React.FC = () => {
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-secondary transition-colors"
               >
                 {user.avatar ? (
-                  <img src={user.avatar} alt="Avatar" className="w-8 h-8 rounded-full object-cover border-2 border-accent" />
+                  <img src={resolveMediaUrl(user.avatar, "https://placehold.co/80x80?text=U")} alt="Avatar" className="w-8 h-8 rounded-full object-cover border-2 border-accent" />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-sm font-bold">
                     {getInitials()}
@@ -205,7 +206,7 @@ export const Header: React.FC = () => {
                 <div className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-3">
                     {user.avatar ? (
-                      <img src={user.avatar} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
+                      <img src={resolveMediaUrl(user.avatar, "https://placehold.co/80x80?text=U")} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-sm font-bold">
                         {getInitials()}

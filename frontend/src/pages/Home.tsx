@@ -10,9 +10,9 @@ import { CTASection } from "../components/home/CTASection";
 
 const Home: React.FC = () => {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="page-shell">
       <Header />
-      <main className="flex-1">
+      <main className="page-main">
         <HeroSection />
         <CategoriesSection />
         <TrendingProducts />

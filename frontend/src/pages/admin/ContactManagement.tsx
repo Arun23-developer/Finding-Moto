@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,30 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function ContactManagement() {
+  const [query, setQuery] = useState("");
+
+  const filteredContacts = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return contacts;
+    return contacts.filter((c) =>
+      [c.name, c.email, c.subject, c.message, c.status].some((field) => field.toLowerCase().includes(q))
+    );
+  }, [query]);
+
+  const openContact = (id: number) => {
+    const contact = contacts.find((c) => c.id === id);
+    if (!contact) return;
+    window.alert(`From: ${contact.name} <${contact.email}>\nSubject: ${contact.subject}\n\n${contact.message}`);
+  };
+
+  const replyTo = (id: number) => {
+    const contact = contacts.find((c) => c.id === id);
+    if (!contact) return;
+    const subject = encodeURIComponent(`Re: ${contact.subject}`);
+    const body = encodeURIComponent(`Hi ${contact.name},\n\nThanks for contacting Finding Moto.\n\n`);
+    window.location.href = `mailto:${contact.email}?subject=${subject}&body=${body}`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -49,12 +74,12 @@ export default function ContactManagement() {
         <CardHeader className="pb-3">
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search contacts..." className="pl-9" />
+            <Input placeholder="Search contacts..." className="pl-9" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {contacts.map((contact) => (
+            {filteredContacts.map((contact) => (
               <div
                 key={contact.id}
                 className="flex items-start gap-4 p-4 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors cursor-pointer"
@@ -74,10 +99,10 @@ export default function ContactManagement() {
                   <p className="text-xs text-muted-foreground mt-1">{contact.email} • {contact.date}</p>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openContact(contact.id)}>
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => replyTo(contact.id)}>
                     <Reply className="h-4 w-4" />
                   </Button>
                 </div>

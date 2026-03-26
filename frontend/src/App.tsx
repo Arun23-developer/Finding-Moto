@@ -1,52 +1,54 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import type { UserRole } from './context/AuthContext';
-import Home from './pages/Home';
-import About from './pages/About';
-import Contact from './pages/Contact';
-import Products from './pages/Products';
-import Services from './pages/Services';
-import Dashboard from './pages/Dashboard';
-import SellerDashboard from './pages/seller/Dashboard';
-import SellerProducts from './pages/seller/Products';
-import SellerOrders from './pages/seller/Orders';
-import SellerReviews from './pages/seller/Reviews';
-import SellerProfile from './pages/seller/Profile';
-import SellerAIChat from './pages/seller/AIChat';
-import SellerNotifications from './pages/seller/Notifications';
-import MechanicDashboard from './pages/mechanic/Dashboard';
-import MechanicProducts from './pages/mechanic/Products';
-import MechanicOrders from './pages/mechanic/Orders';
-import MechanicReviews from './pages/mechanic/Reviews';
-import MechanicProfile from './pages/mechanic/Profile';
-import MechanicAIChat from './pages/mechanic/AIChat';
-import MechanicNotifications from './pages/mechanic/Notifications';
-import MechanicServices from './pages/mechanic/Services';
-import ProductDetail from './pages/ProductDetail';
-import MyOrders from './pages/MyOrders';
-import BuyerAIChat from './pages/BuyerAIChat';
-import ChangePassword from './pages/ChangePassword';
-import ChatPage from './pages/ChatPage';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import NotFound from './pages/NotFound';
 
-// Layout components
-import { AdminLayout } from './components/AdminLayout';
-import { SellerLayout } from './components/SellerLayout';
-import { MechanicLayout } from './components/MechanicLayout';
+const Home = lazy(() => import('./pages/Home'));
+const About = lazy(() => import('./pages/About'));
+const Contact = lazy(() => import('./pages/Contact'));
+const Products = lazy(() => import('./pages/Products'));
+const Services = lazy(() => import('./pages/Services'));
+const PublicSellerProfile = lazy(() => import('./pages/PublicSellerProfile'));
+const PublicMechanicProfile = lazy(() => import('./pages/PublicMechanicProfile'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const SellerDashboard = lazy(() => import('./pages/seller/Dashboard'));
+const SellerProducts = lazy(() => import('./pages/seller/Products'));
+const SellerOrders = lazy(() => import('./pages/seller/Orders'));
+const SellerReviews = lazy(() => import('./pages/seller/Reviews'));
+const SellerProfile = lazy(() => import('./pages/seller/Profile'));
+const SellerAIChat = lazy(() => import('./pages/seller/AIChat'));
+const SellerNotifications = lazy(() => import('./pages/seller/Notifications'));
+const MechanicDashboard = lazy(() => import('./pages/mechanic/Dashboard'));
+const MechanicProducts = lazy(() => import('./pages/mechanic/Products'));
+const MechanicOrders = lazy(() => import('./pages/mechanic/Orders'));
+const MechanicReviews = lazy(() => import('./pages/mechanic/Reviews'));
+const MechanicProfile = lazy(() => import('./pages/mechanic/Profile'));
+const MechanicAIChat = lazy(() => import('./pages/mechanic/AIChat'));
+const MechanicNotifications = lazy(() => import('./pages/mechanic/Notifications'));
+const MechanicServices = lazy(() => import('./pages/mechanic/Services'));
+const ProductDetail = lazy(() => import('./pages/ProductDetail'));
+const MyOrders = lazy(() => import('./pages/MyOrders'));
+const BuyerAIChat = lazy(() => import('./pages/BuyerAIChat'));
+const ChangePassword = lazy(() => import('./pages/ChangePassword'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
-// Admin pages
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminUsersManagement from './pages/admin/UsersManagement';
-import AdminProductsManagement from './pages/admin/ProductsManagement';
-import AdminOrdersManagement from './pages/admin/OrdersManagement';
-import AdminNotifications from './pages/admin/Notifications';
-import AdminContactManagement from './pages/admin/ContactManagement';
-import AdminSettingsPage from './pages/admin/SettingsPage';
-import AdminNotFound from './pages/admin/NotFound';
+const AdminLayout = lazy(() => import('./components/AdminLayout').then((m) => ({ default: m.AdminLayout })));
+const SellerLayout = lazy(() => import('./components/SellerLayout').then((m) => ({ default: m.SellerLayout })));
+const MechanicLayout = lazy(() => import('./components/MechanicLayout').then((m) => ({ default: m.MechanicLayout })));
+
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminUsersManagement = lazy(() => import('./pages/admin/UsersManagement'));
+const AdminProductsManagement = lazy(() => import('./pages/admin/ProductsManagement'));
+const AdminServicesManagement = lazy(() => import('./pages/admin/ServicesManagement'));
+const AdminOrdersManagement = lazy(() => import('./pages/admin/OrdersManagement'));
+const AdminNotifications = lazy(() => import('./pages/admin/Notifications'));
+const AdminContactManagement = lazy(() => import('./pages/admin/ContactManagement'));
+const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+const AdminNotFound = lazy(() => import('./pages/admin/NotFound'));
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -116,13 +118,21 @@ export const RoleRoute: React.FC<RoleRouteProps> = ({ children, roles }) => {
   return <>{children}</>;
 };
 
-function App() {
+const RouteLoader: React.FC = () => (
+  <div className="loading-screen">
+    <div className="spinner"></div>
+    <p>Loading...</p>
+  </div>
+);
+
+const App = (): JSX.Element => {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <AuthProvider>
         <Router>
           <div className="app">
-            <Routes>
+            <Suspense fallback={<RouteLoader />}>
+              <Routes>
               {/* Public pages - accessible to everyone */}
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
@@ -130,6 +140,8 @@ function App() {
               <Route path="/products" element={<Products />} />
               <Route path="/products/:id" element={<ProductDetail />} />
               <Route path="/services" element={<Services />} />
+              <Route path="/seller/:id" element={<PublicSellerProfile />} />
+              <Route path="/mechanic/:id" element={<PublicMechanicProfile />} />
               
               {/* Auth pages - redirect to dashboard if already logged in */}
               <Route path="/login" element={
@@ -271,6 +283,13 @@ function App() {
                   </AdminLayout>
                 </RoleRoute>
               } />
+              <Route path="/admin/services" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminServicesManagement />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
               <Route path="/admin/orders" element={
                 <RoleRoute roles={['admin']}>
                   <AdminLayout>
@@ -309,7 +328,8 @@ function App() {
               
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
-            </Routes>
+              </Routes>
+            </Suspense>
           </div>
         </Router>
       </AuthProvider>

@@ -1,168 +1,94 @@
-import { Search, Zap, Shield, Star } from "lucide-react";
+import { ArrowRight, CheckCircle2, Search, ShieldCheck, Wrench } from "lucide-react";
 import { Button } from "../ui/button";
-import { useEffect, useState, useRef, useCallback } from "react";
-
-interface FeatureBadge {
-  icon: React.ElementType;
-  text: string;
-}
+import { Link } from "react-router-dom";
 
 interface Stat {
   value: string;
   label: string;
 }
 
-interface FallingPart {
-  id: number;
-  emoji: string;
-  left: number;   // % from left
-  size: number;    // px
-  delay: number;   // s
-  duration: number; // s
-  rotate: number;  // deg
-  opacity: number;
-}
-
-const SPARE_PARTS = [
-  '⚙️', '🔩', '🔧', '🛞', '🏍️', '🔗', '🛢️', '⛽', '🪛', '🔨',
-  '💨', '🛡️', '⚡', '🔋', '🪝', '🔑', '🏁', '🔔',
-];
-
-function generateParts(count: number): FallingPart[] {
-  const parts: FallingPart[] = [];
-  for (let i = 0; i < count; i++) {
-    parts.push({
-      id: i,
-      emoji: SPARE_PARTS[i % SPARE_PARTS.length],
-      left: Math.random() * 100,
-      size: 18 + Math.random() * 26,
-      delay: Math.random() * 12,
-      duration: 8 + Math.random() * 10,
-      rotate: Math.random() * 360,
-      opacity: 0.08 + Math.random() * 0.14,
-    });
-  }
-  return parts;
-}
-
-const FALLING_PARTS = generateParts(30);
-
 export const HeroSection: React.FC = () => {
-  const [entered, setEntered] = useState<boolean>(false);
-  const sectionRef = useRef<HTMLElement>(null);
-  const [scrollY, setScrollY] = useState(0);
-
-  useEffect(() => {
-    const t = setTimeout(() => setEntered(true), 400);
-    return () => clearTimeout(t);
-  }, []);
-
-  const handleScroll = useCallback(() => {
-    if (sectionRef.current) {
-      const rect = sectionRef.current.getBoundingClientRect();
-      if (rect.bottom > 0) {
-        setScrollY(-rect.top);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
-
-  const featureBadges: FeatureBadge[] = [
-    { icon: Zap, text: "Instant Search" },
-    { icon: Shield, text: "Verified Sellers" },
-    { icon: Star, text: "4.9★ Rated" },
-  ];
-
   const stats: Stat[] = [
     { value: "50K+", label: "Parts Listed" },
     { value: "2.5K+", label: "Garages" },
     { value: "100K+", label: "Happy Riders" },
-    { value: "4.9★", label: "Rating" },
+    { value: "4.9", label: "Average Rating" },
   ];
 
   return (
-    <section className="hero-3d-section" ref={sectionRef}>
-      {/* ── BG LAYERS ── */}
-      <div className="hero-bg-layer hero-bg-gradient" />
-      <div className="hero-bg-layer hero-bg-grid" />
-      <div className="hero-bg-layer hero-bg-radial" />
-
-      {/* ── FALLING SPARE PARTS ── */}
-      <div className="hero-falling-parts" style={{ transform: `translateY(${scrollY * 0.15}px)` }}>
-        {FALLING_PARTS.map(part => (
-          <span
-            key={part.id}
-            className="hero-falling-item"
-            style={{
-              left: `${part.left}%`,
-              fontSize: `${part.size}px`,
-              animationDelay: `${part.delay}s`,
-              animationDuration: `${part.duration}s`,
-              opacity: part.opacity,
-              '--rotate': `${part.rotate}deg`,
-            } as React.CSSProperties}
-          >
-            {part.emoji}
-          </span>
-        ))}
-      </div>
-
-      {/* ── TEXT OVERLAY ── */}
-      <div className="hero-text-overlay">
-        <div className={`hero-text-inner ${entered ? "hero-text-entered" : ""}`}>
-          <span className="hero-badge">
-            <span className="hero-badge-dot" />
-            #1 Motorcycle Parts Marketplace
+    <section className="relative overflow-hidden border-b border-border bg-gradient-to-br from-slate-100 via-white to-slate-100">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 md:grid-cols-2 md:px-8 md:py-20 lg:px-12">
+        <div className="space-y-7">
+          <span className="inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold tracking-wide text-slate-700">
+            Trusted Marketplace for Motorcycle Parts
           </span>
 
-          <h1 className="hero-title">
-            Find the Perfect Parts
-            <br />
-            for Your <span className="text-gradient hero-title-accent">Ride</span>
+          <h1 className="text-4xl font-bold leading-tight text-slate-900 md:text-5xl">
+            Find Genuine Parts and Verified Services in One Place
           </h1>
 
-          <p className="hero-subtitle">
-            Connect with trusted sellers and certified garages. Quality parts,
-            expert services, and everything to keep your motorcycle at peak performance.
+          <p className="max-w-xl text-base leading-relaxed text-slate-600 md:text-lg">
+            Compare trusted sellers, book skilled mechanics, and keep your bike road-ready
+            with transparent pricing and fast support.
           </p>
 
-          {/* Search */}
-          <div className="hero-search-bar">
-            <div className="hero-search-input-wrap">
-              <Search className="hero-search-icon" />
-              <input
-                type="text"
-                placeholder="Search parts by name, model, or brand..."
-                className="hero-search-input"
-              />
-            </div>
-            <Button variant="hero" size="xl">
-              Search Parts
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button size="lg" className="bg-slate-900 text-white hover:bg-slate-800 transition-none" asChild>
+              <Link to="/products">
+                Explore Products
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button variant="outline" size="lg" className="border-slate-300 text-slate-800 transition-none" asChild>
+              <Link to="/services">Book a Mechanic</Link>
             </Button>
           </div>
 
-          {/* Feature badges */}
-          <div className="hero-features">
-            {featureBadges.map(({ icon: Icon, text }) => (
-              <div key={text} className="hero-feature-badge">
-                <Icon size={14} />
-                <span>{text}</span>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="mb-2 flex items-center gap-2 text-slate-900">
+                <ShieldCheck className="h-4 w-4" />
+                <span className="text-sm font-semibold">Verified Sellers</span>
+              </div>
+              <p className="text-sm text-slate-600">Every seller profile is validated for quality and reliability.</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="mb-2 flex items-center gap-2 text-slate-900">
+                <Wrench className="h-4 w-4" />
+                <span className="text-sm font-semibold">Certified Mechanics</span>
+              </div>
+              <p className="text-sm text-slate-600">Find nearby experts for service, repairs, and diagnostics.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+          <h2 className="text-xl font-semibold text-slate-900">Quick Search</h2>
+          <p className="mt-1 text-sm text-slate-600">Search by part name, model, or compatible brand.</p>
+
+          <div className="mt-5 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <Search className="h-4 w-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="e.g. Brake pads for Yamaha R15"
+              className="w-full bg-transparent text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            {stats.map((stat) => (
+              <div key={stat.label} className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">{stat.label}</p>
               </div>
             ))}
           </div>
 
-          {/* Stats */}
-          <div className="hero-stats">
-            {stats.map((s, i) => (
-              <div key={s.label} className="hero-stat" style={{ animationDelay: `${0.9 + i * 0.1}s` }}>
-                <span className="hero-stat-value">{s.value}</span>
-                <span className="hero-stat-label">{s.label}</span>
-              </div>
-            ))}
+          <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex items-start gap-2 text-emerald-800">
+              <CheckCircle2 className="mt-0.5 h-4 w-4" />
+              <p className="text-sm font-medium">Live order tracking and secure checkout available nationwide.</p>
+            </div>
           </div>
         </div>
       </div>

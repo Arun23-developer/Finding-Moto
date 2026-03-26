@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,13 @@ interface AdminUser {
 
 type TabKey = "all" | "pending" | "seller" | "mechanic" | "buyer";
 
+const tabFromQuery = (value: string | null): TabKey => {
+  if (value === "seller" || value === "mechanic" || value === "pending" || value === "buyer") {
+    return value;
+  }
+  return "all";
+};
+
 // ─── Helpers ────────────────────────────────────────────────────────
 const roleIcon = (role: UserRole) => {
   const cls = "h-3.5 w-3.5 flex-shrink-0";
@@ -93,11 +101,12 @@ const approvalIcon: Record<ApprovalStatus, JSX.Element> = {
 
 // ─── Component ──────────────────────────────────────────────────────
 export default function UsersManagement() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<TabKey>("all");
+  const [activeTab, setActiveTab] = useState<TabKey>(() => tabFromQuery(searchParams.get("tab")));
   const [pendingCount, setPendingCount] = useState(0);
 
   // Approve / Reject modal state
@@ -153,6 +162,31 @@ export default function UsersManagement() {
     const timer = setTimeout(fetchUsers, search ? 400 : 0);
     return () => clearTimeout(timer);
   }, [fetchUsers]);
+
+  useEffect(() => {
+    const nextTab = tabFromQuery(searchParams.get("tab"));
+    if (nextTab !== activeTab) {
+      setActiveTab(nextTab);
+    }
+  }, [searchParams, activeTab]);
+
+  useEffect(() => {
+    const current = searchParams.get("tab");
+    if (activeTab === "all") {
+      if (current) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete("tab");
+        setSearchParams(nextParams, { replace: true });
+      }
+      return;
+    }
+
+    if (current !== activeTab) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set("tab", activeTab);
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [activeTab, searchParams, setSearchParams]);
 
   // ── Stats ────────────────────────────────────────────────────────
   const stats = {

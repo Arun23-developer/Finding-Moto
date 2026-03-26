@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
+import { resolveProductImage } from "@/lib/imageUrl";
+import { toast } from "@/hooks/use-toast";
 
 interface Product {
   _id: string;
@@ -45,12 +47,109 @@ const sortOptions: { label: string; value: string }[] = [
   { label: "Best Rating", value: "rating" },
 ];
 
+const CATEGORY_TREE: Array<{ value: string; label: string; children: Array<{ value: string; label: string }> }> = [
+  {
+    value: "engine_system",
+    label: "Engine System",
+    children: [
+      { value: "engine_system/piston", label: "Piston" },
+      { value: "engine_system/cylinder_block", label: "Cylinder Block" },
+      { value: "engine_system/crankshaft", label: "Crankshaft" },
+      { value: "engine_system/camshaft", label: "Camshaft" },
+      { value: "engine_system/spark_plug", label: "Spark Plug" },
+    ],
+  },
+  {
+    value: "fuel_system",
+    label: "Fuel System",
+    children: [
+      { value: "fuel_system/fuel_injector", label: "Fuel Injector" },
+      { value: "fuel_system/fuel_tank", label: "Fuel Tank" },
+      { value: "fuel_system/fuel_pump", label: "Fuel Pump" },
+      { value: "fuel_system/fuel_filter", label: "Fuel Filter" },
+    ],
+  },
+  {
+    value: "brake_system",
+    label: "Brake System",
+    children: [
+      { value: "brake_system/brake_disc", label: "Brake Disc" },
+      { value: "brake_system/brake_pad", label: "Brake Pad" },
+      { value: "brake_system/brake_caliper", label: "Brake Caliper" },
+    ],
+  },
+  {
+    value: "transmission_system",
+    label: "Transmission System",
+    children: [
+      { value: "transmission_system/clutch_plate", label: "Clutch Plate" },
+      { value: "transmission_system/chain_sprocket", label: "Chain Sprocket" },
+      { value: "transmission_system/drive_chain", label: "Drive Chain" },
+    ],
+  },
+  {
+    value: "suspension_system",
+    label: "Suspension System",
+    children: [
+      { value: "suspension_system/front_fork", label: "Front Fork" },
+      { value: "suspension_system/rear_shock_absorber", label: "Rear Shock Absorber" },
+      { value: "suspension_system/swing_arm", label: "Swing Arm" },
+    ],
+  },
+  {
+    value: "electrical_system",
+    label: "Electrical System",
+    children: [
+      { value: "electrical_system/battery", label: "Battery" },
+      { value: "electrical_system/headlight", label: "Headlight" },
+      { value: "electrical_system/ecu", label: "ECU" },
+      { value: "electrical_system/starter_motor", label: "Starter Motor" },
+      { value: "electrical_system/wiring_harness", label: "Wiring Harness" },
+      { value: "electrical_system/indicators", label: "Indicators" },
+    ],
+  },
+  {
+    value: "body_parts",
+    label: "Body Parts",
+    children: [
+      { value: "body_parts/seat", label: "Seat" },
+      { value: "body_parts/mirrors", label: "Mirrors" },
+      { value: "body_parts/mudguard", label: "Mudguard" },
+      { value: "body_parts/side_panel", label: "Side Panel" },
+      { value: "body_parts/number_plate_holder", label: "Number Plate Holder" },
+    ],
+  },
+  {
+    value: "wheels",
+    label: "Wheels",
+    children: [
+      { value: "wheels/tyre", label: "Tyre" },
+      { value: "wheels/rim", label: "Rim" },
+      { value: "wheels/spokes", label: "Spokes" },
+    ],
+  },
+];
+
 const Products: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("popular");
+  const [selectedBrand, setSelectedBrand] = useState<string>("All Brands");
+  const [brandSearchQuery, setBrandSearchQuery] = useState<string>("");
+  const [categorySearchQuery, setCategorySearchQuery] = useState<string>("");
+  const [minPrice, setMinPrice] = useState<string>("");
+  const [maxPrice, setMaxPrice] = useState<string>("");
+  const [inStockOnly, setInStockOnly] = useState<boolean>(false);
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem("wishlistProductIds");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>(["All"]);
@@ -74,6 +173,10 @@ const Products: React.FC = () => {
       };
       if (searchQuery) params.search = searchQuery;
       if (selectedCategory !== "All") params.category = selectedCategory;
+      if (selectedBrand && selectedBrand !== "All Brands") params.brand = selectedBrand;
+      if (minPrice) params.minPrice = minPrice;
+      if (maxPrice) params.maxPrice = maxPrice;
+      if (inStockOnly) params.inStockOnly = "true";
 
       const { data: res } = await api.get("/public/products", { params });
 
@@ -98,7 +201,65 @@ const Products: React.FC = () => {
   useEffect(() => {
     fetchProducts(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory, sortBy]);
+  }, [selectedCategory, sortBy, selectedBrand]);
+
+  useEffect(() => {
+    localStorage.setItem("wishlistProductIds", JSON.stringify(wishlist));
+  }, [wishlist]);
+
+  const toggleWishlist = (productId: string) => {
+    setWishlist((prev) => {
+      const exists = prev.includes(productId);
+      const next = exists ? prev.filter((id) => id !== productId) : [...prev, productId];
+      toast({
+        title: exists ? "Removed from wishlist" : "Added to wishlist",
+        description: exists ? "Product removed successfully." : "Product saved for later.",
+      });
+      return next;
+    });
+  };
+
+  const handleAddToCart = (product: Product) => {
+    navigate(`/products/${product._id}`);
+  };
+
+  const applyFilters = () => {
+    fetchProducts(1);
+  };
+
+  const handleBrandSelect = (brand: string) => {
+    setSelectedBrand(brand);
+  };
+
+  const filteredBrands = brands.filter((brand) =>
+    brand.toLowerCase().includes(brandSearchQuery.toLowerCase())
+  );
+
+  const q = categorySearchQuery.trim().toLowerCase();
+  const filteredCategoryTree = CATEGORY_TREE
+    .map((group) => {
+      const groupMatches =
+        group.label.toLowerCase().includes(q) || group.value.toLowerCase().includes(q);
+      const children = group.children.filter(
+        (child) =>
+          child.label.toLowerCase().includes(q) || child.value.toLowerCase().includes(q)
+      );
+      if (!q || groupMatches) {
+        return { ...group, children: group.children };
+      }
+      if (children.length > 0) {
+        return { ...group, children };
+      }
+      return null;
+    })
+    .filter((group): group is { value: string; label: string; children: Array<{ value: string; label: string }> } => group !== null);
+
+  const knownCategoryValues = new Set(
+    CATEGORY_TREE.flatMap((group) => [group.value, ...group.children.map((child) => child.value)])
+  );
+  const extraCategories = categories
+    .filter((c) => c !== "All" && !knownCategoryValues.has(c));
+  const filteredExtraCategories = extraCategories.filter((c) => c.toLowerCase().includes(q));
 
   // Debounced search
   useEffect(() => {
@@ -109,19 +270,12 @@ const Products: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
-  const getImageUrl = (product: Product): string => {
-    const img = product.image || product.images?.[0];
-    if (!img) return "https://placehold.co/400x400?text=No+Image";
-    if (img.startsWith("http")) return img;
-    return `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${img}`;
-  };
-
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="page-shell">
       <Header />
-      <main className="flex-1 bg-background">
+      <main className="page-main">
         {/* Page Header */}
-        <section className="bg-secondary py-8 border-b border-border">
+        <section className="section-band-divider bg-secondary py-8">
           <div className="container">
             <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
               Motorcycle Parts & Accessories
@@ -156,7 +310,7 @@ const Products: React.FC = () => {
                 Filters
               </Button>
               <select
-                className="h-10 px-3 rounded-md border border-input bg-background text-sm"
+                className="control-select"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
               >
@@ -187,10 +341,57 @@ const Products: React.FC = () => {
             {/* Sidebar Filters */}
             <aside className={`${showFilters ? "block" : "hidden"} lg:block w-full lg:w-64 shrink-0`}>
               <div className="sticky top-24 space-y-6">
-                <div className="p-4 rounded-xl bg-card border border-border">
+                <div className="sidebar-panel">
                   <h3 className="font-semibold text-foreground mb-4">Categories</h3>
-                  <div className="space-y-2">
-                    {categories.map((category) => (
+                  <Input
+                    type="text"
+                    placeholder="Search category..."
+                    className="h-9 mb-3"
+                    value={categorySearchQuery}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCategorySearchQuery(e.target.value)}
+                  />
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                    <button
+                      onClick={() => setSelectedCategory("All")}
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                        selectedCategory === "All"
+                          ? "bg-accent text-accent-foreground font-medium"
+                          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      }`}
+                    >
+                      All
+                    </button>
+                    {filteredCategoryTree.map((group) => (
+                      <div key={group.value}>
+                        <button
+                          onClick={() => setSelectedCategory(group.value)}
+                          className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                            selectedCategory === group.value
+                              ? "bg-accent text-accent-foreground font-medium"
+                              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          }`}
+                        >
+                          {group.label}
+                        </button>
+                        <div className="pl-3 space-y-1.5">
+                          {group.children.map((child) => (
+                            <button
+                              key={child.value}
+                              onClick={() => setSelectedCategory(child.value)}
+                              className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${
+                                selectedCategory === child.value
+                                  ? "bg-accent/80 text-accent-foreground font-medium"
+                                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                              }`}
+                            >
+                              {child.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                    {filteredExtraCategories.map((category) => (
                       <button
                         key={category}
                         onClick={() => setSelectedCategory(category)}
@@ -203,34 +404,59 @@ const Products: React.FC = () => {
                         {category}
                       </button>
                     ))}
+
+                    {q && filteredCategoryTree.length === 0 && filteredExtraCategories.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No categories found.</p>
+                    )}
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-card border border-border">
+                <div className="sidebar-panel">
                   <h3 className="font-semibold text-foreground mb-4">Brands</h3>
+                  <Input
+                    type="text"
+                    placeholder="Search brand..."
+                    className="h-9 mb-3"
+                    value={brandSearchQuery}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBrandSearchQuery(e.target.value)}
+                  />
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {brands.map((brand) => (
+                    {filteredBrands.map((brand) => (
                       <label key={brand} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="checkbox" className="rounded border-input" />
+                        <input
+                          type="radio"
+                          name="brand-filter"
+                          className="rounded border-input"
+                          checked={selectedBrand === brand}
+                          onChange={() => handleBrandSelect(brand)}
+                        />
                         <span className="text-muted-foreground hover:text-foreground">{brand}</span>
                       </label>
                     ))}
+                    {filteredBrands.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No brands found.</p>
+                    )}
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-card border border-border">
+                <div className="sidebar-panel">
                   <h3 className="font-semibold text-foreground mb-4">Price Range</h3>
                   <div className="flex items-center gap-2">
-                    <Input type="number" placeholder="Min" className="h-9" />
+                    <Input type="number" placeholder="Min" className="h-9" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
                     <span className="text-muted-foreground">-</span>
-                    <Input type="number" placeholder="Max" className="h-9" />
+                    <Input type="number" placeholder="Max" className="h-9" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
                   </div>
-                  <Button variant="outline" size="sm" className="w-full mt-3">Apply</Button>
+                  <Button variant="outline" size="sm" className="w-full mt-3" onClick={applyFilters}>Apply</Button>
                 </div>
 
-                <div className="p-4 rounded-xl bg-card border border-border">
+                <div className="sidebar-panel">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="rounded border-input" />
+                    <input
+                      type="checkbox"
+                      className="rounded border-input"
+                      checked={inStockOnly}
+                      onChange={(e) => setInStockOnly(e.target.checked)}
+                    />
                     <span className="text-sm text-foreground">In Stock Only</span>
                   </label>
                 </div>
@@ -276,11 +502,11 @@ const Products: React.FC = () => {
                     const discount = product.originalPrice
                       ? Math.round((1 - product.price / product.originalPrice) * 100)
                       : 0;
-                    const imgUrl = getImageUrl(product);
+                    const imgUrl = resolveProductImage(product, "https://placehold.co/400x400?text=No+Image");
 
                     if (viewMode === "list") {
                       return (
-                        <div key={product._id} className="flex gap-4 p-4 rounded-xl bg-card border border-border shadow-card hover:shadow-hover transition-all cursor-pointer" onClick={() => navigate(`/products/${product._id}`)}>
+                        <div key={product._id} className="panel-card-interactive flex gap-4 p-4 cursor-pointer" onClick={() => navigate(`/products/${product._id}`)}>
                           <div className="relative w-32 h-32 shrink-0 rounded-lg overflow-hidden bg-secondary">
                             <img src={imgUrl} alt={product.name} className="w-full h-full object-cover" />
                           {discount > 0 && (
@@ -299,6 +525,18 @@ const Products: React.FC = () => {
                             <p className="text-xs text-muted-foreground mb-2 truncate">
                               by {product.seller.shopName || `${product.seller.firstName} ${product.seller.lastName}`}
                             </p>
+                          )}
+                          {product.seller && (
+                            <button
+                              type="button"
+                              className="text-xs text-accent hover:underline mb-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/seller/${product.seller!._id}`);
+                              }}
+                            >
+                              View seller profile
+                            </button>
                           )}
                           <div className="flex items-center justify-between">
                             <div>
@@ -323,10 +561,10 @@ const Products: React.FC = () => {
                                   <MessageSquare className="h-4 w-4" />
                                 </Button>
                               )}
-                              <Button size="icon" variant="ghost" aria-label="Add to wishlist">
-                                <Heart className="h-4 w-4" />
+                              <Button size="icon" variant="ghost" aria-label="Add to wishlist" onClick={(e) => { e.stopPropagation(); toggleWishlist(product._id); }}>
+                                <Heart className={`h-4 w-4 ${wishlist.includes(product._id) ? "fill-current" : ""}`} />
                               </Button>
-                              <Button size="sm" variant="accent" disabled={!product.inStock}>
+                              <Button size="sm" variant="accent" disabled={!product.inStock} onClick={(e) => { e.stopPropagation(); handleAddToCart(product); }}>
                                 <ShoppingCart className="h-4 w-4 mr-1" />
                                 {product.inStock ? "Add" : "Out of Stock"}
                               </Button>
@@ -338,14 +576,21 @@ const Products: React.FC = () => {
                   }
 
                     return (
-                      <div key={product._id} className="group bg-card rounded-xl border border-border shadow-card hover:shadow-hover transition-all duration-300 cursor-pointer" onClick={() => navigate(`/products/${product._id}`)}>
+                      <div key={product._id} className="panel-card-interactive group cursor-pointer" onClick={() => navigate(`/products/${product._id}`)}>
                         <div className="relative aspect-square overflow-hidden rounded-t-xl bg-secondary">
                           <img src={imgUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         {discount > 0 && (
                           <span className="absolute top-3 left-3 px-2 py-1 text-xs font-bold rounded bg-accent text-accent-foreground">-{discount}%</span>
                         )}
-                        <button className="absolute top-3 right-3 p-2 rounded-full bg-background/80 backdrop-blur hover:bg-accent hover:text-accent-foreground transition-colors" aria-label="Add to wishlist">
-                          <Heart className="h-4 w-4" />
+                        <button
+                          className="absolute top-3 right-3 p-2 rounded-full bg-background/80 backdrop-blur hover:bg-accent hover:text-accent-foreground transition-colors"
+                          aria-label="Add to wishlist"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleWishlist(product._id);
+                          }}
+                        >
+                          <Heart className={`h-4 w-4 ${wishlist.includes(product._id) ? "fill-current" : ""}`} />
                         </button>
                         {!product.inStock && (
                           <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center">
@@ -365,6 +610,18 @@ const Products: React.FC = () => {
                           <p className="text-xs text-muted-foreground mb-3 truncate">
                             by {product.seller.shopName || `${product.seller.firstName} ${product.seller.lastName}`}
                           </p>
+                        )}
+                        {product.seller && (
+                          <button
+                            type="button"
+                            className="text-xs text-accent hover:underline mb-3"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/seller/${product.seller!._id}`);
+                            }}
+                          >
+                            View seller profile
+                          </button>
                         )}
                         <div className="flex items-center justify-between">
                           <div>
@@ -390,7 +647,16 @@ const Products: React.FC = () => {
                                 <MessageSquare className="h-4 w-4" />
                               </Button>
                             )}
-                            <Button size="sm" variant={product.inStock ? "accent" : "outline"} disabled={!product.inStock} className="gap-1">
+                            <Button
+                              size="sm"
+                              variant={product.inStock ? "accent" : "outline"}
+                              disabled={!product.inStock}
+                              className="gap-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddToCart(product);
+                              }}
+                            >
                               <ShoppingCart className="h-4 w-4" />
                               <span className="sr-only sm:not-sr-only">Add</span>
                             </Button>

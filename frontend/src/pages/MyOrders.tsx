@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "../components/layout/Header";
 import { Footer } from "../components/layout/Footer";
@@ -13,8 +13,11 @@ import {
   XCircle,
   ShoppingBag,
   ChevronDown,
+  Star,
 } from "lucide-react";
 import api from "../services/api";
+import { resolveMediaUrl } from "@/lib/imageUrl";
+import reviewService from "@/services/reviewService";
 
 interface OrderItem {
   product: string;
@@ -44,6 +47,16 @@ const statusConfig: Record<string, { icon: React.ReactNode; label: string; color
   cancelled: { icon: <XCircle className="h-4 w-4" />, label: "Cancelled", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" },
 };
 
+const statusFilters = ["all", "pending", "confirmed", "shipped", "delivered", "cancelled"] as const;
+
+const orderDateFormatter = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 const MyOrders: React.FC = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -51,35 +64,63 @@ const MyOrders: React.FC = () => {
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [reviewedProductIds, setReviewedProductIds] = useState<Set<string>>(new Set());
+  const latestOrdersRequestIdRef = useRef(0);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
+    const requestId = ++latestOrdersRequestIdRef.current;
+
     try {
       setLoading(true);
       setError("");
       const params: Record<string, string> = {};
       if (statusFilter !== "all") params.status = statusFilter;
-      const { data: res } = await api.get("/orders/my", { params });
-      if (res.success) {
-        setOrders(res.data);
+      const { data: orderRes } = await api.get("/orders/my", { params });
+
+      if (requestId !== latestOrdersRequestIdRef.current) return;
+
+      if (orderRes.success) {
+        setOrders(Array.isArray(orderRes.data) ? orderRes.data : []);
+      } else {
+        setOrders([]);
+        setError("Failed to load orders.");
       }
     } catch {
+      if (requestId !== latestOrdersRequestIdRef.current) return;
       setError("Failed to load orders.");
     } finally {
-      setLoading(false);
+      if (requestId === latestOrdersRequestIdRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [statusFilter]);
+
+  const fetchReviewedProductIds = useCallback(async () => {
+    try {
+      const myReviews = await reviewService.getMyReviews();
+      const reviewedIds = myReviews
+        .map((r) => r.productId)
+        .filter((id): id is string => Boolean(id));
+      setReviewedProductIds(new Set(reviewedIds));
+    } catch {
+      // Ignore review fetch failure to avoid blocking order rendering.
+    }
+  }, []);
 
   useEffect(() => {
     fetchOrders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    fetchReviewedProductIds();
+  }, [fetchReviewedProductIds]);
 
   const handleCancel = async (orderId: string) => {
     if (!confirm("Are you sure you want to cancel this order?")) return;
     try {
       setCancellingId(orderId);
       await api.patch(`/orders/my/${orderId}/cancel`);
-      fetchOrders();
+      await fetchOrders();
     } catch (err: any) {
       alert(err.response?.data?.message || "Failed to cancel order");
     } finally {
@@ -88,9 +129,7 @@ const MyOrders: React.FC = () => {
   };
 
   const getImageUrl = (img?: string): string => {
-    if (!img) return "https://placehold.co/80x80?text=Item";
-    if (img.startsWith("http")) return img;
-    return `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${img}`;
+    return resolveMediaUrl(img, "https://placehold.co/80x80?text=Item");
   };
 
   return (
@@ -114,7 +153,7 @@ const MyOrders: React.FC = () => {
         <div className="container py-8">
           {/* Status filter tabs */}
           <div className="flex flex-wrap gap-2 mb-8">
-            {["all", "pending", "confirmed", "shipped", "delivered", "cancelled"].map((s) => (
+            {statusFilters.map((s) => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
@@ -176,16 +215,10 @@ const MyOrders: React.FC = () => {
                           Order #{order._id.slice(-8).toUpperCase()}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(order.createdAt).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {orderDateFormatter.format(new Date(order.createdAt))}
                         </p>
                       </div>
-                      <div className={`flex items-center gap-1.5 text-sm font-medium ${sc.color}`}>
+                      <div className={`flex items-center gap-1.5 text-sm font-medium min-w-0 ${sc.color}`}>
                         {sc.icon}
                         {sc.label}
                       </div>
@@ -193,7 +226,7 @@ const MyOrders: React.FC = () => {
 
                     {/* Items */}
                     {order.items.map((item, i) => (
-                      <div key={i} className="flex items-center gap-4 py-3 border-t border-border/50">
+                      <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-4 py-3 border-t border-border/50">
                         <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary shrink-0">
                           <img src={getImageUrl(item.image)} alt={item.name} className="w-full h-full object-cover" />
                         </div>
@@ -202,8 +235,28 @@ const MyOrders: React.FC = () => {
                           <p className="text-sm text-muted-foreground">
                             LKR {item.price.toLocaleString()} × {item.qty}
                           </p>
+                          {order.status === "delivered" && (
+                            <div className="mt-2">
+                              {reviewedProductIds.has(item.product) ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-600">
+                                  <Star className="h-3.5 w-3.5 fill-green-600 text-green-600" />
+                                  Reviewed
+                                </span>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs"
+                                  onClick={() => navigate(`/products/${item.product}`)}
+                                >
+                                  <Star className="h-3.5 w-3.5 mr-1" />
+                                  Rate & Review
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-right">
+                        <div className="text-right sm:text-right self-start sm:self-auto w-full sm:w-auto">
                           <p className="font-bold text-foreground">
                             LKR {(item.price * item.qty).toLocaleString()}
                           </p>
@@ -213,7 +266,7 @@ const MyOrders: React.FC = () => {
 
                     {/* Footer */}
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-border/50">
-                      <div className="text-sm text-muted-foreground space-y-1">
+                      <div className="text-sm text-muted-foreground space-y-1 min-w-0 break-words">
                         {order.seller && (
                           <p>
                             Seller: <strong className="text-foreground">
@@ -222,13 +275,13 @@ const MyOrders: React.FC = () => {
                           </p>
                         )}
                         <p>Payment: {order.paymentMethod}</p>
-                        <p className="flex items-center gap-1">
-                          <ChevronDown className="h-3 w-3" />
-                          {order.shippingAddress}
+                        <p className="flex items-start gap-1 break-words">
+                          <ChevronDown className="h-3 w-3 mt-1 shrink-0" />
+                          <span className="break-words">{order.shippingAddress}</span>
                         </p>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto sm:shrink-0 justify-between sm:justify-end">
+                        <div className="text-left sm:text-right">
                           <p className="text-xs text-muted-foreground">Total</p>
                           <p className="text-xl font-bold text-foreground">
                             LKR {order.totalAmount.toLocaleString()}
@@ -238,7 +291,7 @@ const MyOrders: React.FC = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            className="text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0"
                             onClick={() => handleCancel(order._id)}
                             disabled={cancellingId === order._id}
                           >

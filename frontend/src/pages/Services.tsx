@@ -16,6 +16,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { resolveMediaUrl } from "@/lib/imageUrl";
 
 interface ServiceDetail {
   name: string;
@@ -47,6 +48,7 @@ const Services: React.FC = () => {
   const [serviceTypes, setServiceTypes] = useState<string[]>(["All Services"]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
+  const [visibleCount, setVisibleCount] = useState<number>(6);
 
   const fetchMechanics = async () => {
     try {
@@ -87,19 +89,20 @@ const Services: React.FC = () => {
   }, [searchQuery]);
 
   const filteredGarages = garages;
+  const visibleGarages = filteredGarages.slice(0, visibleCount);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="page-shell">
       <Header />
-      <main className="flex-1 bg-background">
+      <main className="page-main">
         {/* Hero Section */}
-        <section className="hero-gradient py-16 md:py-20">
+        <section className="page-hero-compact">
           <div className="container">
-            <div className="max-w-3xl mx-auto text-center">
-              <h1 className="text-4xl md:text-5xl font-black text-primary-foreground mb-6">
+            <div className="page-hero-content">
+              <h1 className="page-hero-title-compact">
                 Find Trusted Garages Near You
               </h1>
-              <p className="text-lg text-primary-foreground/80 mb-8">
+              <p className="page-hero-text-spaced">
                 Connect with certified mechanics and service centers for professional maintenance and repairs
               </p>
 
@@ -114,7 +117,7 @@ const Services: React.FC = () => {
                     className="pl-12 h-14 bg-background/95 backdrop-blur border-0"
                   />
                 </div>
-                <Button variant="hero" size="xl">
+                <Button variant="hero" size="xl" onClick={() => fetchMechanics()}>
                   <Search className="h-5 w-5 mr-2" />
                   Search
                 </Button>
@@ -133,11 +136,7 @@ const Services: React.FC = () => {
                   <button
                     key={service}
                     onClick={() => setSelectedService(service)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      selectedService === service
-                        ? "bg-accent text-accent-foreground"
-                        : "bg-background text-muted-foreground hover:text-foreground border border-border"
-                    }`}
+                    className={`filter-chip ${selectedService === service ? 'is-active' : ''}`}
                   >
                     {service}
                   </button>
@@ -152,9 +151,9 @@ const Services: React.FC = () => {
           <div className="container">
             <div className="flex justify-between items-center mb-8">
               <p className="text-muted-foreground">
-                Showing {filteredGarages.length} garages near you
+                Showing {Math.min(visibleCount, filteredGarages.length)} of {filteredGarages.length} garages near you
               </p>
-              <select className="h-10 px-3 rounded-md border border-input bg-background text-sm">
+              <select className="control-select">
                 <option>Nearest First</option>
                 <option>Best Rated</option>
                 <option>Most Reviews</option>
@@ -187,16 +186,16 @@ const Services: React.FC = () => {
                 </div>
               )}
 
-              {filteredGarages.map((garage, index) => (
+              {visibleGarages.map((garage, index) => (
                 <div
                   key={garage._id}
-                  className="group bg-card rounded-xl border border-border shadow-card hover:shadow-hover transition-all duration-300 overflow-hidden animate-fade-in"
+                  className="panel-card-interactive group overflow-hidden animate-fade-in"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <div className="relative h-48 overflow-hidden bg-secondary flex items-center justify-center">
                     {garage.avatar ? (
                       <img
-                        src={garage.avatar.startsWith("http") ? garage.avatar : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${garage.avatar}`}
+                        src={resolveMediaUrl(garage.avatar, "https://placehold.co/400x300?text=Garage")}
                         alt={garage.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
@@ -244,12 +243,12 @@ const Services: React.FC = () => {
                       {garage.serviceDetails && garage.serviceDetails.length > 0 ? (
                         <>
                           {garage.serviceDetails.slice(0, 3).map((svc) => (
-                            <span key={svc.name} className="px-2 py-1 text-xs font-medium rounded-full bg-secondary text-secondary-foreground" title={`LKR ${svc.price.toLocaleString()}`}>
+                            <span key={svc.name} className="tag-chip" title={`LKR ${svc.price.toLocaleString()}`}>
                               {svc.name}
                             </span>
                           ))}
                           {garage.serviceDetails.length > 3 && (
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-secondary text-muted-foreground">
+                            <span className="tag-chip-muted">
                               +{garage.serviceDetails.length - 3} more
                             </span>
                           )}
@@ -257,12 +256,12 @@ const Services: React.FC = () => {
                       ) : (
                         <>
                           {garage.services.slice(0, 3).map((service) => (
-                            <span key={service} className="px-2 py-1 text-xs font-medium rounded-full bg-secondary text-secondary-foreground">
+                            <span key={service} className="tag-chip">
                               {service}
                             </span>
                           ))}
                           {garage.services.length > 3 && (
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-secondary text-muted-foreground">
+                            <span className="tag-chip-muted">
                               +{garage.services.length - 3} more
                             </span>
                           )}
@@ -271,7 +270,20 @@ const Services: React.FC = () => {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button variant="accent" className="flex-1">
+                      <Button
+                        variant="outline"
+                        onClick={() => navigate(`/mechanic/${garage._id}`)}
+                      >
+                        View Profile
+                      </Button>
+                      <Button
+                        variant="accent"
+                        className="flex-1"
+                        onClick={() => {
+                          if (!user) { navigate('/login'); return; }
+                          navigate(`/chat?user=${garage._id}`);
+                        }}
+                      >
                         <Calendar className="h-4 w-4 mr-2" />
                         Book Now
                       </Button>
@@ -285,7 +297,7 @@ const Services: React.FC = () => {
                       >
                         <MessageSquare className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline">
+                      <Button variant="outline" onClick={() => { window.location.href = `tel:${garage.phone}`; }}>
                         <Phone className="h-4 w-4" />
                       </Button>
                     </div>
@@ -295,16 +307,23 @@ const Services: React.FC = () => {
             </div>
 
             <div className="text-center mt-12">
-              <Button variant="outline" size="lg">Load More Garages</Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => setVisibleCount((prev) => prev + 6)}
+                disabled={visibleCount >= filteredGarages.length}
+              >
+                {visibleCount >= filteredGarages.length ? "No More Garages" : "Load More Garages"}
+              </Button>
             </div>
           </div>
         </section>
 
         {/* Map Section */}
-        <section className="py-12 bg-secondary">
+        <section className="section-band-muted">
           <div className="container">
             <h2 className="text-2xl font-bold text-foreground mb-6">Explore on Map</h2>
-            <div className="rounded-xl overflow-hidden border border-border bg-card h-80 md:h-96 flex items-center justify-center">
+            <div className="panel-card overflow-hidden h-80 md:h-96 flex items-center justify-center">
               <div className="text-center">
                 <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-lg font-semibold text-foreground mb-2">Interactive Map Coming Soon</p>
@@ -324,7 +343,7 @@ const Services: React.FC = () => {
               Join Finding Moto to reach thousands of riders looking for quality service.
               Get more bookings and grow your business.
             </p>
-            <Button variant="hero" size="xl">Register Your Garage</Button>
+            <Button variant="hero" size="xl" onClick={() => navigate("/register")}>Register Your Garage</Button>
           </div>
         </section>
       </main>

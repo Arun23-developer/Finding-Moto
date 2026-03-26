@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/services/api";
+import { resolveMediaUrl } from "@/lib/imageUrl";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface Product {
@@ -35,7 +36,7 @@ interface Product {
   createdAt: string;
 }
 
-const categories = ["All", "Brakes", "Lubricants", "Engine Parts", "Drive", "Filters", "Cables", "Electrical", "Accessories"];
+const categories = ["All", "Bikes", "Brakes", "Lubricants", "Engine Parts", "Drive", "Filters", "Cables", "Electrical", "Accessories"];
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: "In Stock", color: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800" },
@@ -170,7 +171,7 @@ function ProductModal({
               <div className="flex gap-2 flex-wrap mb-3">
                 {images.map((img, i) => (
                   <div key={i} className="relative group w-20 h-20 rounded-lg overflow-hidden border">
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <img src={resolveMediaUrl(img, "https://placehold.co/80x80?text=Item")} alt="" className="w-full h-full object-cover" />
                     <button
                       type="button"
                       onClick={() => setImages((prev) => prev.filter((_, idx) => idx !== i))}
@@ -544,7 +545,7 @@ export default function MechanicProducts() {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-amber-600/10 flex items-center justify-center overflow-hidden">
                           {product.images?.[0] ? (
-                            <img src={product.images[0]} alt="" className="w-full h-full object-cover" />
+                            <img src={resolveMediaUrl(product.images[0], "https://placehold.co/80x80?text=Item")} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <ImageIcon className="h-5 w-5 text-amber-600/50" />
                           )}

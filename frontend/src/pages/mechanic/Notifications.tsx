@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ─── Mock Data ──────────────────────────────────────────────────────────────
 interface Notification {
   id: number;
   type: "service" | "review" | "parts" | "system" | "schedule";
@@ -22,21 +21,6 @@ interface Notification {
   time: string;
   read: boolean;
 }
-
-const MOCK_NOTIFICATIONS: Notification[] = [
-  { id: 1, type: "service", title: "New Service Request", message: "Ashan Perera needs engine overheating fix for Honda CB150R. Location: Colombo 03. Estimated: LKR 5,500", time: "5 minutes ago", read: false },
-  { id: 2, type: "service", title: "Job Accepted", message: "Service Request #SR-1002 (Brake Pad Replacement) has been confirmed. Customer: Nimal Fernando.", time: "1 hour ago", read: false },
-  { id: 3, type: "review", title: "New 5-Star Review", message: "Kasun Silva left a 5-star review: \"Amazing job on the chain and sprocket replacement! Bike feels like brand new.\"", time: "3 hours ago", read: false },
-  { id: 4, type: "parts", title: "Parts Order Shipped", message: "Your order for Honda CB150R thermostat kit has been shipped. Expected delivery: Tomorrow.", time: "5 hours ago", read: false },
-  { id: 5, type: "service", title: "Job Completed", message: "Service Request #SR-1004 (Full Service) has been marked as completed. Payment: LKR 12,000 received.", time: "8 hours ago", read: true },
-  { id: 6, type: "system", title: "Profile Verified", message: "Congratulations! Your mechanic profile has been verified. You now have the verified mechanic badge.", time: "1 day ago", read: true },
-  { id: 7, type: "schedule", title: "Upcoming Appointment", message: "Reminder: You have a Full Engine Rebuild scheduled tomorrow for Lahiru Mendis (Honda CBR250R).", time: "1 day ago", read: true },
-  { id: 8, type: "review", title: "New Review", message: "Ruwan Jayasinghe left a 5-star review on Clutch Cable Replacement: \"Quick and efficient service!\"", time: "2 days ago", read: true },
-  { id: 9, type: "parts", title: "Parts Low Stock", message: "Brake pad sets are running low in your inventory (3 remaining). Consider restocking.", time: "2 days ago", read: true },
-  { id: 10, type: "service", title: "Job Cancelled", message: "Service Request #SR-1006 has been cancelled by Chamara Bandara. Reason: Found another workshop.", time: "3 days ago", read: true },
-  { id: 11, type: "system", title: "Platform Update", message: "Finding Moto has added new AI-powered diagnostic tools for mechanics. Check the AI Assistant tab!", time: "4 days ago", read: true },
-  { id: 12, type: "schedule", title: "Monthly Summary", message: "Your workshop performance for January 2026: 38 jobs completed, LKR 342,000 revenue. Great work!", time: "5 days ago", read: true },
-];
 
 const typeConfig: Record<string, { icon: typeof Bell; color: string; bg: string }> = {
   service: { icon: Wrench, color: "text-amber-600", bg: "bg-amber-600/10" },
@@ -50,7 +34,7 @@ type FilterType = "all" | "service" | "review" | "parts" | "system" | "schedule"
 
 // ─── Notifications Page ─────────────────────────────────────────────────────
 export default function MechanicNotifications() {
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [filter, setFilter] = useState<FilterType>("all");
 
   const unreadCount = notifications.filter((n) => !n.read).length;

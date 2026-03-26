@@ -455,7 +455,7 @@ const Login: React.FC = () => {
               onSuccess={handleGoogleSuccess}
               onError={handleGoogleError}
               size="large"
-              width="100%"
+              width="320"
               theme="outline"
               text="signin_with"
               shape="rectangular"

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { MapPin, Phone, ArrowRight, Loader2, Wrench } from "lucide-react";
 import { Button } from "../ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 
 interface Garage {
@@ -18,6 +18,7 @@ interface Garage {
 }
 
 export const ServicesSection: React.FC = () => {
+  const navigate = useNavigate();
   const [garages, setGarages] = useState<Garage[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -128,9 +129,14 @@ export const ServicesSection: React.FC = () => {
                   ))}
                 </div>
 
-                <Button variant="accent" className="w-full">
-                  Book Appointment
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => navigate(`/mechanic/${garage._id}`)}>
+                    View Profile
+                  </Button>
+                  <Button variant="accent" className="flex-1" asChild>
+                    <Link to="/services">Book</Link>
+                  </Button>
+                </div>
               </div>
             </div>
           ))}

@@ -20,6 +20,8 @@ interface User {
   shopName?: string;
   shopDescription?: string;
   shopLocation?: string;
+  sellerSpecializations?: string[];
+  sellerBrands?: string[];
   // Mechanic fields
   specialization?: string;
   experienceYears?: number;
@@ -61,6 +63,7 @@ interface AuthContextType {
   resendOTP: (email: string, role?: string) => Promise<any>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<any>;
+  uploadAvatar: (file: File) => Promise<any>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<any>;
   addRole: (data: any) => Promise<any>;
   getMyRoles: () => Promise<any>;
@@ -84,12 +87,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuth();
   }, []);
 
+  const refreshUser = async () => {
+    const response = await api.get('/auth/me');
+    setUser(response.data);
+    return response.data;
+  };
+
   const checkAuth = async () => {
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        const response = await api.get('/auth/me');
-        setUser(response.data);
+        await refreshUser();
       } catch (error) {
         localStorage.removeItem('token');
       }
@@ -145,7 +153,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const updateProfile = async (data: Partial<User>) => {
     const response = await api.put('/auth/profile', data);
-    setUser(response.data.user);
+    await refreshUser();
+    return response.data;
+  };
+
+  const uploadAvatar = async (file: File) => {
+    const fd = new FormData();
+    fd.append('image', file);
+    const response = await api.post('/auth/upload-avatar', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    await refreshUser();
     return response.data;
   };
 
@@ -180,6 +198,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     resendOTP,
     logout,
     updateProfile,
+    uploadAvatar,
     changePassword,
     addRole,
     getMyRoles,

@@ -17,17 +17,20 @@ Find_Moto/
 │   └── README.md
 │
 ├── backend/                # Node.js + Express backend API
-│   ├── config/
-│   ├── controllers/
-│   ├── models/
-│   ├── routes/
-│   ├── middleware/
-│   ├── utils/
+│   ├── src/
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   └── utils/
+│   ├── scripts/
+│   ├── uploads/
 │   ├── .env
 │   ├── .gitignore
 │   ├── package.json
-│   ├── app.js
-│   ├── server.js
+│   ├── src/app.ts
+│   ├── src/server.ts
 │   └── README.md
 │
 ├── .gitignore

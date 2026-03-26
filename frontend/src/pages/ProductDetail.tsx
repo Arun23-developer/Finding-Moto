@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { resolveMediaUrl } from "@/lib/imageUrl";
+import reviewService from "@/services/reviewService";
 
 interface ProductDetail {
   _id: string;
@@ -41,6 +43,11 @@ interface ProductDetail {
   seller: { _id: string; firstName: string; lastName: string; shopName?: string };
   reviews: Array<{
     _id: string;
+    buyer?: {
+      firstName?: string;
+      lastName?: string;
+      avatar?: string | null;
+    };
     rating: number;
     comment: string;
     createdAt: string;
@@ -65,29 +72,35 @@ const ProductDetailPage: React.FC = () => {
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderError, setOrderError] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [reviewSuccess, setReviewSuccess] = useState("");
+
+  const fetchProduct = async () => {
+    if (!id) return;
+
+    try {
+      setLoading(true);
+      const { data: res } = await api.get(`/public/products/${id}`);
+      if (res.success) {
+        setProduct(res.data);
+      }
+    } catch {
+      setError("Failed to load product details.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        setLoading(true);
-        const { data: res } = await api.get(`/public/products/${id}`);
-        if (res.success) {
-          setProduct(res.data);
-        }
-      } catch {
-        setError("Failed to load product details.");
-      } finally {
-        setLoading(false);
-      }
-    };
     if (id) fetchProduct();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const getImageUrl = (img: string | null): string => {
-    if (!img) return "https://placehold.co/600x600?text=No+Image";
-    if (img.startsWith("http")) return img;
-    return `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${img}`;
-  };
+  const getImageUrl = (img: string | null): string =>
+    resolveMediaUrl(img, "https://placehold.co/600x600?text=No+Image");
 
   const handlePlaceOrder = async () => {
     if (!shippingAddress.trim()) {
@@ -115,6 +128,39 @@ const ProductDetailPage: React.FC = () => {
       setOrderError(err.response?.data?.message || "Failed to place order");
     } finally {
       setOrderLoading(false);
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    if (!product) return;
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    if (user.role !== 'buyer') {
+      setReviewError('Only buyer accounts can submit reviews.');
+      return;
+    }
+    if (!reviewComment.trim()) {
+      setReviewError('Please write a short review comment.');
+      return;
+    }
+
+    try {
+      setReviewSubmitting(true);
+      setReviewError('');
+      setReviewSuccess('');
+      await reviewService.addReview(product._id, {
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      });
+      setReviewComment('');
+      setReviewSuccess('Your review has been saved.');
+      await fetchProduct();
+    } catch (err: any) {
+      setReviewError(err.response?.data?.message || 'Failed to submit review');
+    } finally {
+      setReviewSubmitting(false);
     }
   };
 
@@ -317,19 +363,31 @@ const ProductDetailPage: React.FC = () => {
                       <p className="text-xs text-muted-foreground">Seller</p>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!user) { navigate('/login'); return; }
-                      navigate(`/chat?user=${product.seller._id}`);
-                    }}
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    Message
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/seller/${product.seller._id}`);
+                      }}
+                    >
+                      View Profile
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!user) { navigate('/login'); return; }
+                        navigate(`/chat?user=${product.seller._id}`);
+                      }}
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      Message
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -492,31 +550,77 @@ const ProductDetailPage: React.FC = () => {
           </div>
 
           {/* Reviews Section */}
-          {product.reviews && product.reviews.length > 0 && (
-            <div className="mt-12">
-              <h2 className="text-2xl font-bold text-foreground mb-6">
-                Customer Reviews ({product.reviews.length})
-              </h2>
-              <div className="space-y-4">
-                {product.reviews.map((review) => (
-                  <div key={review._id} className="p-4 rounded-xl bg-card border border-border">
-                    <div className="flex items-center gap-1 mb-2">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star
-                          key={s}
-                          className={`h-4 w-4 ${s <= review.rating ? "fill-warning text-warning" : "text-muted-foreground/30"}`}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-sm text-foreground">{review.comment}</p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {new Date(review.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
+          <div className="mt-12 space-y-6">
+            <div className="p-5 rounded-xl border border-border bg-card">
+              <h2 className="text-xl font-bold text-foreground mb-4">Rate This Product</h2>
+              <div className="flex items-center gap-2 mb-4">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setReviewRating(s)}
+                    className="p-0.5"
+                  >
+                    <Star
+                      className={`h-6 w-6 ${s <= reviewRating ? "fill-warning text-warning" : "text-muted-foreground/30"}`}
+                    />
+                  </button>
                 ))}
               </div>
+              <textarea
+                className="w-full min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Share your experience with this product..."
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+              />
+              {reviewError && <p className="text-sm text-destructive mt-2">{reviewError}</p>}
+              {reviewSuccess && <p className="text-sm text-green-600 mt-2">{reviewSuccess}</p>}
+              <div className="mt-3 flex justify-end">
+                <Button onClick={handleSubmitReview} disabled={reviewSubmitting}>
+                  {reviewSubmitting ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</>
+                  ) : (
+                    'Submit Review'
+                  )}
+                </Button>
+              </div>
             </div>
-          )}
+
+            <div>
+              <h2 className="text-2xl font-bold text-foreground mb-6">
+                Customer Reviews ({product.reviews?.length || 0})
+              </h2>
+              {product.reviews && product.reviews.length > 0 ? (
+                <div className="space-y-4">
+                  {product.reviews.map((review) => (
+                    <div key={review._id} className="p-4 rounded-xl bg-card border border-border">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={`h-4 w-4 ${s <= review.rating ? "fill-warning text-warning" : "text-muted-foreground/30"}`}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {(review.buyer?.firstName || review.buyer?.lastName)
+                            ? `${review.buyer?.firstName || ''} ${review.buyer?.lastName || ''}`.trim()
+                            : 'Verified Buyer'}
+                        </p>
+                      </div>
+                      <p className="text-sm text-foreground">{review.comment}</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {new Date(review.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No reviews yet. Be the first to rate this product.</p>
+              )}
+            </div>
+          </div>
         </div>
       </main>
       <Footer />

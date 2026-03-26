@@ -41,107 +41,6 @@ interface OrderStats {
   recentActionNeeded: { _id: string; status: string; totalAmount: number; createdAt: string }[];
 }
 
-// ─── Mock Fallback Data ────────────────────────────────────────────────────
-const MOCK_STATS: OrderStats = {
-  totalOrders: 48,
-  totalRevenue: 387500,
-  avgOrderValue: 8073,
-  deliveredOrders: 31,
-  cancelledOrders: 3,
-  pendingOrders: 6,
-  ordersThisMonth: 12,
-  revenueThisMonth: 96400,
-  orderGrowth: 18,
-  revenueGrowth: 24,
-  completionRate: 65,
-  recentActionNeeded: [],
-};
-
-const MOCK_ORDERS: Order[] = [
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d001",
-    buyer: { _id: "u1", name: "Kavindu Perera", firstName: "Kavindu", lastName: "Perera", email: "kavindu@gmail.com", phone: "0771234567" },
-    items: [{ product: "p1", name: "Honda CB Hornet Brake Pad Set", price: 3500, qty: 2 }],
-    totalAmount: 7000,
-    status: "pending",
-    shippingAddress: "45 Galle Road, Colombo 03",
-    paymentMethod: "Cash on Delivery",
-    notes: "Please deliver before 5 PM",
-    createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
-  },
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d002",
-    buyer: { _id: "u2", name: "Nimal Fernando", firstName: "Nimal", lastName: "Fernando", email: "nimal.f@gmail.com", phone: "0769876543" },
-    items: [{ product: "p2", name: "Yamaha FZ Chain Sprocket Kit", price: 4800, qty: 1 }, { product: "p3", name: "Engine Oil 10W-40 (1L)", price: 1200, qty: 3 }],
-    totalAmount: 8400,
-    status: "pending",
-    shippingAddress: "12 Temple Road, Kandy",
-    paymentMethod: "Card Payment",
-    createdAt: new Date(Date.now() - 5 * 3600000).toISOString(),
-  },
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d003",
-    buyer: { _id: "u3", name: "Sanjay Wickrama", firstName: "Sanjay", lastName: "Wickrama", email: "sanjay.w@hotmail.com", phone: "0712345678" },
-    items: [{ product: "p4", name: "Bajaj Pulsar 150 Air Filter", price: 950, qty: 1 }],
-    totalAmount: 950,
-    status: "confirmed",
-    shippingAddress: "78 Station Road, Galle",
-    paymentMethod: "Cash on Delivery",
-    createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
-  },
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d004",
-    buyer: { _id: "u4", name: "Tharushi Silva", firstName: "Tharushi", lastName: "Silva", email: "tharushi@yahoo.com", phone: "0778889990" },
-    items: [{ product: "p5", name: "TVS Apache RTR 160 Clutch Cable", price: 650, qty: 1 }, { product: "p6", name: "LED Headlight Bulb H4", price: 2800, qty: 2 }],
-    totalAmount: 6250,
-    status: "confirmed",
-    shippingAddress: "23 Lake Drive, Negombo",
-    paymentMethod: "Card Payment",
-    createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-  },
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d005",
-    buyer: { _id: "u5", name: "Ruwan Jayasuriya", firstName: "Ruwan", lastName: "Jayasuriya", email: "ruwan.j@gmail.com", phone: "0756781234" },
-    items: [{ product: "p7", name: "Honda Dio Side Mirror Set", price: 1800, qty: 1 }],
-    totalAmount: 1800,
-    status: "shipped",
-    shippingAddress: "56 High Level Road, Nugegoda",
-    paymentMethod: "Cash on Delivery",
-    createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-  },
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d006",
-    buyer: { _id: "u6", name: "Dilshan Rajapaksa", firstName: "Dilshan", lastName: "Rajapaksa", email: "dilshan.r@gmail.com", phone: "0723456789" },
-    items: [{ product: "p8", name: "Full-Face Helmet (Matte Black)", price: 8500, qty: 1 }],
-    totalAmount: 8500,
-    status: "delivered",
-    shippingAddress: "90 Duplication Road, Colombo 04",
-    paymentMethod: "Card Payment",
-    createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
-  },
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d007",
-    buyer: { _id: "u7", name: "Amaya De Soysa", firstName: "Amaya", lastName: "De Soysa", email: "amaya.ds@gmail.com", phone: "0701112233" },
-    items: [{ product: "p9", name: "Riding Gloves (XL)", price: 3200, qty: 1 }, { product: "p10", name: "Phone Mount for Motorcycle", price: 1500, qty: 1 }],
-    totalAmount: 4700,
-    status: "delivered",
-    shippingAddress: "17 Park Street, Matara",
-    paymentMethod: "Cash on Delivery",
-    createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-  },
-  {
-    _id: "66a1b2c3d4e5f6a7b8c9d008",
-    buyer: { _id: "u8", name: "Lakshan Mendis", firstName: "Lakshan", lastName: "Mendis", email: "lakshan.m@gmail.com", phone: "0741234567" },
-    items: [{ product: "p11", name: "Suzuki Gixxer Exhaust Pipe", price: 14500, qty: 1 }],
-    totalAmount: 14500,
-    status: "cancelled",
-    shippingAddress: "34 Flower Road, Colombo 07",
-    paymentMethod: "Card Payment",
-    notes: "Customer requested cancellation",
-    createdAt: new Date(Date.now() - 4 * 86400000).toISOString(),
-  },
-];
-
 // ─── Types ─────────────────────────────────────────────────────────────────
 interface OrderItem {
   product: string;
@@ -325,15 +224,9 @@ export default function SellerOrders() {
     try {
       const res = await api.get("/orders/stats");
       const data = res.data.data;
-      // Use mock stats if API returns all zeros (no real data)
-      if (data && data.totalOrders > 0) {
-        setStats(data);
-      } else {
-        setStats(MOCK_STATS);
-      }
+      setStats(data || null);
     } catch {
-      // Use mock stats on failure so cards always show
-      setStats(MOCK_STATS);
+      setStats(null);
     } finally {
       setStatsLoading(false);
     }
@@ -347,12 +240,10 @@ export default function SellerOrders() {
       if (statusFilter !== "all") params.status = statusFilter;
       const res = await api.get("/orders", { params });
       const data = res.data.data || [];
-      // Use mock orders if no real orders exist
-      setOrders(data.length > 0 ? data : MOCK_ORDERS);
+      setOrders(data);
     } catch (err: any) {
-      // Fallback to mock orders on error
-      setOrders(MOCK_ORDERS);
-      setError(null);
+      setOrders([]);
+      setError(err?.response?.data?.message || "Failed to load orders");
     } finally {
       setLoading(false);
     }

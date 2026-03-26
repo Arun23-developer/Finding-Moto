@@ -7,14 +7,33 @@ import {
   Clock,
   CheckCircle,
   Activity,
+  AlertTriangle,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  CalendarDays,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "@/services/api";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  Legend,
+} from "recharts";
 
-// ─── Mock Data ──────────────────────────────────────────────────────────────
 interface ServiceRequest {
   id: string;
   customer: string;
@@ -25,19 +44,13 @@ interface ServiceRequest {
   amount: number;
 }
 
-const MOCK_REQUESTS: ServiceRequest[] = [
-  { id: 'SR-1001', customer: 'Ashan Perera', vehicle: 'Honda CB150R', issue: 'Engine overheating', status: 'pending', date: '2026-02-25', amount: 5500 },
-  { id: 'SR-1002', customer: 'Nimal Fernando', vehicle: 'Yamaha FZ-S', issue: 'Brake pad replacement', status: 'accepted', date: '2026-02-24', amount: 3200 },
-  { id: 'SR-1003', customer: 'Kasun Silva', vehicle: 'Bajaj Pulsar NS200', issue: 'Chain and sprocket change', status: 'in_progress', date: '2026-02-23', amount: 7800 },
-  { id: 'SR-1004', customer: 'Dilani Rathnayake', vehicle: 'TVS Apache RTR', issue: 'Full service', status: 'completed', date: '2026-02-22', amount: 12000 },
-  { id: 'SR-1005', customer: 'Ruwan Jayasinghe', vehicle: 'Honda Dio', issue: 'Clutch cable replacement', status: 'completed', date: '2026-02-21', amount: 2500 },
-  { id: 'SR-1006', customer: 'Chamara Bandara', vehicle: 'Suzuki Gixxer', issue: 'Electrical diagnostics', status: 'cancelled', date: '2026-02-20', amount: 4000 },
-];
-
-const WEEKLY_JOBS = [3, 5, 4, 7, 6, 8, 10];
-const WEEKLY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
 const fmt = (n: number) => `LKR ${n.toLocaleString()}`;
+
+interface WeeklyServiceStat {
+  day: string;
+  jobs: number;
+  revenue: number;
+}
 
 const statusColors: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700",
@@ -68,6 +81,12 @@ interface DashboardService {
   active: boolean;
 }
 
+interface ServiceCategoryData {
+  category: string;
+  services: number;
+  avgPrice: number;
+}
+
 const categoryIcons: Record<string, string> = {
   General: '🔧',
   Engine: '⚙️',
@@ -78,39 +97,167 @@ const categoryIcons: Record<string, string> = {
   Suspension: '🏍️',
 };
 
+const statusDonutColors: Record<ServiceRequest['status'], string> = {
+  pending: '#f59e0b',
+  accepted: '#3b82f6',
+  in_progress: '#8b5cf6',
+  completed: '#10b981',
+  cancelled: '#ef4444',
+};
+
 // ─── Dashboard Overview ─────────────────────────────────────────────────────
 export default function MechanicDashboard() {
   const { user } = useAuth();
   const [dashServices, setDashServices] = useState<DashboardService[]>([]);
+  const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
 
   useEffect(() => {
-    api.get('/mechanic/services')
-      .then((res) => {
-        if (res.data.success) {
-          setDashServices(res.data.data.filter((s: DashboardService) => s.active).slice(0, 6));
+    Promise.all([api.get('/mechanic/services'), api.get('/orders')])
+      .then(([servicesRes, ordersRes]) => {
+        if (servicesRes.data.success) {
+          setDashServices(servicesRes.data.data.filter((s: DashboardService) => s.active).slice(0, 6));
         }
+
+        const rawOrders = ordersRes.data?.data || [];
+        const mappedRequests: ServiceRequest[] = rawOrders.map((order: any) => {
+          const buyer = typeof order.buyer === 'string'
+            ? order.buyer
+            : (order.buyer?.name || `${order.buyer?.firstName || ''} ${order.buyer?.lastName || ''}`.trim() || 'Customer');
+
+          const backendStatus = String(order.status || '').toLowerCase();
+          const statusMap: Record<string, ServiceRequest['status']> = {
+            pending: 'pending',
+            confirmed: 'accepted',
+            shipped: 'in_progress',
+            delivered: 'completed',
+            cancelled: 'cancelled',
+          };
+
+          return {
+            id: order._id,
+            customer: buyer,
+            vehicle: 'Service Request',
+            issue: order.items?.[0]?.name || 'General service',
+            status: statusMap[backendStatus] || 'pending',
+            date: order.createdAt || new Date().toISOString(),
+            amount: Number(order.totalAmount || 0),
+          };
+        });
+
+        setServiceRequests(mappedRequests);
       })
-      .catch(() => {});
+      .catch(() => {
+        setDashServices([]);
+        setServiceRequests([]);
+      });
   }, []);
 
-  const totalEarnings = MOCK_REQUESTS.filter(r => r.status === 'completed').reduce((s, r) => s + r.amount, 0);
-  const pendingRequests = MOCK_REQUESTS.filter(r => r.status === 'pending' || r.status === 'accepted').length;
-  const completedJobs = MOCK_REQUESTS.filter(r => r.status === 'completed').length;
-  const maxJobs = Math.max(...WEEKLY_JOBS);
+  const totalEarnings = serviceRequests.filter((r) => r.status === 'completed').reduce((s, r) => s + r.amount, 0);
+  const pendingRequests = serviceRequests.filter((r) => r.status === 'pending' || r.status === 'accepted').length;
+  const completedJobs = serviceRequests.filter((r) => r.status === 'completed').length;
+  const inProgressJobs = serviceRequests.filter((r) => r.status === 'in_progress').length;
+  const completedRevenue = serviceRequests.filter((r) => r.status === 'completed').reduce((sum, r) => sum + r.amount, 0);
+  const avgRating = 4.8;
+
+  const weeklyStats = useMemo(() => {
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const days: { key: string; day: string; jobs: number; revenue: number }[] = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      days.push({ key, day: dayNames[d.getDay()], jobs: 0, revenue: 0 });
+    }
+
+    for (const req of serviceRequests) {
+      const dayKey = new Date(req.date).toISOString().split('T')[0];
+      const target = days.find((d) => d.key === dayKey);
+      if (target) {
+        target.jobs += 1;
+        target.revenue += req.amount;
+      }
+    }
+
+    return days.map((d): WeeklyServiceStat => ({ day: d.day, jobs: d.jobs, revenue: d.revenue }));
+  }, [serviceRequests]);
+
+  const requestStatusData = useMemo(
+    () => {
+      const counts: Record<ServiceRequest['status'], number> = {
+        pending: 0,
+        accepted: 0,
+        in_progress: 0,
+        completed: 0,
+        cancelled: 0,
+      };
+
+      for (const req of serviceRequests) {
+        counts[req.status] += 1;
+      }
+
+      return (Object.keys(counts) as ServiceRequest['status'][])
+        .map((status) => ({
+          name: statusLabels[status],
+          value: counts[status],
+          color: statusDonutColors[status],
+        }))
+        .filter((d) => d.value > 0);
+    },
+    [serviceRequests]
+  );
+
+  const serviceCategoryData = useMemo(() => {
+    const map = new Map<string, { total: number; priceSum: number }>();
+    for (const svc of dashServices) {
+      const prev = map.get(svc.category) || { total: 0, priceSum: 0 };
+      map.set(svc.category, {
+        total: prev.total + 1,
+        priceSum: prev.priceSum + svc.price,
+      });
+    }
+
+    return Array.from(map.entries())
+      .map(([category, data]): ServiceCategoryData => ({
+        category: category.length > 14 ? `${category.slice(0, 14)}…` : category,
+        services: data.total,
+        avgPrice: Math.round(data.priceSum / data.total),
+      }))
+      .slice(0, 6);
+  }, [dashServices]);
+
+  const totalWeeklyRevenue = weeklyStats.reduce((sum, day) => sum + day.revenue, 0);
+  const totalRequestsForPie = requestStatusData.reduce((sum, d) => sum + d.value, 0);
+  const completionRate = serviceRequests.length > 0 ? Math.round((completedJobs / serviceRequests.length) * 100) : 0;
+  const attentionItems = serviceRequests.filter((r) => r.status === 'pending' || r.status === 'accepted');
+  const formatDate = (date: string) => new Date(date).toLocaleDateString();
 
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <Card className="glass-card overflow-hidden">
-        <div className="relative p-6 bg-gradient-to-r from-amber-600 via-amber-700 to-orange-800 text-white">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <Card className="overflow-hidden border-0 shadow-xl">
+        <div className="relative p-6 sm:p-8 bg-gradient-to-r from-amber-600 via-orange-600 to-red-700 text-white">
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-4 right-10 w-32 h-32 rounded-full bg-white/20 blur-2xl" />
+            <div className="absolute bottom-2 left-20 w-24 h-24 rounded-full bg-white/15 blur-xl" />
+          </div>
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold">Welcome back, {user?.firstName}! 🔧</h1>
-              <p className="text-amber-100 mt-1">Here's what's happening with your services today.</p>
+              <p className="text-amber-100 text-sm font-medium mb-1 flex items-center gap-1.5">
+                <CalendarDays className="h-4 w-4" />
+                {new Date().toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </p>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Welcome back, {user?.firstName || 'Mechanic'}! 🔧</h1>
+              <p className="text-amber-100 mt-1.5 text-sm">Here is your workshop performance overview.</p>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/15 backdrop-blur-sm">
-              <Wrench className="h-4 w-4" />
-              <span className="text-sm font-medium">
+            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/20 backdrop-blur-sm border border-white/20 shadow-lg">
+              <Wrench className="h-5 w-5" />
+              <span className="text-sm font-bold">
                 {(user as any)?.workshopName || (user as any)?.specialization || 'My Workshop'}
               </span>
             </div>
@@ -121,21 +268,24 @@ export default function MechanicDashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Earnings', value: fmt(totalEarnings), change: '+15.2%', icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-600/10', border: 'border-t-emerald-500' },
-          { label: 'Pending Requests', value: `${pendingRequests}`, change: 'Need action', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-600/10', border: 'border-t-amber-500' },
-          { label: 'Completed Jobs', value: `${completedJobs}`, change: 'This month', icon: CheckCircle, color: 'text-blue-600', bg: 'bg-blue-600/10', border: 'border-t-blue-500' },
-          { label: 'Rating', value: '4.8', change: 'Based on 45 reviews', icon: Star, color: 'text-purple-600', bg: 'bg-purple-600/10', border: 'border-t-purple-500' },
+          { label: 'Total Earnings', value: fmt(totalEarnings), sub: `${completedJobs} completed`, icon: DollarSign, iconGradient: 'from-emerald-500 to-teal-600', border: 'border-t-emerald-500', trend: true },
+          { label: 'Pending Requests', value: `${pendingRequests}`, sub: `${inProgressJobs} in progress`, icon: Clock, iconGradient: 'from-amber-500 to-orange-600', border: 'border-t-amber-500', trend: pendingRequests < 4 },
+          { label: 'Completed Jobs', value: `${completedJobs}`, sub: `LKR ${completedRevenue.toLocaleString()} revenue`, icon: CheckCircle, iconGradient: 'from-blue-500 to-indigo-600', border: 'border-t-blue-500', trend: true },
+          { label: 'Rating', value: `${avgRating}`, sub: 'Based on 45 reviews', icon: Star, iconGradient: 'from-violet-500 to-fuchsia-600', border: 'border-t-violet-500', trend: true },
         ].map(kpi => (
-          <Card key={kpi.label} className={cn("glass-card border-t-4", kpi.border)}>
+          <Card key={kpi.label} className={cn("glass-card border-t-4 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 group", kpi.border)}>
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{kpi.label}</p>
-                  <p className="text-2xl font-bold mt-1">{kpi.value}</p>
-                  <p className={cn("text-xs mt-1 font-medium", kpi.color)}>{kpi.change}</p>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{kpi.label}</p>
+                  <p className="text-2xl font-extrabold text-foreground">{kpi.value}</p>
+                  <div className="flex items-center gap-1.5">
+                    {kpi.trend ? <TrendingUp className="h-3 w-3 text-emerald-500" /> : <TrendingDown className="h-3 w-3 text-red-500" />}
+                    <p className={cn("text-xs font-bold", kpi.trend ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>{kpi.sub}</p>
+                  </div>
                 </div>
-                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", kpi.bg)}>
-                  <kpi.icon className={cn("h-5 w-5", kpi.color)} />
+                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br shadow-lg group-hover:scale-110 transition-transform", kpi.iconGradient)}>
+                  <kpi.icon className="h-6 w-6 text-white" />
                 </div>
               </div>
             </CardContent>
@@ -143,63 +293,251 @@ export default function MechanicDashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Weekly Jobs Chart */}
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
+      {/* Analytics Row: Weekly Revenue + Request Status */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="glass-card lg:col-span-2">
+          <CardHeader className="pb-0">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold">Weekly Jobs</CardTitle>
-              <span className="px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-xs font-medium">
-                This Week
-              </span>
+              <div>
+                <CardTitle className="text-lg font-bold">Weekly Revenue</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Estimated revenue from service jobs</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xl font-extrabold text-foreground">{fmt(totalWeeklyRevenue)}</p>
+                <p className="text-[11px] font-semibold text-emerald-600">This week</p>
+              </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-end justify-between gap-2 h-48 pt-4">
-              {WEEKLY_JOBS.map((val, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-xs font-semibold text-muted-foreground">{val}</span>
-                  <div className="w-full relative rounded-t-lg overflow-hidden" style={{ height: `${(val / maxJobs) * 100}%` }}>
-                    <div className="absolute inset-0 bg-gradient-to-t from-amber-600 to-amber-400 rounded-t-lg" />
+          <CardContent className="pt-4">
+            <div className="h-[280px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={weeklyStats} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="mechanicRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f97316" stopOpacity={0.42} />
+                      <stop offset="95%" stopColor="#f97316" stopOpacity={0.04} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip
+                    contentStyle={{
+                      background: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 40px rgba(0,0,0,0.12)',
+                      fontSize: '13px',
+                    }}
+                    formatter={(value: number, name: string) => [
+                      name === 'revenue' ? fmt(value) : `${value} jobs`,
+                      name === 'revenue' ? 'Revenue' : 'Jobs',
+                    ]}
+                    labelStyle={{ fontWeight: 700, marginBottom: 4, color: 'hsl(var(--foreground))' }}
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={3} fill="url(#mechanicRevenueGradient)" dot={{ r: 5, fill: '#f97316', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7, fill: '#f97316', strokeWidth: 3, stroke: '#fff' }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardHeader className="pb-0">
+            <CardTitle className="text-lg font-bold">Request Status</CardTitle>
+            <p className="text-xs text-muted-foreground">Distribution of {totalRequestsForPie} requests</p>
+          </CardHeader>
+          <CardContent className="pt-2">
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={requestStatusData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={4}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {requestStatusData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '10px', fontSize: '13px' }}
+                    formatter={(value: number, name: string) => [`${value} requests`, name]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {requestStatusData.map((item) => (
+                <div key={item.name} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: item.color }} />
+                  <span className="text-xs text-muted-foreground">{item.name}</span>
+                  <span className="text-xs font-bold ml-auto">{item.value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 p-3 rounded-xl bg-muted/30 border border-border">
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs font-semibold text-muted-foreground">Completion Rate</p>
+                <p className={cn("text-sm font-extrabold", completionRate >= 50 ? 'text-emerald-600' : completionRate > 0 ? 'text-amber-600' : 'text-muted-foreground')}>
+                  {completionRate}%
+                </p>
+              </div>
+              <div className="w-full h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-1000",
+                    completionRate >= 50
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                      : completionRate > 0
+                        ? 'bg-gradient-to-r from-amber-500 to-amber-400'
+                        : ''
+                  )}
+                  style={{ width: `${completionRate}%` }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Analytics Row 2: Services + Recent Requests */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="glass-card">
+          <CardHeader className="pb-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-amber-500" />
+                  Service Categories
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Service count vs average price</p>
+              </div>
+              <Link to="/mechanic/services" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
+                Manage <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {serviceCategoryData.length > 0 ? (
+              <div className="h-[280px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={serviceCategoryData} margin={{ top: 5, right: 10, left: -10, bottom: 40 }} barGap={4}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis dataKey="category" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} angle={-25} textAnchor="end" interval={0} />
+                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px', boxShadow: '0 10px 40px rgba(0,0,0,0.12)', fontSize: '13px' }}
+                      formatter={(value: number, name: string) => [
+                        name === 'services' ? `${value} services` : fmt(value),
+                        name === 'services' ? 'Services' : 'Avg Price',
+                      ]}
+                      labelStyle={{ fontWeight: 700, color: 'hsl(var(--foreground))' }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
+                    <Bar dataKey="services" name="Services" fill="#f97316" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="avgPrice" name="Avg Price" fill="#fbbf24" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Wrench className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">No services yet</p>
+                <Link to="/mechanic/services" className="text-xs text-amber-600 mt-2 hover:underline font-semibold">Add your first service</Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardHeader className="pb-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-bold">Recent Requests</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Latest customer service requests</p>
+              </div>
+              <Link to="/mechanic/orders" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
+                View All <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="space-y-1">
+              {serviceRequests.slice(0, 5).map((req) => (
+                <div key={req.id} className="flex items-center gap-3 py-3 border-b border-border/40 last:border-0 group hover:bg-muted/20 rounded-lg px-2 -mx-2 transition-colors">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                    <span className="text-sm font-bold text-white">{req.customer.charAt(0)}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">{WEEKLY_LABELS[i]}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">{req.customer}</p>
+                    <p className="text-xs text-muted-foreground truncate">{req.vehicle} · {req.issue}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-bold">{fmt(req.amount)}</p>
+                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border", statusColors[req.status])}>
+                      {statusIcons[req.status]} {statusLabels[req.status]}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
-
-        {/* Recent Requests */}
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold">Recent Requests</CardTitle>
-              <Link to="/mechanic/orders" className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
-                View All <ArrowUpRight className="h-3 w-3" />
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-1 p-0 px-6 pb-6">
-            {MOCK_REQUESTS.slice(0, 5).map((req) => (
-              <div key={req.id} className="flex items-center gap-3 py-3 border-b border-border/50 last:border-0">
-                <div className="w-9 h-9 rounded-full bg-amber-600/10 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-bold text-amber-600">{req.customer.charAt(0)}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{req.customer}</p>
-                  <p className="text-xs text-muted-foreground truncate">{req.vehicle} · {req.issue}</p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-semibold">{fmt(req.amount)}</p>
-                  <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border", statusColors[req.status])}>
-                    {statusIcons[req.status]} {statusLabels[req.status]}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Request Pipeline */}
+      <Card className="glass-card">
+        <CardHeader className="pb-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-bold">Request Pipeline</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Track service requests through each stage</p>
+            </div>
+            <Link to="/mechanic/orders" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
+              Manage <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {[
+              { label: 'Pending', count: serviceRequests.filter((r) => r.status === 'pending').length, icon: Clock, gradient: 'from-amber-400 to-amber-500', labelColor: 'text-amber-700 dark:text-amber-400', pulse: serviceRequests.some((r) => r.status === 'pending') },
+              { label: 'Accepted', count: serviceRequests.filter((r) => r.status === 'accepted').length, icon: CheckCircle, gradient: 'from-blue-400 to-blue-500', labelColor: 'text-blue-700 dark:text-blue-400', pulse: false },
+              { label: 'In Progress', count: inProgressJobs, icon: Activity, gradient: 'from-violet-400 to-violet-500', labelColor: 'text-violet-700 dark:text-violet-400', pulse: false },
+              { label: 'Completed', count: completedJobs, icon: CheckCircle, gradient: 'from-emerald-400 to-emerald-500', labelColor: 'text-emerald-700 dark:text-emerald-400', pulse: false },
+              { label: 'Total', count: serviceRequests.length, icon: Wrench, gradient: 'from-slate-400 to-slate-500', labelColor: 'text-slate-700 dark:text-slate-400', pulse: false },
+            ].map((item) => (
+              <Link
+                key={item.label}
+                to="/mechanic/orders"
+                className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-border bg-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1 text-center relative"
+              >
+                {item.pulse && (
+                  <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  </span>
+                )}
+                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br shadow-lg", item.gradient)}>
+                  <item.icon className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-2xl font-extrabold text-foreground">{item.count}</p>
+                  <p className={cn("text-[11px] font-bold uppercase tracking-wider", item.labelColor)}>{item.label}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Services Offered */}
       <Card className="glass-card">
@@ -207,25 +545,25 @@ export default function MechanicDashboard() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-semibold">Services Offered</CardTitle>
             <Link to="/mechanic/services" className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
-              Manage <ArrowUpRight className="h-3 w-3" />
+              View All <ArrowUpRight className="h-3 w-3" />
             </Link>
           </div>
         </CardHeader>
         <CardContent>
           {dashServices.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {dashServices.map(svc => (
-              <div key={svc._id} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border hover:bg-muted/30 transition-colors text-center">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center text-xl">
-                  {categoryIcons[svc.category] || '🔧'}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              {dashServices.map((svc) => (
+                <div key={svc._id} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border hover:bg-muted/30 transition-colors text-center">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center text-xl">
+                    {categoryIcons[svc.category] || '🔧'}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold">{svc.name}</p>
+                    <p className="text-[10px] text-amber-600 font-medium">LKR {svc.price.toLocaleString()}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold">{svc.name}</p>
-                  <p className="text-[10px] text-amber-600 font-medium">LKR {svc.price.toLocaleString()}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Wrench className="h-8 w-8 text-muted-foreground/30 mb-2" />
@@ -236,36 +574,48 @@ export default function MechanicDashboard() {
         </CardContent>
       </Card>
 
-      {/* Upcoming Jobs */}
-      <Card className="glass-card">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold">Upcoming Jobs</CardTitle>
-            <Link to="/mechanic/orders" className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
-              View All <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {MOCK_REQUESTS.filter(r => r.status !== 'completed' && r.status !== 'cancelled').map((job) => (
-            <div key={job.id} className="flex items-center gap-4 p-3 rounded-xl border border-border hover:bg-muted/20 transition-colors">
-              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm font-bold text-amber-600">{job.customer.charAt(0)}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold">{job.customer}</p>
-                <p className="text-xs text-muted-foreground">{job.vehicle} — {job.issue}</p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-xs text-muted-foreground">{job.date}</p>
-                <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border mt-1", statusColors[job.status])}>
-                  {statusLabels[job.status]}
+      {/* Needs Attention */}
+      {attentionItems.length > 0 && (
+        <Card className="glass-card border-l-4 border-l-amber-500">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                <CardTitle className="text-lg font-bold">Needs Attention</CardTitle>
+                <span className="inline-flex items-center justify-center h-6 min-w-[24px] px-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold shadow-md">
+                  {attentionItems.length}
                 </span>
               </div>
+              <Link to="/mechanic/orders" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
+                View All <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-          ))}
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {attentionItems.slice(0, 3).map((item) => (
+              <Link
+                key={item.id}
+                to="/mechanic/orders"
+                className="flex items-center gap-4 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors group"
+              >
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-md">
+                  <span className="text-sm font-bold text-white">{item.customer.charAt(0).toUpperCase()}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold">{item.customer}</p>
+                  <p className="text-xs text-muted-foreground">{item.issue} - {fmt(item.amount)}</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-xs text-muted-foreground">{formatDate(item.date)}</p>
+                  <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border mt-1", statusColors[item.status])}>
+                    {statusIcons[item.status]} {statusLabels[item.status]}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

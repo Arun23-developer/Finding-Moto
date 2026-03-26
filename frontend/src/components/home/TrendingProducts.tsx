@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Star, Heart, ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "../ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { resolveProductImage } from "@/lib/imageUrl";
+import { toast } from "@/hooks/use-toast";
 
 interface Product {
   _id: string;
@@ -19,16 +21,16 @@ interface Product {
 
 interface ProductCardProps {
   product: Product;
+  wished: boolean;
+  onToggleWishlist: (id: string) => void;
 }
 
 function getImageUrl(product: Product): string {
-  const img = product.image || product.images?.[0];
-  if (!img) return "https://placehold.co/400x400?text=No+Image";
-  if (img.startsWith("http")) return img;
-  return `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${img}`;
+  return resolveProductImage(product, "https://placehold.co/400x400?text=No+Image");
 }
 
-function ProductCard({ product }: ProductCardProps): JSX.Element {
+function ProductCard({ product, wished, onToggleWishlist }: ProductCardProps): JSX.Element {
+  const navigate = useNavigate();
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
@@ -51,8 +53,12 @@ function ProductCard({ product }: ProductCardProps): JSX.Element {
         <button
           className="absolute top-3 right-3 p-2 rounded-full bg-background/80 backdrop-blur hover:bg-accent hover:text-accent-foreground transition-colors"
           aria-label="Add to wishlist"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleWishlist(product._id);
+          }}
         >
-          <Heart className="h-4 w-4" />
+          <Heart className={`h-4 w-4 ${wished ? "fill-current" : ""}`} />
         </button>
         {!product.inStock && (
           <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center">
@@ -92,6 +98,7 @@ function ProductCard({ product }: ProductCardProps): JSX.Element {
             variant={product.inStock ? "accent" : "outline"}
             disabled={!product.inStock}
             className="gap-1"
+            onClick={() => navigate(`/products/${product._id}`)}
           >
             <ShoppingCart className="h-4 w-4" />
             <span className="sr-only sm:not-sr-only">Add</span>
@@ -105,6 +112,29 @@ function ProductCard({ product }: ProductCardProps): JSX.Element {
 export const TrendingProducts: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem("wishlistProductIds");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("wishlistProductIds", JSON.stringify(wishlist));
+  }, [wishlist]);
+
+  const onToggleWishlist = (id: string) => {
+    setWishlist((prev) => {
+      const exists = prev.includes(id);
+      const next = exists ? prev.filter((pid) => pid !== id) : [...prev, id];
+      toast({
+        title: exists ? "Removed from wishlist" : "Added to wishlist",
+      });
+      return next;
+    });
+  };
 
   useEffect(() => {
     const fetchTrending = async () => {
@@ -156,7 +186,7 @@ export const TrendingProducts: React.FC = () => {
               className="animate-fade-in"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <ProductCard product={product} />
+              <ProductCard product={product} wished={wishlist.includes(product._id)} onToggleWishlist={onToggleWishlist} />
             </div>
           ))}
         </div>

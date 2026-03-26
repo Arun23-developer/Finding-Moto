@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/services/api";
+import { resolveMediaUrl } from "@/lib/imageUrl";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface Product {
@@ -36,210 +37,54 @@ interface Product {
   createdAt: string;
 }
 
-const productCategories = ["Brakes", "Engine Parts", "Electrical", "Cooling", "Transmission", "Body Parts", "Accessories"];
+const productCategories = [
+  "engine_system/piston",
+  "engine_system/cylinder_block",
+  "engine_system/crankshaft",
+  "engine_system/camshaft",
+  "engine_system/spark_plug",
+  "fuel_system/fuel_injector",
+  "fuel_system/fuel_tank",
+  "fuel_system/fuel_pump",
+  "fuel_system/fuel_filter",
+  "brake_system/brake_disc",
+  "brake_system/brake_pad",
+  "brake_system/brake_caliper",
+  "transmission_system/clutch_plate",
+  "transmission_system/chain_sprocket",
+  "transmission_system/drive_chain",
+  "suspension_system/front_fork",
+  "suspension_system/rear_shock_absorber",
+  "suspension_system/swing_arm",
+  "electrical_system/battery",
+  "electrical_system/headlight",
+  "electrical_system/ecu",
+  "electrical_system/starter_motor",
+  "electrical_system/wiring_harness",
+  "electrical_system/indicators",
+  "body_parts/seat",
+  "body_parts/mirrors",
+  "body_parts/mudguard",
+  "body_parts/side_panel",
+  "body_parts/number_plate_holder",
+  "wheels/tyre",
+  "wheels/rim",
+  "wheels/spokes",
+];
 const serviceCategories = ["Full Service", "Oil Change", "Brake Service", "Engine Tune-up", "Tire Replacement", "Battery Service", "Body Repair", "Custom Work"];
 const allCategories = ["All", ...productCategories, ...serviceCategories];
 const categories = allCategories;
 
-// ─── Mock Fallback Data ──────────────────────────────────────────────────────
-const MOCK_PRODUCTS: Product[] = [
-  {
-    _id: "mock-prod-001",
-    name: "Honda CB Hornet Brake Pad Set",
-    description: "High-performance ceramic brake pads for Honda CB Hornet 160R. Excellent stopping power and heat resistance.",
-    category: "Brakes",
-    brand: "Honda",
-    price: 3500,
-    originalPrice: 4200,
-    stock: 18,
-    images: ["https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=200&h=200&fit=crop"],
-    status: "active",
-    views: 245,
-    sales: 42,
-    sku: "BRK-HND-001",
-    type: "product",
-    createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
-  },
-  {
-    _id: "mock-prod-002",
-    name: "Engine Oil 10W-40 Synthetic (1L)",
-    description: "Premium fully synthetic engine oil suitable for all motorcycle engines. Reduces wear and improves fuel efficiency.",
-    category: "Engine Parts",
-    brand: "Motul",
-    price: 1200,
-    stock: 45,
-    images: ["https://images.unsplash.com/photo-1635784063271-b1e3b5377764?w=200&h=200&fit=crop"],
-    status: "active",
-    views: 189,
-    sales: 36,
-    sku: "ENG-OIL-040",
-    type: "product",
-    createdAt: new Date(Date.now() - 25 * 86400000).toISOString(),
-  },
-  {
-    _id: "mock-prod-003",
-    name: "LED Headlight Bulb H4 6000K",
-    description: "Ultra-bright LED headlight bulb with 6000K white light. Plug and play installation, fits most motorcycles.",
-    category: "Electrical",
-    brand: "Osram",
-    price: 2800,
-    originalPrice: 3500,
-    stock: 3,
-    images: ["https://images.unsplash.com/photo-1621361365424-06f0e1eb5c49?w=200&h=200&fit=crop"],
-    status: "active",
-    views: 312,
-    sales: 28,
-    sku: "ELC-LED-H4",
-    type: "product",
-    createdAt: new Date(Date.now() - 20 * 86400000).toISOString(),
-  },
-  {
-    _id: "mock-prod-004",
-    name: "Full-Face Helmet Matte Black (DOT)",
-    description: "DOT-certified full-face helmet with comfortable inner lining, quick-release visor, and ventilation channels.",
-    category: "Accessories",
-    brand: "LS2",
-    price: 8500,
-    originalPrice: 9800,
-    stock: 7,
-    images: ["https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=200&h=200&fit=crop"],
-    status: "active",
-    views: 156,
-    sales: 15,
-    sku: "ACC-HLM-001",
-    type: "product",
-    createdAt: new Date(Date.now() - 15 * 86400000).toISOString(),
-  },
-  {
-    _id: "mock-prod-005",
-    name: "Yamaha FZ Chain & Sprocket Kit",
-    description: "Complete chain and sprocket replacement kit for Yamaha FZ series. High-quality alloy steel construction.",
-    category: "Transmission",
-    brand: "Yamaha",
-    price: 4800,
-    stock: 0,
-    images: ["https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=200&h=200&fit=crop"],
-    status: "out_of_stock",
-    views: 98,
-    sales: 19,
-    sku: "TRN-YMH-001",
-    type: "product",
-    createdAt: new Date(Date.now() - 10 * 86400000).toISOString(),
-  },
-  {
-    _id: "mock-prod-006",
-    name: "Radiator Coolant (500ml)",
-    description: "High-performance radiator coolant for liquid-cooled motorcycles. Anti-corrosion formula protects engine internals.",
-    category: "Cooling",
-    brand: "Liqui Moly",
-    price: 850,
-    stock: 32,
-    images: ["https://images.unsplash.com/photo-1600712242805-5f78671b24da?w=200&h=200&fit=crop"],
-    status: "active",
-    views: 67,
-    sales: 12,
-    sku: "CLG-RAD-001",
-    type: "product",
-    createdAt: new Date(Date.now() - 8 * 86400000).toISOString(),
-  },
-  {
-    _id: "mock-svc-001",
-    name: "Full Motorcycle Service",
-    description: "Comprehensive motorcycle service including oil change, filter replacement, chain adjustment, brake check, and full inspection.",
-    category: "Full Service",
-    brand: "Finding Moto Garage",
-    price: 5500,
-    originalPrice: 7000,
-    stock: 99,
-    images: ["https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=200&h=200&fit=crop"],
-    status: "active",
-    views: 423,
-    sales: 67,
-    sku: "SVC-FUL-001",
-    type: "service",
-    createdAt: new Date(Date.now() - 45 * 86400000).toISOString(),
-  },
-  {
-    _id: "mock-svc-002",
-    name: "Engine Tune-up & Carburetor Cleaning",
-    description: "Professional engine tune-up including carburetor cleaning, valve adjustment, spark plug replacement, and idle setting.",
-    category: "Engine Tune-up",
-    brand: "Finding Moto Garage",
-    price: 3200,
-    stock: 99,
-    images: ["https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=200&h=200&fit=crop"],
-    status: "active",
-    views: 287,
-    sales: 45,
-    sku: "SVC-TUN-001",
-    type: "service",
-    createdAt: new Date(Date.now() - 40 * 86400000).toISOString(),
-  },
-  {
-    _id: "mock-svc-003",
-    name: "Brake Pad Replacement & Inspection",
-    description: "Front and rear brake pad replacement with full brake system inspection, fluid top-up, and caliper cleaning.",
-    category: "Brake Service",
-    brand: "Finding Moto Garage",
-    price: 2500,
-    stock: 99,
-    images: ["https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=200&h=200&fit=crop"],
-    status: "active",
-    views: 198,
-    sales: 38,
-    sku: "SVC-BRK-001",
-    type: "service",
-    createdAt: new Date(Date.now() - 35 * 86400000).toISOString(),
-  },
-  {
-    _id: "mock-svc-004",
-    name: "Oil Change + Filter Replacement",
-    description: "Quick oil change service with premium engine oil and new oil filter. Includes basic inspection.",
-    category: "Oil Change",
-    brand: "Finding Moto Garage",
-    price: 1800,
-    stock: 99,
-    images: ["https://images.unsplash.com/photo-1635784063271-b1e3b5377764?w=200&h=200&fit=crop"],
-    status: "active",
-    views: 356,
-    sales: 89,
-    sku: "SVC-OIL-001",
-    type: "service",
-    createdAt: new Date(Date.now() - 50 * 86400000).toISOString(),
-  },
-  {
-    _id: "mock-svc-005",
-    name: "Tire Replacement (Per Tire)",
-    description: "Motorcycle tire replacement including fitting, balancing, and old tire disposal. Tire cost not included.",
-    category: "Tire Replacement",
-    brand: "Finding Moto Garage",
-    price: 1500,
-    stock: 99,
-    images: ["https://images.unsplash.com/photo-1600712242805-5f78671b24da?w=200&h=200&fit=crop"],
-    status: "active",
-    views: 134,
-    sales: 22,
-    sku: "SVC-TIR-001",
-    type: "service",
-    createdAt: new Date(Date.now() - 28 * 86400000).toISOString(),
-  },
-  {
-    _id: "mock-svc-006",
-    name: "Battery Check & Replacement",
-    description: "Battery testing, terminal cleaning, and replacement if needed. Includes electrical system check.",
-    category: "Battery Service",
-    brand: "Finding Moto Garage",
-    price: 800,
-    stock: 0,
-    images: ["https://images.unsplash.com/photo-1621361365424-06f0e1eb5c49?w=200&h=200&fit=crop"],
-    status: "inactive",
-    views: 76,
-    sales: 11,
-    sku: "SVC-BAT-001",
-    type: "service",
-    createdAt: new Date(Date.now() - 22 * 86400000).toISOString(),
-  },
-];
+const formatCategoryLabel = (value: string): string => {
+  if (!value.includes("/")) return value;
+  const [parent, child] = value.split("/");
+  const toTitle = (part: string) =>
+    part
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  return `${toTitle(parent)} / ${toTitle(child)}`;
+};
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: "Active", color: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800" },
@@ -286,6 +131,7 @@ function ProductModal({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageUrlInput, setImageUrlInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentCategories = form.type === "service" ? serviceCategories : productCategories;
@@ -305,9 +151,32 @@ function ProductModal({
         type: product?.type || "product",
       });
       setImages(product?.images || []);
+      setImageUrlInput("");
       setError(null);
     }
   }, [open, product]);
+
+  const handleAddImageUrl = () => {
+    const raw = imageUrlInput.trim();
+    if (!raw) return;
+
+    try {
+      const parsed = new URL(raw);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        setError("Image URL must start with http:// or https://");
+        return;
+      }
+
+      setImages((prev) => {
+        if (prev.includes(raw)) return prev;
+        return [...prev, raw];
+      });
+      setImageUrlInput("");
+      setError(null);
+    } catch {
+      setError("Please enter a valid image URL");
+    }
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -426,7 +295,7 @@ function ProductModal({
               <div className="flex flex-wrap gap-2 mb-3">
                 {images.map((img, i) => (
                   <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-border group">
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <img src={resolveMediaUrl(img)} alt="" className="w-full h-full object-cover" />
                     <button
                       onClick={() => setImages((prev) => prev.filter((_, idx) => idx !== i))}
                       className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
@@ -450,6 +319,22 @@ function ProductModal({
               <p className="text-sm font-medium">{uploading ? "Uploading..." : "Drop images here or click to upload"}</p>
               <p className="text-xs text-muted-foreground mt-1">PNG, JPG up to 5MB each. Max 5 images.</p>
             </div>
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+              <input
+                type="url"
+                value={imageUrlInput}
+                onChange={(e) => setImageUrlInput(e.target.value)}
+                placeholder="Or paste image URL (https://...)"
+                className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              />
+              <button
+                type="button"
+                onClick={handleAddImageUrl}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors"
+              >
+                Add URL
+              </button>
+            </div>
           </div>
 
           {/* Two-col grid */}
@@ -466,7 +351,7 @@ function ProductModal({
               <label className="text-sm font-medium mb-1.5 block">Category *</label>
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
                 <option value="">Select {form.type === "service" ? "service type" : "category"}</option>
-                {currentCategories.map((c) => (<option key={c} value={c}>{c}</option>))}
+                {currentCategories.map((c) => (<option key={c} value={c}>{formatCategoryLabel(c)}</option>))}
               </select>
             </div>
             <div>
@@ -573,12 +458,10 @@ export default function SellerProducts() {
       if (search) params.search = search;
       const res = await api.get("/products", { params });
       const data = res.data.data || [];
-      // Use mock products if no real products exist
-      setProducts(data.length > 0 ? data : MOCK_PRODUCTS);
+      setProducts(data);
     } catch (err: any) {
-      // Fallback to mock products on error
-      setProducts(MOCK_PRODUCTS);
-      setError(null);
+      setProducts([]);
+      setError(err?.response?.data?.message || "Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -676,7 +559,7 @@ export default function SellerProducts() {
               ))}
             </div>
             <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
-              {categories.map((c) => (<option key={c} value={c}>{c}</option>))}
+              {categories.map((c) => (<option key={c} value={c}>{formatCategoryLabel(c)}</option>))}
             </select>
           </div>
         </CardContent>
@@ -723,7 +606,7 @@ export default function SellerProducts() {
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-blue-600/10 flex items-center justify-center overflow-hidden flex-shrink-0">
                             {product.images?.[0] ? (
-                              <img src={product.images[0]} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-lg">' + (product.type === 'service' ? '🔧' : '📦') + '</span>'; }} />
+                              <img src={resolveMediaUrl(product.images[0])} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-lg">' + (product.type === 'service' ? '🔧' : '📦') + '</span>'; }} />
                             ) : (
                               product.type === "service" ? <span className="text-lg">🔧</span> : <ImageIcon className="h-5 w-5 text-muted-foreground" />
                             )}

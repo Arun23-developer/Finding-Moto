@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type ChangeEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Store,
@@ -10,6 +10,7 @@ import {
   Edit3,
   Save,
   Camera,
+  Plus,
   Package,
   ShoppingCart,
   Star,
@@ -17,15 +18,29 @@ import {
   CheckCircle,
   Shield,
   Loader2,
+  X,
 } from "lucide-react";
 import api from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
+import { resolveMediaUrl } from "@/lib/imageUrl";
 
 // ─── Profile Page ───────────────────────────────────────────────────────────
 export default function SellerProfile() {
+  const defaultSpecializations = ["Engine Parts", "Brake Systems", "Electrical Components", "Filters & Fluids", "Body Parts", "Suspension", "Transmission"];
+  const defaultBrands = ["Yamaha", "Honda", "Suzuki", "Kawasaki", "KTM", "Bajaj", "TVS", "Royal Enfield"];
+
+  const { user, updateProfile, uploadAvatar } = useAuth();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [stats, setStats] = useState({ totalProducts: 0, totalOrders: 0, totalViews: 0 });
+  const [sellerSpecializations, setSellerSpecializations] = useState<string[]>(defaultSpecializations);
+  const [sellerBrands, setSellerBrands] = useState<string[]>(defaultBrands);
+  const [specializationInput, setSpecializationInput] = useState("");
+  const [brandInput, setBrandInput] = useState("");
   const [form, setForm] = useState({
     shopName: "",
     shopDescription: "",
@@ -49,6 +64,17 @@ export default function SellerProfile() {
         ]);
 
         const p = profileRes.data.data;
+        setAvatar(p.avatar || user?.avatar || null);
+        setSellerSpecializations(
+          Array.isArray(p.sellerSpecializations) && p.sellerSpecializations.length > 0
+            ? p.sellerSpecializations
+            : defaultSpecializations
+        );
+        setSellerBrands(
+          Array.isArray(p.sellerBrands) && p.sellerBrands.length > 0
+            ? p.sellerBrands
+            : defaultBrands
+        );
         setForm({
           shopName: p.shopName || "",
           shopDescription: p.shopDescription || "",
@@ -74,24 +100,66 @@ export default function SellerProfile() {
       }
     };
     loadData();
-  }, []);
+  }, [user?.avatar]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.put("/seller/profile", {
+      await updateProfile({
         firstName: form.firstName,
         lastName: form.lastName,
         phone: form.phone,
         shopName: form.shopName,
         shopDescription: form.shopDescription,
         shopLocation: form.shopLocation,
+        sellerSpecializations,
+        sellerBrands,
       });
       setEditing(false);
     } catch (err: any) {
       alert(err?.response?.data?.message || "Failed to save profile");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAvatarPick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const addTag = (
+    value: string,
+    current: string[],
+    setter: (items: string[]) => void,
+    clearInput: () => void
+  ) => {
+    const cleaned = value.trim();
+    if (!cleaned) return;
+    if (current.some((i) => i.toLowerCase() === cleaned.toLowerCase())) {
+      clearInput();
+      return;
+    }
+    setter([...current, cleaned]);
+    clearInput();
+  };
+
+  const removeTag = (item: string, current: string[], setter: (items: string[]) => void) => {
+    setter(current.filter((v) => v !== item));
+  };
+
+  const handleAvatarUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingAvatar(true);
+      const res = await uploadAvatar(file);
+      setAvatar(res.avatar || null);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to upload profile picture");
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -137,6 +205,13 @@ export default function SellerProfile() {
             <><Edit3 className="h-4 w-4" /> Edit Profile</>
           )}
         </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleAvatarUpload}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -147,15 +222,26 @@ export default function SellerProfile() {
             {/* Banner */}
             <div className="relative h-40 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800">
               <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIj48cGF0aCBkPSJNMCAwaDQwdjQwSDB6IiBmaWxsPSJub25lIi8+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjAzKSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9InVybCgjYSkiLz48L3N2Zz4=')] opacity-50" />
-              {editing && (
-                <button className="absolute top-3 right-3 p-2 rounded-lg bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors">
-                  <Camera className="h-4 w-4" />
-                </button>
-              )}
+              <button
+                onClick={handleAvatarPick}
+                disabled={uploadingAvatar}
+                className="absolute top-3 right-3 p-2 rounded-lg bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors disabled:opacity-60"
+                title="Change profile picture"
+              >
+                {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+              </button>
               {/* Shop logo */}
               <div className="absolute -bottom-8 left-6">
-                <div className="w-20 h-20 rounded-2xl bg-card border-4 border-card flex items-center justify-center shadow-lg">
-                  <Store className="h-10 w-10 text-blue-600" />
+                <div className="w-20 h-20 rounded-2xl bg-card border-4 border-card flex items-center justify-center shadow-lg overflow-hidden">
+                  {avatar ? (
+                    <img
+                      src={resolveMediaUrl(avatar, "https://placehold.co/120x120?text=Shop")}
+                      alt="Shop profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Store className="h-10 w-10 text-blue-600" />
+                  )}
                 </div>
               </div>
             </div>
@@ -261,13 +347,40 @@ export default function SellerProfile() {
               <CardTitle className="text-base font-semibold">Specializations</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {["Engine Parts", "Brake Systems", "Electrical Components", "Filters & Fluids", "Body Parts", "Suspension", "Transmission"].map((spec) => (
-                  <span
-                    key={spec}
-                    className="px-3 py-1.5 rounded-full bg-blue-600/10 text-blue-600 text-xs font-medium"
+              {editing && (
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={specializationInput}
+                    onChange={(e) => setSpecializationInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addTag(specializationInput, sellerSpecializations, setSellerSpecializations, () => setSpecializationInput(""));
+                      }
+                    }}
+                    placeholder="Add specialization"
+                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addTag(specializationInput, sellerSpecializations, setSellerSpecializations, () => setSpecializationInput(""))}
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm"
                   >
+                    <Plus className="h-4 w-4" /> Add
+                  </button>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                {sellerSpecializations.map((spec) => (
+                  <span key={spec} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-blue-600/10 text-blue-600 text-xs font-medium">
                     {spec}
+                    {editing && (
+                      <button type="button" onClick={() => removeTag(spec, sellerSpecializations, setSellerSpecializations)} className="hover:text-blue-800">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
@@ -280,13 +393,43 @@ export default function SellerProfile() {
               <CardTitle className="text-base font-semibold">Brands We Stock</CardTitle>
             </CardHeader>
             <CardContent>
+              {editing && (
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={brandInput}
+                    onChange={(e) => setBrandInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addTag(brandInput, sellerBrands, setSellerBrands, () => setBrandInput(""));
+                      }
+                    }}
+                    placeholder="Add bike brand"
+                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addTag(brandInput, sellerBrands, setSellerBrands, () => setBrandInput(""))}
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm"
+                  >
+                    <Plus className="h-4 w-4" /> Add
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {["Toyota", "Honda", "Suzuki", "Nissan", "Mitsubishi", "Hyundai", "Ford", "BMW"].map((brand) => (
+                {sellerBrands.map((brand) => (
                   <div
                     key={brand}
-                    className="flex items-center justify-center p-3 rounded-lg border border-border bg-muted/30 text-sm font-medium hover:bg-muted/50 transition-colors"
+                    className="flex items-center justify-center p-3 rounded-lg border border-border bg-muted/30 text-sm font-medium hover:bg-muted/50 transition-colors gap-2"
                   >
                     {brand}
+                    {editing && (
+                      <button type="button" onClick={() => removeTag(brand, sellerBrands, setSellerBrands)} className="text-muted-foreground hover:text-foreground">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

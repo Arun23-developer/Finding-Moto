@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { askAIAssistant } from "@/services/aiAssistantService";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface ChatMessage {
@@ -191,25 +192,38 @@ export default function BuyerAIChat() {
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [messages, isTyping]);
 
-  const sendMessage = (text: string) => {
+  const sendMessage = async (text: string) => {
     if (!text.trim() || isTyping) return;
     const userMsg: ChatMessage = { id: Date.now(), role: "user", text: text.trim(), timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      const aiMsg: ChatMessage = { id: Date.now() + 1, role: "assistant", text: getAIResponse(text), timestamp: new Date() };
+    try {
+      const response = await askAIAssistant(text.trim(), "buyer");
+      const aiMsg: ChatMessage = { id: Date.now() + 1, role: "assistant", text: response, timestamp: new Date() };
       setMessages(prev => [...prev, aiMsg]);
+    } catch (error: any) {
+      const serverMsg = error?.message || 'Live AI is temporarily unavailable.';
+      const aiMsg: ChatMessage = {
+        id: Date.now() + 1,
+        role: "assistant",
+        text: `${getAIResponse(text)}\n\n(${serverMsg})`,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, aiMsg]);
+    } finally {
       setIsTyping(false);
-    }, 1200);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -273,7 +287,7 @@ export default function BuyerAIChat() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 900, width: '100%', margin: '0 auto', padding: '16px 16px 0' }}>
 
         {/* Messages */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div ref={messagesContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
           {messages.map(msg => (
             <div key={msg.id} style={{ display: 'flex', gap: 10, justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
               {msg.role === 'assistant' && (
@@ -332,7 +346,6 @@ export default function BuyerAIChat() {
             </div>
           )}
 
-          <div ref={messagesEndRef} />
         </div>
 
         {/* Quick Actions (only show initially) */}
