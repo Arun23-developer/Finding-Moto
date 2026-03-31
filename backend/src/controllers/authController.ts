@@ -632,12 +632,13 @@ export const updateProfile = async (
     }
 
     // Fields that can be updated by the user
-    const { firstName, lastName, phone, address, avatar } = req.body;
+    const { firstName, lastName, phone, address, avatar, email } = req.body;
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
     if (phone !== undefined) user.phone = phone;
     if (address !== undefined) user.address = address;
     if (avatar !== undefined) user.avatar = avatar;
+    if (email !== undefined) user.email = email;
 
     // Role-specific fields
     if (user.role === 'seller') {
@@ -650,11 +651,13 @@ export const updateProfile = async (
     }
 
     if (user.role === 'mechanic') {
-      const { specialization, experienceYears, workshopLocation, workshopName } = req.body;
+      const { specialization, experienceYears, workshopLocation, workshopName, servicesOffered, mechanicBrands } = req.body;
       if (specialization) user.specialization = specialization;
       if (experienceYears !== undefined) user.experienceYears = experienceYears;
       if (workshopLocation !== undefined) user.workshopLocation = workshopLocation;
       if (workshopName !== undefined) user.workshopName = workshopName;
+      if (servicesOffered !== undefined) user.servicesOffered = Array.isArray(servicesOffered) ? servicesOffered : [];
+      if (mechanicBrands !== undefined) user.mechanicBrands = Array.isArray(mechanicBrands) ? mechanicBrands : [];
     }
 
     await user.save();

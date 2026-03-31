@@ -79,7 +79,49 @@ function ProductModal({
   });
   const [images, setImages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // ─── Validation function ───────────────────────────────────────────────────
+  const validateForm = (): Record<string, string> => {
+    const newErrors: Record<string, string> = {};
+
+    // Required field validation
+    if (!form.name.trim()) {
+      newErrors.name = "Product name is required";
+    } else if (/\d/.test(form.name)) {
+      // Check if name contains numbers
+      newErrors.name = "Product name should not contain numbers";
+    }
+
+    if (!form.category) {
+      newErrors.category = "Category is required";
+    }
+
+    if (!form.price) {
+      newErrors.price = "Price is required";
+    } else if (Number(form.price) < 0) {
+      newErrors.price = "Price cannot be negative";
+    } else if (Number(form.price) === 0) {
+      newErrors.price = "Price must be greater than 0";
+    }
+
+    if (!form.stock) {
+      newErrors.stock = "Stock quantity is required";
+    } else if (Number(form.stock) < 0) {
+      newErrors.stock = "Stock cannot be negative";
+    }
+
+    if (form.originalPrice && Number(form.originalPrice) < 0) {
+      newErrors.originalPrice = "Original price cannot be negative";
+    }
+
+    if (images.length === 0) {
+      newErrors.images = "At least one product image is required";
+    }
+
+    return newErrors;
+  };
 
   useEffect(() => {
     if (open) {
@@ -94,6 +136,7 @@ function ProductModal({
         description: product?.description || "",
       });
       setImages(product?.images || []);
+      setErrors({});
     }
   }, [open, product]);
 

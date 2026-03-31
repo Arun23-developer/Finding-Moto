@@ -28,6 +28,8 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
         experienceYears: user.experienceYears,
         workshopLocation: user.workshopLocation,
         workshopName: user.workshopName,
+        servicesOffered: user.servicesOffered || [],
+        mechanicBrands: user.mechanicBrands || [],
         createdAt: user.createdAt,
       },
     });
@@ -43,15 +45,18 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
 export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = req.user!;
-    const { firstName, lastName, phone, specialization, experienceYears, workshopLocation, workshopName } = req.body;
+    const { firstName, lastName, phone, email, specialization, experienceYears, workshopLocation, workshopName, servicesOffered, mechanicBrands } = req.body;
 
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
     if (phone !== undefined) user.phone = phone;
+    if (email !== undefined) user.email = email;
     if (specialization !== undefined) user.specialization = specialization;
     if (experienceYears !== undefined) user.experienceYears = experienceYears;
     if (workshopLocation !== undefined) user.workshopLocation = workshopLocation;
     if (workshopName !== undefined) user.workshopName = workshopName;
+    if (servicesOffered !== undefined) user.servicesOffered = Array.isArray(servicesOffered) ? servicesOffered : [];
+    if (mechanicBrands !== undefined) user.mechanicBrands = Array.isArray(mechanicBrands) ? mechanicBrands : [];
 
     await user.save();
 
@@ -71,6 +76,8 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
         experienceYears: user.experienceYears,
         workshopLocation: user.workshopLocation,
         workshopName: user.workshopName,
+        servicesOffered: user.servicesOffered || [],
+        mechanicBrands: user.mechanicBrands || [],
       },
     });
   } catch (err) {

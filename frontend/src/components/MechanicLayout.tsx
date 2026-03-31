@@ -15,11 +15,13 @@ import {
   X,
   ChevronDown,
   MessageSquare,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { resolveMediaUrl } from "@/lib/imageUrl";
+import { NotificationPanel } from "./NotificationPanel";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/mechanic/dashboard" },
@@ -40,6 +42,7 @@ export function MechanicLayout({ children }: MechanicLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -219,6 +222,22 @@ export function MechanicLayout({ children }: MechanicLayoutProps) {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => setNotificationOpen(!notificationOpen)}
+                className="p-2 rounded-lg hover:bg-[#C0C0C0] transition-colors relative"
+              >
+                <Bell className="h-5 w-5 text-[#374151]" />
+                <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500" />
+              </button>
+              <NotificationPanel
+                userRole="mechanic"
+                panelOpen={notificationOpen}
+                onPanelClose={() => setNotificationOpen(false)}
+              />
+            </div>
+
             {/* Profile Dropdown */}
             <div className="relative">
               <button

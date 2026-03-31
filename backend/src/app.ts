@@ -34,7 +34,11 @@ if (config.nodeEnv === 'development') {
 }
 
 // Serve uploaded images as static files
-app.use('/uploads', express.static(path.join(__dirname, '..', '..', 'uploads')));
+const backendUploadsDir = path.join(__dirname, '..', 'uploads');
+const legacyUploadsDir = path.join(__dirname, '..', '..', 'uploads');
+
+app.use('/uploads', express.static(backendUploadsDir));
+app.use('/uploads', express.static(legacyUploadsDir));
 
 // Routes
 app.use('/api/public', publicRoutes);       // Public — No auth required (products/mechanics browsing)

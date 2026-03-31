@@ -292,55 +292,20 @@ const Dashboard: React.FC = () => {
       <div style={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
         {/* ── Left Icon Sidebar ── */}
         <aside style={{
-          width: 64, background: '#fff', borderRight: '1px solid #E5E7EB',
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          paddingTop: 16, gap: 4, position: 'fixed', top: 64, left: 0, height: 'calc(100vh - 64px)',
-          flexShrink: 0
+          display: 'none'
         }}>
-          {[
-            { icon: '🏠', label: 'Home', path: '/', active: false },
-            { icon: '💬', label: 'Chats', path: '/chat', active: false, highlight: true },
-          ].map(item => (
-            <button
-              key={item.label}
-              title={item.label}
-              onClick={() => navigate(item.path)}
-              style={{
-                width: 48, height: 48, borderRadius: 12, border: 'none',
-                background: item.highlight ? '#EEF2FF' : 'transparent',
-                cursor: 'pointer', display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center', gap: 2,
-                transition: 'background 0.2s, transform 0.15s',
-                position: 'relative'
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = item.highlight ? '#E0E7FF' : '#F3F4F6'; e.currentTarget.style.transform = 'scale(1.08)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = item.highlight ? '#EEF2FF' : 'transparent'; e.currentTarget.style.transform = 'scale(1)'; }}
-            >
-              <span style={{ fontSize: 20 }}>{item.icon}</span>
-              <span style={{ fontSize: 9, fontWeight: 600, color: item.highlight ? '#4F46E5' : '#6B7280' }}>{item.label}</span>
-              {item.highlight && unreadChatsCount > 0 && (
-                <span style={{
-                  position: 'absolute', top: 4, right: 2,
-                  minWidth: 16, height: 16, borderRadius: 999,
-                  background: '#DC2626', color: '#fff',
-                  fontSize: 10, fontWeight: 700,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '0 4px', lineHeight: 1
-                }}>{unreadChatsCount > 99 ? '99+' : unreadChatsCount}</span>
-              )}
-            </button>
-          ))}
+          {/* Sidebar hidden for full screen */}
         </aside>
 
-        {/* ── Right Content Area ── */}
-        <div style={{ flex: 1, maxWidth: 1400, margin: '0 auto', padding: '24px 16px', marginLeft: 64, width: 'calc(100% - 64px)' }}>
+        {/* ── Right Content Area (Full Width) ── */}
+        <div style={{ flex: 1, width: '100%', margin: '0 auto', padding: '12px 20px', overflow: 'auto' }}>
 
         {/* ── Top Row: My Orders + Account (compact) ── */}
-        <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12, marginBottom: 8 }}>
           {/* My Orders Card */}
           <div style={{
             background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB',
-            padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            padding: '12px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
             display: 'flex', alignItems: 'center', gap: 14, flex: '1 1 280px', minWidth: 240
           }}>
             <div style={{
@@ -368,7 +333,7 @@ const Dashboard: React.FC = () => {
           {/* Account Card */}
           <div style={{
             background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB',
-            padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            padding: '12px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
             display: 'flex', alignItems: 'center', gap: 20, flex: '1 1 340px', minWidth: 280
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -401,17 +366,17 @@ const Dashboard: React.FC = () => {
           {/* Welcome Banner */}
           <div style={{
             background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)',
-            borderRadius: 16, padding: '28px 32px', marginBottom: 24, color: '#fff'
+            borderRadius: 16, padding: '20px 24px', marginBottom: 12, color: '#fff'
           }}>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>{getGreeting()}, {user?.firstName}!</h1>
-            <p style={{ margin: '6px 0 0', fontSize: 15, opacity: 0.85 }}>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{getGreeting()}, {user?.firstName}!</h1>
+            <p style={{ margin: '4px 0 0', fontSize: 14, opacity: 0.85 }}>
               Welcome to your dashboard — browse products and find service professionals.
             </p>
           </div>
 
           {/* ── Category Tabs ── */}
           <div style={{
-            display: 'flex', gap: 0, marginBottom: 24, background: '#fff',
+            display: 'flex', gap: 0, marginBottom: 8, background: '#fff',
             borderRadius: 14, border: '1px solid #E5E7EB', overflow: 'hidden',
             boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
           }}>
@@ -449,8 +414,8 @@ const Dashboard: React.FC = () => {
             <>
               {/* Product Search Bar */}
               <div style={{
-                background: '#fff', borderRadius: 14, padding: '16px 20px',
-                marginBottom: 24, border: '1px solid #E5E7EB',
+                background: '#fff', borderRadius: 14, padding: '12px 16px',
+                marginBottom: 12, border: '1px solid #E5E7EB',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 12
               }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -555,8 +520,8 @@ const Dashboard: React.FC = () => {
             <>
               {/* Mechanic Search Bar + Specialization Filter */}
               <div style={{
-                background: '#fff', borderRadius: 14, padding: '16px 20px',
-                marginBottom: 24, border: '1px solid #E5E7EB',
+                background: '#fff', borderRadius: 14, padding: '12px 16px',
+                marginBottom: 12, border: '1px solid #E5E7EB',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                 display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap'
               }}>

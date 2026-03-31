@@ -262,7 +262,7 @@ function ProductModal({
               <div className="flex flex-wrap gap-2 mb-3">
                 {images.map((img, i) => (
                   <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-border group">
-                    <img src={resolveMediaUrl(img)} alt="" className="w-full h-full object-cover" />
+                    <img src={resolveMediaUrl(img, "https://placehold.co/80x80?text=Item")} alt="" className="w-full h-full object-cover" />
                     <button
                       onClick={() => setImages((prev) => prev.filter((_, idx) => idx !== i))}
                       className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
@@ -499,7 +499,7 @@ export default function SellerProducts() {
             <div className="flex gap-1.5 flex-wrap">
               {["all", "active", "out_of_stock"].map((s) => (
                 <button key={s} onClick={() => setStatusFilter(s)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors", statusFilter === s ? "bg-blue-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80")}>
-                  {s === "all" ? "All" : s === "out_of_stock" ? "Out of Stock" : s.charAt(0).toUpperCase() + s.slice(1)}
+                  {s === "all" ? "All" : s === "out_of_stock" ? "Out of Stock" : "Stock"}
                 </button>
               ))}
             </div>

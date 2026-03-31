@@ -37,6 +37,8 @@ export interface IUser extends Document {
   experienceYears?: number;
   workshopLocation?: string;
   workshopName?: string;
+  servicesOffered?: string[];
+  mechanicBrands?: string[];
   fullName: string;
   createdAt: Date;
   updatedAt: Date;
@@ -164,6 +166,14 @@ const userSchema = new Schema<IUser>(
       type: String,
       trim: true,
       default: null
+    },
+    servicesOffered: {
+      type: [String],
+      default: []
+    },
+    mechanicBrands: {
+      type: [String],
+      default: []
     }
   },
   {

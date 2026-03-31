@@ -15,11 +15,13 @@ import {
   X,
   ChevronDown,
   MessageSquare,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { resolveMediaUrl } from "@/lib/imageUrl";
+import { NotificationPanel } from "./NotificationPanel";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/seller/dashboard" },
@@ -39,6 +41,7 @@ export function SellerLayout({ children }: SellerLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -218,6 +221,22 @@ export function SellerLayout({ children }: SellerLayoutProps) {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => setNotificationOpen(!notificationOpen)}
+                className="p-2 rounded-lg hover:bg-muted transition-colors relative"
+              >
+                <Bell className="h-5 w-5 text-foreground" />
+                <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500" />
+              </button>
+              <NotificationPanel
+                userRole="seller"
+                panelOpen={notificationOpen}
+                onPanelClose={() => setNotificationOpen(false)}
+              />
+            </div>
+
             {/* Profile Dropdown */}
             <div className="relative">
               <button

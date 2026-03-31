@@ -22,6 +22,12 @@ const api: AxiosInstance = axios.create({
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('token');
+
+    if (config.data instanceof FormData && config.headers) {
+      // Let browser/axios set multipart boundary automatically for file uploads.
+      delete config.headers['Content-Type'];
+    }
+
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
