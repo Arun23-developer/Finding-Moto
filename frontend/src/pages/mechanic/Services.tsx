@@ -366,7 +366,15 @@ function AddServiceSection({
 
         {submitError ? <p className="text-sm text-destructive">{submitError}</p> : null}
 
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Wrench className="h-4 w-4" />
+            <span>
+              {service
+                ? "Editing the selected services"
+                : "New service will appear in Manage Products after save"}
+            </span>
+          </div>
           <Button type="submit" disabled={submitting}>
             {submitting ? "Saving..." : service ? "Save Changes" : "Add Service"}
           </Button>
