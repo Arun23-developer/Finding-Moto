@@ -6,9 +6,11 @@ export interface IService extends Document {
   name: string;
   description: string;
   price: number;
+  originalPrice?: number;
   duration: string;
   category: string;
   active: boolean;
+  images: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +37,10 @@ const serviceSchema = new Schema<IService>(
       required: [true, 'Price is required'],
       min: 0,
     },
+    originalPrice: {
+      type: Number,
+      min: 0,
+    },
     duration: {
       type: String,
       required: [true, 'Duration is required'],
@@ -48,6 +54,14 @@ const serviceSchema = new Schema<IService>(
     active: {
       type: Boolean,
       default: true,
+    },
+    images: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (value: string[]) => (value?.length ?? 0) <= 5,
+        message: 'Maximum 5 photos allowed',
+      },
     },
   },
   { timestamps: true }

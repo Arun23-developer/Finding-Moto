@@ -18,7 +18,12 @@ export const getProducts = async (req: AuthRequest, res: Response): Promise<void
 
     const query: Record<string, unknown> = { seller: sellerId };
     if (status && status !== 'all') query.status = status;
-    if (search) query.name = { $regex: search, $options: 'i' };
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { sku: { $regex: search, $options: 'i' } },
+      ];
+    }
 
     const [products, total] = await Promise.all([
       Product.find(query)
@@ -47,6 +52,12 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
   try {
     const sellerId = req.user!._id;
     const { name, description, category, brand, price, originalPrice, stock, images, sku, type } = req.body;
+    const normalizedImages = Array.isArray(images) ? images.slice(0, 5) : [];
+
+    if (Array.isArray(images) && images.length > 5) {
+      res.status(400).json({ success: false, message: 'Maximum 5 photos allowed' });
+      return;
+    }
 
     const product = await Product.create({
       seller: sellerId,
@@ -57,7 +68,7 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
       price,
       originalPrice,
       stock: type === 'service' ? 99 : (stock ?? 0),
-      images: images ?? [],
+      images: normalizedImages,
       sku,
       type: type || 'product',
     });
@@ -83,10 +94,16 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
   try {
     const sellerId = req.user!._id;
     const { id } = req.params;
+    const nextImages = req.body.images;
 
     const product = await Product.findOne({ _id: id, seller: sellerId });
     if (!product) {
       res.status(404).json({ success: false, message: 'Product not found' });
+      return;
+    }
+
+    if (Array.isArray(nextImages) && nextImages.length > 5) {
+      res.status(400).json({ success: false, message: 'Maximum 5 photos allowed' });
       return;
     }
 
@@ -97,6 +114,10 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
 
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) {
+        if (field === 'images' && Array.isArray(req.body[field])) {
+          (product as unknown as Record<string, unknown>)[field] = req.body[field].slice(0, 5);
+          return;
+        }
         (product as unknown as Record<string, unknown>)[field] = req.body[field];
       }
     });

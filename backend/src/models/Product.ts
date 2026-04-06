@@ -69,6 +69,10 @@ const productSchema = new Schema<IProduct>(
     images: {
       type: [String],
       default: [],
+      validate: {
+        validator: (images: string[] | null | undefined) => (images ?? []).length <= 5,
+        message: 'Maximum 5 photos allowed',
+      },
     },
     status: {
       type: String,

@@ -195,10 +195,15 @@ export const getServices = async (req: AuthRequest, res: Response): Promise<void
 // @access  Private/Mechanic
 export const createService = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { name, description, price, duration, category, active } = req.body;
+    const { name, description, price, originalPrice, duration, category, active, images } = req.body;
 
     if (!name || !price || !duration || !category) {
       res.status(400).json({ success: false, message: 'name, price, duration and category are required' });
+      return;
+    }
+
+    if (Array.isArray(images) && images.length > 5) {
+      res.status(400).json({ success: false, message: 'Maximum 5 photos allowed' });
       return;
     }
 
@@ -207,9 +212,11 @@ export const createService = async (req: AuthRequest, res: Response): Promise<vo
       name,
       description: description || '',
       price,
+      originalPrice,
       duration,
       category,
       active: active !== undefined ? active : true,
+      images: Array.isArray(images) ? images.slice(0, 5) : [],
     });
 
     res.status(201).json({ success: true, data: service });
@@ -231,14 +238,22 @@ export const updateService = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const { name, description, price, duration, category, active } = req.body;
+    const { name, description, price, originalPrice, duration, category, active, images } = req.body;
 
     if (name !== undefined) service.name = name;
     if (description !== undefined) service.description = description;
     if (price !== undefined) service.price = price;
+    if (originalPrice !== undefined) service.originalPrice = originalPrice;
     if (duration !== undefined) service.duration = duration;
     if (category !== undefined) service.category = category;
     if (active !== undefined) service.active = active;
+    if (images !== undefined) {
+      if (Array.isArray(images) && images.length > 5) {
+        res.status(400).json({ success: false, message: 'Maximum 5 photos allowed' });
+        return;
+      }
+      service.images = Array.isArray(images) ? images.slice(0, 5) : [];
+    }
 
     await service.save();
 

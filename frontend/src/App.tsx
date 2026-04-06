@@ -15,6 +15,13 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const SellerDashboard = lazy(() => import('./pages/seller/Dashboard'));
 const SellerProducts = lazy(() => import('./pages/seller/Products'));
 const SellerOrders = lazy(() => import('./pages/seller/Orders'));
+const SellerShippingDelivery = lazy(() => import('./pages/seller/ShippingDelivery'));
+const SellerReturnsClaims = lazy(() => import('./pages/seller/ReturnsClaims'));
+const SellerFinanceStatus = lazy(() => import('./pages/seller/FinanceStatus'));
+const SellerNotificationCenter = lazy(() => import('./pages/seller/NotificationCenter'));
+const SellerBuyerMessageCenter = lazy(() => import('./pages/seller/BuyerMessageCenter'));
+const SellerSupportHelpCenter = lazy(() => import('./pages/seller/SupportHelpCenter'));
+const SellerSettings = lazy(() => import('./pages/seller/Settings'));
 const SellerReviews = lazy(() => import('./pages/seller/Reviews'));
 const SellerProfile = lazy(() => import('./pages/seller/Profile'));
 const SellerAIChat = lazy(() => import('./pages/seller/AIChat'));
@@ -25,6 +32,12 @@ const MechanicReviews = lazy(() => import('./pages/mechanic/Reviews'));
 const MechanicProfile = lazy(() => import('./pages/mechanic/Profile'));
 const MechanicAIChat = lazy(() => import('./pages/mechanic/AIChat'));
 const MechanicServices = lazy(() => import('./pages/mechanic/Services'));
+const MechanicNotifications = lazy(() => import('./pages/mechanic/Notifications'));
+const MechanicShippingDelivery = lazy(() => import('./pages/mechanic/ShippingDelivery'));
+const MechanicReturnsClaims = lazy(() => import('./pages/mechanic/ReturnsClaims'));
+const MechanicFinanceStatus = lazy(() => import('./pages/mechanic/FinanceStatus'));
+const MechanicSupportHelpCenter = lazy(() => import('./pages/mechanic/SupportHelpCenter'));
+const MechanicSettings = lazy(() => import('./pages/mechanic/Settings'));
 const ProductDetail = lazy(() => import('./pages/ProductDetail'));
 const MyOrders = lazy(() => import('./pages/MyOrders'));
 const BuyerAIChat = lazy(() => import('./pages/BuyerAIChat'));
@@ -179,6 +192,41 @@ const App = (): JSX.Element => {
                   <SellerLayout><SellerOrders /></SellerLayout>
                 </RoleRoute>
               } />
+              <Route path="/seller/shipping-delivery" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerShippingDelivery /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/returns-claims" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerReturnsClaims /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/finance-status" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerFinanceStatus /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/notification" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerNotificationCenter /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/buyer-message-center" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerBuyerMessageCenter /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/support-help-center" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerSupportHelpCenter /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/settings" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerSettings /></SellerLayout>
+                </RoleRoute>
+              } />
               <Route path="/seller/reviews" element={
                 <RoleRoute roles={['seller']}>
                   <SellerLayout><SellerReviews /></SellerLayout>
@@ -219,6 +267,41 @@ const App = (): JSX.Element => {
               <Route path="/mechanic/orders" element={
                 <RoleRoute roles={['mechanic']}>
                   <MechanicLayout><MechanicOrders /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/shipping-delivery" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicShippingDelivery /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/returns-claims" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicReturnsClaims /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/finance-status" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicFinanceStatus /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/notification" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicNotifications /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/buyer-message-center" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><ChatPage /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/support-help-center" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicSupportHelpCenter /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/settings" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicSettings /></MechanicLayout>
                 </RoleRoute>
               } />
               <Route path="/mechanic/reviews" element={

@@ -48,6 +48,32 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [settings, setSettings] = useState<SettingsState>(defaultSettings);
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<{ adminEmail?: string; supportPhone?: string }>({});
+
+  const validateAdminEmail = (value: string): string => {
+    const trimmed = value.trim();
+    if (!trimmed) return "Admin email is required";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) return "Please enter a valid email address";
+    return "";
+  };
+
+  const validateSupportPhone = (value: string): string => {
+    if (!/^\d{10}$/.test(value)) return "Support phone must be exactly 10 digits";
+    return "";
+  };
+
+  const validateSettings = (next: SettingsState): boolean => {
+    const emailError = validateAdminEmail(next.adminEmail);
+    const phoneError = validateSupportPhone(next.supportPhone);
+
+    setErrors({
+      adminEmail: emailError || undefined,
+      supportPhone: phoneError || undefined,
+    });
+
+    return !emailError && !phoneError;
+  };
 
   useEffect(() => {
     try {
@@ -72,6 +98,15 @@ export default function SettingsPage() {
   }, []);
 
   const handleSave = async () => {
+    if (!validateSettings(settings)) {
+      toast({
+        title: "Validation error",
+        description: "Please fix the highlighted fields before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
@@ -117,16 +152,36 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <Label>Admin Email</Label>
             <Input
+              type="email"
               value={settings.adminEmail}
-              onChange={(e) => setSettings((prev) => ({ ...prev, adminEmail: e.target.value }))}
+              onChange={(e) => {
+                const adminEmail = e.target.value;
+                setSettings((prev) => ({ ...prev, adminEmail }));
+                setErrors((prev) => ({
+                  ...prev,
+                  adminEmail: validateAdminEmail(adminEmail) || undefined,
+                }));
+              }}
             />
+            {errors.adminEmail && <p className="text-xs text-destructive">{errors.adminEmail}</p>}
           </div>
           <div className="space-y-2">
             <Label>Support Phone</Label>
             <Input
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="0776580595"
               value={settings.supportPhone}
-              onChange={(e) => setSettings((prev) => ({ ...prev, supportPhone: e.target.value }))}
+              onChange={(e) => {
+                const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
+                setSettings((prev) => ({ ...prev, supportPhone: digitsOnly }));
+                setErrors((prev) => ({
+                  ...prev,
+                  supportPhone: validateSupportPhone(digitsOnly) || undefined,
+                }));
+              }}
             />
+            {errors.supportPhone && <p className="text-xs text-destructive">{errors.supportPhone}</p>}
           </div>
         </CardContent>
       </Card>

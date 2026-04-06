@@ -305,7 +305,7 @@ export const getOrders = async (req: AuthRequest, res: Response): Promise<void> 
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
-        .populate('buyer', 'name email phone')
+        .populate('buyer', 'firstName lastName email phone address city postCode')
         .lean(),
       Order.countDocuments(query),
     ]);

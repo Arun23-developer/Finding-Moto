@@ -3,9 +3,13 @@ import {
   LayoutDashboard,
   Package,
   ShoppingCart,
-  Star,
-  UserCircle,
-  Bot,
+  Truck,
+  RotateCcw,
+  Wallet,
+  Bell,
+  MessageSquare,
+  LifeBuoy,
+  Settings,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -14,7 +18,7 @@ import {
   Menu,
   X,
   ChevronDown,
-  MessageSquare,
+  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -23,12 +27,15 @@ import { resolveMediaUrl } from "@/lib/imageUrl";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/seller/dashboard" },
-  { title: "Products", icon: Package, path: "/seller/products" },
+  { title: "Products (Add / Manage)", icon: Package, path: "/seller/products" },
   { title: "Orders", icon: ShoppingCart, path: "/seller/orders" },
-  { title: "Reviews", icon: Star, path: "/seller/reviews" },
-  { title: "Chat", icon: MessageSquare, path: "/seller/chat" },
-  { title: "Profile", icon: UserCircle, path: "/seller/profile" },
-  { title: "AI Assistant", icon: Bot, path: "/seller/ai-chat" },
+  { title: "Shipping & Delivery", icon: Truck, path: "/seller/shipping-delivery" },
+  { title: "Returns & Claims", icon: RotateCcw, path: "/seller/returns-claims" },
+  { title: "Finance status", icon: Wallet, path: "/seller/finance-status" },
+  { title: "Notification", icon: Bell, path: "/seller/notification" },
+  { title: "Buyer message center", icon: MessageSquare, path: "/seller/buyer-message-center" },
+  { title: "Support / Help Center", icon: LifeBuoy, path: "/seller/support-help-center" },
+  { title: "Settings", icon: Settings, path: "/seller/settings" },
 ];
 
 interface SellerLayoutProps {

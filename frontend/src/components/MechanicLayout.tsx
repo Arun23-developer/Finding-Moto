@@ -3,9 +3,7 @@ import {
   LayoutDashboard,
   Package,
   ShoppingCart,
-  Star,
   UserCircle,
-  Bot,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -15,6 +13,12 @@ import {
   X,
   ChevronDown,
   MessageSquare,
+  Bell,
+  Truck,
+  RotateCcw,
+  Wallet,
+  LifeBuoy,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -23,13 +27,16 @@ import { resolveMediaUrl } from "@/lib/imageUrl";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/mechanic/dashboard" },
-  { title: "Services", icon: Wrench, path: "/mechanic/services" },
-  { title: "Products", icon: Package, path: "/mechanic/products" },
+  { title: "Products (Add / Manage)", icon: Package, path: "/mechanic/products" },
+  { title: "Services (Add / Manage)", icon: Wrench, path: "/mechanic/services" },
   { title: "Orders", icon: ShoppingCart, path: "/mechanic/orders" },
-  { title: "Reviews", icon: Star, path: "/mechanic/reviews" },
-  { title: "Chat", icon: MessageSquare, path: "/mechanic/chat" },
-  { title: "Profile", icon: UserCircle, path: "/mechanic/profile" },
-  { title: "AI Assistant", icon: Bot, path: "/mechanic/ai-chat" },
+  { title: "Shipping & Delivery", icon: Truck, path: "/mechanic/shipping-delivery" },
+  { title: "Returns & Claims", icon: RotateCcw, path: "/mechanic/returns-claims" },
+  { title: "Finance status", icon: Wallet, path: "/mechanic/finance-status" },
+  { title: "Notification", icon: Bell, path: "/mechanic/notification" },
+  { title: "Buyer message center", icon: MessageSquare, path: "/mechanic/buyer-message-center" },
+  { title: "Support / Help Center", icon: LifeBuoy, path: "/mechanic/support-help-center" },
+  { title: "Settings", icon: Settings, path: "/mechanic/settings" },
 ];
 
 interface MechanicLayoutProps {
