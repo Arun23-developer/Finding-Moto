@@ -216,13 +216,13 @@ const seedProducts = async (): Promise<void> => {
     console.log('MongoDB Connected');
 
     const mainSeller = await ensureSeller({
-      firstName: 'Kamal',
-      lastName: 'Perera',
-      email: 'seller@gmail.com',
-      phone: '+94 77 123 4567',
-      shopName: 'Kamal Auto Parts',
-      shopDescription: 'Premium quality spare parts for Japanese and European motorcycles.',
-      shopLocation: 'No. 45, Galle Road, Colombo 03',
+      firstName: 'Nanthujan',
+      lastName: 'Sivapalan',
+      email: 'nanthujan0@gmail.com',
+      phone: '+94 77 912 3488',
+      shopName: 'Nanthu Moto Garage Supply',
+      shopDescription: 'Trending motorcycle parts inspired by public online moto catalogs and workshop demand.',
+      shopLocation: 'Stanley Road, Jaffna',
     });
 
     const otherSellers = await Promise.all(OTHER_SELLERS.map((s) => ensureSeller(s)));
@@ -253,9 +253,9 @@ const seedProducts = async (): Promise<void> => {
 
     console.log(`Seeded/updated products for ${mainSeller.email} and marketplace sellers.`);
     console.log(`Upserted: ${result.upsertedCount || 0}, Modified: ${result.modifiedCount || 0}, Matched: ${result.matchedCount || 0}`);
-    console.log('Created dataset: 30 products for seller@gmail.com + 100 products across other shops.');
+    console.log('Created dataset: 30 products for nanthujan0@gmail.com + 100 products across other shops.');
     console.log('\nSeller credentials for testing:');
-    console.log('seller@gmail.com / seller123');
+    console.log('nanthujan0@gmail.com / seller123');
     console.log('seller2@gmail.com / seller123');
     console.log('seller3@gmail.com / seller123');
     console.log('seller4@gmail.com / seller123');

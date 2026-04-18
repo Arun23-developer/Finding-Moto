@@ -23,6 +23,21 @@ const SUBCATEGORY_VALUES = TOP_LEVEL_CATEGORIES.flatMap((parent) =>
 );
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const ENABLED_PRODUCT_STATUS_FILTER = {
+  productStatus: 'ENABLED',
+  status: { $in: ['active', 'out_of_stock'] },
+};
+const ENABLED_SERVICE_STATUS_FILTER = {
+  productStatus: 'ENABLED',
+  active: true,
+};
+
+const setNoStoreHeaders = (res: Response): void => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Surrogate-Control', 'no-store');
+};
 
 const enrichProductsWithReviews = async (
   products: Array<Record<string, any>>
@@ -64,6 +79,7 @@ const enrichProductsWithReviews = async (
 // @access  Public
 export const getPublicProducts = async (req: Request, res: Response): Promise<void> => {
   try {
+    setNoStoreHeaders(res);
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const search = req.query.search as string;
@@ -75,7 +91,7 @@ export const getPublicProducts = async (req: Request, res: Response): Promise<vo
     const inStockOnly = req.query.inStockOnly === 'true';
 
     // Build filter
-    const filter: Record<string, unknown> = { status: { $in: ['active'] } };
+    const filter: Record<string, unknown> = { ...ENABLED_PRODUCT_STATUS_FILTER };
 
     if (search) {
       filter.$or = [
@@ -169,8 +185,8 @@ export const getPublicProducts = async (req: Request, res: Response): Promise<vo
 
     // Get available categories and brands for filter options
     const [categoriesList, brandsList] = await Promise.all([
-      Product.distinct('category', { status: 'active' }),
-      Product.distinct('brand', { status: 'active', brand: { $ne: '' } }),
+      Product.distinct('category', ENABLED_PRODUCT_STATUS_FILTER),
+      Product.distinct('brand', { ...ENABLED_PRODUCT_STATUS_FILTER, brand: { $ne: '' } }),
     ]);
 
     const mergedCategories = Array.from(new Set([...TOP_LEVEL_CATEGORIES, ...SUBCATEGORY_VALUES, ...categoriesList]))
@@ -197,6 +213,7 @@ export const getPublicProducts = async (req: Request, res: Response): Promise<vo
 // @access  Public
 export const getPublicProduct = async (req: Request, res: Response): Promise<void> => {
   try {
+    setNoStoreHeaders(res);
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -204,12 +221,12 @@ export const getPublicProduct = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const product = await Product.findOne({ _id: id, status: { $in: ['active', 'out_of_stock'] } })
+    const product = await Product.findOne({ _id: id, ...ENABLED_PRODUCT_STATUS_FILTER })
       .populate('seller', 'firstName lastName shopName workshopName')
       .lean();
 
     if (!product) {
-      res.status(404).json({ success: false, message: 'Product not found' });
+      res.status(404).json({ success: false, message: 'This product/service is currently unavailable' });
       return;
     }
 
@@ -258,8 +275,9 @@ export const getPublicProduct = async (req: Request, res: Response): Promise<voi
 // @access  Public
 export const getTrendingProducts = async (_req: Request, res: Response): Promise<void> => {
   try {
+    setNoStoreHeaders(res);
     // Get active products sorted by sales, then views
-    const products = await Product.find({ status: 'active' })
+    const products = await Product.find(ENABLED_PRODUCT_STATUS_FILTER)
       .populate('seller', 'firstName lastName shopName')
       .sort({ sales: -1, views: -1 })
       .limit(6)
@@ -305,6 +323,7 @@ export const getTrendingProducts = async (_req: Request, res: Response): Promise
 // @access  Public
 export const getPublicMechanics = async (req: Request, res: Response): Promise<void> => {
   try {
+    setNoStoreHeaders(res);
     const search = req.query.search as string;
     const specialization = req.query.specialization as string;
 
@@ -332,9 +351,26 @@ export const getPublicMechanics = async (req: Request, res: Response): Promise<v
       .sort({ createdAt: -1 })
       .lean();
 
+    // Get review stats for mechanics
+    const mechanicIdsForReviews = mechanics.map((m) => m._id);
+    const mechanicReviewStats = await Review.aggregate([
+      { $match: { mechanicId: { $in: mechanicIdsForReviews } } },
+      {
+        $group: {
+          _id: '$mechanicId',
+          avgRating: { $avg: '$rating' },
+          reviewCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const mechanicReviewMap = new Map(
+      mechanicReviewStats.map((r) => [r._id.toString(), { avgRating: r.avgRating, reviewCount: r.reviewCount }])
+    );
+
     // Fetch real services for each mechanic from the Service collection
     const mechanicIds = mechanics.map((m) => m._id);
-    const allServices = await Service.find({ mechanic: { $in: mechanicIds }, active: true })
+    const allServices = await Service.find({ mechanic: { $in: mechanicIds }, ...ENABLED_SERVICE_STATUS_FILTER })
       .select('name mechanic category price')
       .lean();
 
@@ -349,6 +385,7 @@ export const getPublicMechanics = async (req: Request, res: Response): Promise<v
     // Map mechanics to a garage-like shape for frontend
     const garages = mechanics.map((m) => {
       const mechServices = serviceLookup[m._id.toString()] || [];
+      const mechStats = mechanicReviewMap.get(m._id.toString());
       return {
         _id: m._id,
         name: m.workshopName || `${m.firstName} ${m.lastName}'s Workshop`,
@@ -358,6 +395,8 @@ export const getPublicMechanics = async (req: Request, res: Response): Promise<v
         specialization: m.specialization || 'General Service',
         experienceYears: m.experienceYears || 0,
         avatar: m.avatar || null,
+        rating: mechStats ? Math.round((mechStats.avgRating || 0) * 10) / 10 : 0,
+        reviewCount: mechStats ? mechStats.reviewCount || 0 : 0,
         services: mechServices.length > 0
           ? mechServices.map((s) => s.name)
           : (m.specialization
@@ -394,6 +433,7 @@ export const getPublicMechanics = async (req: Request, res: Response): Promise<v
 // @access  Public
 export const getPublicSellerProfile = async (req: Request, res: Response): Promise<void> => {
   try {
+    setNoStoreHeaders(res);
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -415,7 +455,7 @@ export const getPublicSellerProfile = async (req: Request, res: Response): Promi
       return;
     }
 
-    const products = await Product.find({ seller: seller._id, status: { $in: ['active', 'out_of_stock'] } })
+    const products = await Product.find({ seller: seller._id, ...ENABLED_PRODUCT_STATUS_FILTER })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -460,6 +500,7 @@ export const getPublicSellerProfile = async (req: Request, res: Response): Promi
 // @access  Public
 export const getPublicMechanicProfile = async (req: Request, res: Response): Promise<void> => {
   try {
+    setNoStoreHeaders(res);
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -482,8 +523,8 @@ export const getPublicMechanicProfile = async (req: Request, res: Response): Pro
     }
 
     const [services, products] = await Promise.all([
-      Service.find({ mechanic: mechanic._id, active: true }).sort({ createdAt: -1 }).lean(),
-      Product.find({ seller: mechanic._id, status: { $in: ['active', 'out_of_stock'] } }).sort({ createdAt: -1 }).lean(),
+      Service.find({ mechanic: mechanic._id, ...ENABLED_SERVICE_STATUS_FILTER }).sort({ createdAt: -1 }).lean(),
+      Product.find({ seller: mechanic._id, ...ENABLED_PRODUCT_STATUS_FILTER }).sort({ createdAt: -1 }).lean(),
     ]);
 
     const enrichedProducts = await enrichProductsWithReviews(products as Array<Record<string, any>>);
@@ -529,6 +570,7 @@ export const getPublicMechanicProfile = async (req: Request, res: Response): Pro
 // @access  Public
 export const getPublicMechanicServices = async (req: Request, res: Response): Promise<void> => {
   try {
+    setNoStoreHeaders(res);
     const mechanicId = req.params.id;
 
     if (!mongoose.Types.ObjectId.isValid(mechanicId)) {
@@ -536,7 +578,7 @@ export const getPublicMechanicServices = async (req: Request, res: Response): Pr
       return;
     }
 
-    const services = await Service.find({ mechanic: mechanicId, active: true })
+    const services = await Service.find({ mechanic: mechanicId, ...ENABLED_SERVICE_STATUS_FILTER })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -552,10 +594,11 @@ export const getPublicMechanicServices = async (req: Request, res: Response): Pr
 // @access  Public
 export const getPublicAllServices = async (req: Request, res: Response): Promise<void> => {
   try {
+    setNoStoreHeaders(res);
     const search = req.query.search as string;
     const category = req.query.category as string;
 
-    const filter: Record<string, unknown> = { active: true };
+    const filter: Record<string, unknown> = { ...ENABLED_SERVICE_STATUS_FILTER };
 
     if (search) {
       filter.$or = [
@@ -574,7 +617,7 @@ export const getPublicAllServices = async (req: Request, res: Response): Promise
       .lean();
 
     // Get distinct categories for filter
-    const categories = await Service.distinct('category', { active: true });
+    const categories = await Service.distinct('category', ENABLED_SERVICE_STATUS_FILTER);
 
     res.json({
       success: true,

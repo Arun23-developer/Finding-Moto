@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../context/AuthContext';
+import { canUseGoogleAuth, getGoogleAuthIssue } from '../lib/googleAuth';
+import { getDefaultRouteForRole } from '../lib/roleRoutes';
 
 // Strict email validation
 const isValidEmail = (email: string): boolean => {
@@ -53,6 +55,12 @@ const ROLE_INFO: Record<string, { title: string; icon: string; description: stri
     icon: '🔧',
     description: 'Offer repair and maintenance services',
     color: '#D97706'
+  },
+  delivery_agent: {
+    title: 'Delivery Agent',
+    icon: '🚚',
+    description: 'Manage safe deliveries across the platform',
+    color: '#2563EB'
   }
 };
 
@@ -85,6 +93,8 @@ const Register: React.FC = () => {
   const { register, googleAuth, verifyOTP, resendOTP } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const googleAuthIssue = getGoogleAuthIssue();
+  const showGoogleLogin = canUseGoogleAuth();
 
   // If redirected from login with unverified email, go straight to OTP step
   useEffect(() => {
@@ -158,7 +168,7 @@ const Register: React.FC = () => {
         setStep('otp');
         startResendCooldown();
       } else if (result.token) {
-        navigate('/dashboard');
+        navigate(getDefaultRouteForRole(result.user?.role));
       }
     } catch (error: any) {
       setError(error.response?.data?.message || 'Registration failed. Please try again.');
@@ -167,22 +177,34 @@ const Register: React.FC = () => {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
+  const handleGoogleSuccess = useCallback(async (credentialResponse: any) => {
     setError('');
     setLoading(true);
     try {
-      await googleAuth(credentialResponse.credential);
-      navigate('/dashboard');
+      const result = await googleAuth(credentialResponse.credential);
+      navigate(getDefaultRouteForRole(result.user?.role));
     } catch (error: any) {
       setError(error.response?.data?.message || 'Google sign-up failed. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [googleAuth, navigate]);
 
-  const handleGoogleError = () => {
+  const handleGoogleError = useCallback(() => {
     setError('Google sign-in was unsuccessful. Please try again.');
-  };
+  }, []);
+
+  const googleLoginButton = useMemo(() => (
+    <GoogleLogin
+      onSuccess={handleGoogleSuccess}
+      onError={handleGoogleError}
+      size="large"
+      width="320"
+      theme="outline"
+      text="signup_with"
+      shape="rectangular"
+    />
+  ), [handleGoogleError, handleGoogleSuccess]);
 
   // OTP cooldown timer
   const startResendCooldown = () => {
@@ -248,8 +270,7 @@ const Register: React.FC = () => {
     try {
       const result = await verifyOTP(formData.email, otp, formData.role);
       if (result.token) {
-        // Buyer - verified and auto-approved
-        navigate('/dashboard');
+        navigate(getDefaultRouteForRole(result.user?.role));
       } else {
         // Seller/Mechanic - verified but pending approval
         setRegistrationSuccess(true);
@@ -320,8 +341,7 @@ const Register: React.FC = () => {
         return;
       }
       setError('');
-      if (formData.role === 'buyer') {
-        // Buyers don't need step 3
+      if (formData.role !== 'seller' && formData.role !== 'mechanic') {
         return;
       }
       setStep(3);
@@ -396,14 +416,14 @@ const Register: React.FC = () => {
                 height: '4px',
                 borderRadius: '2px',
                 backgroundColor: (() => {
-                  const stepOrder = formData.role === 'buyer' ? [1, 2, 'otp'] : [1, 2, 3, 'otp'];
+                  const stepOrder = formData.role === 'seller' || formData.role === 'mechanic' ? [1, 2, 3, 'otp'] : [1, 2, 'otp'];
                   const currentIdx = stepOrder.indexOf(step);
                   const thisIdx = stepOrder.indexOf(s as any);
                   return thisIdx !== -1 && thisIdx <= currentIdx ? '#4F46E5' : '#E5E7EB';
                 })(),
                 transition: 'background-color 0.3s',
                 display: (() => {
-                  if (formData.role === 'buyer' && s === 3) return 'none';
+                  if (formData.role !== 'seller' && formData.role !== 'mechanic' && s === 3) return 'none';
                   return 'block';
                 })()
               }}
@@ -466,15 +486,11 @@ const Register: React.FC = () => {
                   <span>or continue with</span>
                 </div>
                 <div className="google-btn-wrapper">
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={handleGoogleError}
-                    size="large"
-                    width="320"
-                    theme="outline"
-                    text="signup_with"
-                    shape="rectangular"
-                  />
+                  {showGoogleLogin ? googleLoginButton : (
+                    <div className="error-message" style={{ marginBottom: 0 }}>
+                      {googleAuthIssue}
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -487,7 +503,7 @@ const Register: React.FC = () => {
 
         {/* Step 2: Basic Info */}
         {step === 2 && (
-          <form onSubmit={formData.role === 'buyer' ? handleSubmit : (e) => { e.preventDefault(); nextStep(); }} className="auth-form">
+          <form onSubmit={formData.role === 'seller' || formData.role === 'mechanic' ? (e) => { e.preventDefault(); nextStep(); } : handleSubmit} className="auth-form">
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="firstName">First Name</label>
@@ -529,10 +545,10 @@ const Register: React.FC = () => {
               <button type="submit" className="btn-primary" disabled={loading} style={{ flex: 2 }}>
                 {loading ? (
                   <><span className="btn-spinner"></span> Creating account...</>
-                ) : formData.role === 'buyer' ? (
-                  'Create Account'
-                ) : (
+                ) : formData.role === 'seller' || formData.role === 'mechanic' ? (
                   'Continue'
+                ) : (
+                  'Create Account'
                 )}
               </button>
             </div>

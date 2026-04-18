@@ -2,7 +2,12 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
 import type { UserRole } from './context/AuthContext';
+import { OrderWorkflowNotificationsProvider } from './context/OrderWorkflowNotificationsContext';
+import { canUseGoogleAuth, getGoogleClientId } from './lib/googleAuth';
+import { getDefaultRouteForRole } from './lib/roleRoutes';
+import { Toaster } from '@/components/ui/toaster';
 
 const Home = lazy(() => import('./pages/Home'));
 const About = lazy(() => import('./pages/About'));
@@ -15,6 +20,13 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const SellerDashboard = lazy(() => import('./pages/seller/Dashboard'));
 const SellerProducts = lazy(() => import('./pages/seller/Products'));
 const SellerOrders = lazy(() => import('./pages/seller/Orders'));
+const SellerShippingDelivery = lazy(() => import('./pages/seller/ShippingDelivery'));
+const SellerReturnsClaims = lazy(() => import('./pages/seller/ReturnsClaims'));
+const SellerFinanceStatus = lazy(() => import('./pages/seller/FinanceStatus'));
+const SellerNotificationCenter = lazy(() => import('./pages/seller/NotificationCenter'));
+const SellerBuyerMessageCenter = lazy(() => import('./pages/seller/BuyerMessageCenter'));
+const SellerSupportHelpCenter = lazy(() => import('./pages/seller/SupportHelpCenter'));
+const SellerSettings = lazy(() => import('./pages/seller/Settings'));
 const SellerReviews = lazy(() => import('./pages/seller/Reviews'));
 const SellerProfile = lazy(() => import('./pages/seller/Profile'));
 const SellerAIChat = lazy(() => import('./pages/seller/AIChat'));
@@ -25,13 +37,29 @@ const MechanicOrders = lazy(() => import('./pages/mechanic/Orders'));
 const MechanicReviews = lazy(() => import('./pages/mechanic/Reviews'));
 const MechanicProfile = lazy(() => import('./pages/mechanic/Profile'));
 const MechanicAIChat = lazy(() => import('./pages/mechanic/AIChat'));
-const MechanicNotifications = lazy(() => import('./pages/mechanic/Notifications'));
 const MechanicServices = lazy(() => import('./pages/mechanic/Services'));
+const MechanicNotifications = lazy(() => import('./pages/mechanic/Notifications'));
+const MechanicShippingDelivery = lazy(() => import('./pages/mechanic/ShippingDelivery'));
+const MechanicReturnsClaims = lazy(() => import('./pages/mechanic/ReturnsClaims'));
+const MechanicFinanceStatus = lazy(() => import('./pages/mechanic/FinanceStatus'));
+const MechanicSupportHelpCenter = lazy(() => import('./pages/mechanic/SupportHelpCenter'));
+const MechanicSettings = lazy(() => import('./pages/mechanic/Settings'));
+const DeliveryAgentDashboard = lazy(() => import('./pages/delivery-agent/Dashboard'));
+const DeliveryAssignedPage = lazy(() => import('./pages/delivery-agent/Assigned'));
+const DeliveryCompletedPage = lazy(() => import('./pages/delivery-agent/Completed'));
+const DeliveryNotificationsPage = lazy(() => import('./pages/delivery-agent/Notifications'));
+const DeliveryAgentProfilePage = lazy(() => import('./pages/delivery-agent/Profile'));
+const DeliverySupportHelpCenterPage = lazy(() => import('./pages/delivery-agent/SupportHelpCenter'));
+const DeliverySettingsPage = lazy(() => import('./pages/delivery-agent/Settings'));
 const ProductDetail = lazy(() => import('./pages/ProductDetail'));
 const MyOrders = lazy(() => import('./pages/MyOrders'));
 const BuyerAIChat = lazy(() => import('./pages/BuyerAIChat'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const ChatPage = lazy(() => import('./pages/ChatPage'));
+const BuyerSectionPage = lazy(() => import('./pages/buyer/SectionPage'));
+const BuyerCartPage = lazy(() => import('./pages/buyer/CartPage'));
+const BuyerNotificationsPage = lazy(() => import('./pages/buyer/Notifications'));
+const BuyerReturnsClaimsPage = lazy(() => import('./pages/buyer/ReturnsClaims'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -39,6 +67,8 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 const AdminLayout = lazy(() => import('./components/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const SellerLayout = lazy(() => import('./components/SellerLayout').then((m) => ({ default: m.SellerLayout })));
 const MechanicLayout = lazy(() => import('./components/MechanicLayout').then((m) => ({ default: m.MechanicLayout })));
+const DeliveryAgentLayout = lazy(() => import('./components/DeliveryAgentLayout').then((m) => ({ default: m.DeliveryAgentLayout })));
+const BuyerLayout = lazy(() => import('./components/BuyerLayout').then((m) => ({ default: m.BuyerLayout })));
 
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminUsersManagement = lazy(() => import('./pages/admin/UsersManagement'));
@@ -50,7 +80,7 @@ const AdminContactManagement = lazy(() => import('./pages/admin/ContactManagemen
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AdminNotFound = lazy(() => import('./pages/admin/NotFound'));
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_ID = getGoogleClientId();
 
 interface RouteProps {
   children: React.ReactNode;
@@ -89,11 +119,7 @@ const PublicRoute: React.FC<RouteProps> = ({ children }) => {
   }
   
   if (user) {
-    // Admin → admin panel, Seller → seller dashboard, Mechanic → mechanic dashboard, others → user dashboard
-    if (user.role === 'admin') return <Navigate to="/admin" />;
-    if (user.role === 'seller') return <Navigate to="/seller/dashboard" />;
-    if (user.role === 'mechanic') return <Navigate to="/mechanic/dashboard" />;
-    return <Navigate to="/dashboard" />;
+    return <Navigate to={getDefaultRouteForRole(user.role)} />;
   }
   
   return <>{children}</>;
@@ -113,7 +139,7 @@ export const RoleRoute: React.FC<RoleRouteProps> = ({ children, roles }) => {
   }
   
   if (!user) return <Navigate to="/login" />;
-  if (!roles.includes(user.role)) return <Navigate to="/dashboard" />;
+  if (!roles.includes(user.role)) return <Navigate to={getDefaultRouteForRole(user.role)} />;
   
   return <>{children}</>;
 };
@@ -125,14 +151,15 @@ const RouteLoader: React.FC = () => (
   </div>
 );
 
-const App = (): JSX.Element => {
+const AppContent = (): JSX.Element => {
   return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <AuthProvider>
-        <Router>
-          <div className="app">
-            <Suspense fallback={<RouteLoader />}>
-              <Routes>
+    <AuthProvider>
+      <CartProvider>
+        <OrderWorkflowNotificationsProvider>
+          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <div className="app">
+              <Suspense fallback={<RouteLoader />}>
+                <Routes>
               {/* Public pages - accessible to everyone */}
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
@@ -156,13 +183,96 @@ const App = (): JSX.Element => {
                 <PrivateRoute><Dashboard /></PrivateRoute>
               } />
               <Route path="/my-orders" element={
-                <PrivateRoute><MyOrders /></PrivateRoute>
+                <RoleRoute roles={['buyer']}>
+                  <BuyerLayout><MyOrders /></BuyerLayout>
+                </RoleRoute>
               } />
               <Route path="/ai-chat" element={
                 <PrivateRoute><BuyerAIChat /></PrivateRoute>
               } />
               <Route path="/chat" element={
-                <PrivateRoute><ChatPage /></PrivateRoute>
+                <RoleRoute roles={['buyer']}>
+                  <BuyerLayout><ChatPage /></BuyerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/buyer/categories" element={
+                <RoleRoute roles={['buyer']}>
+                  <BuyerLayout>
+                    <BuyerSectionPage title="Categories" description="Browse product categories and explore available inventory." />
+                  </BuyerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/buyer/cart" element={
+                <RoleRoute roles={['buyer']}>
+                  <BuyerLayout><BuyerCartPage /></BuyerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/buyer/notifications" element={
+                <RoleRoute roles={['buyer']}>
+                  <BuyerLayout><BuyerNotificationsPage /></BuyerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/buyer/returns-claims" element={
+                <RoleRoute roles={['buyer']}>
+                  <BuyerLayout><BuyerReturnsClaimsPage /></BuyerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/buyer/account" element={
+                <RoleRoute roles={['buyer']}>
+                  <BuyerLayout>
+                    <BuyerSectionPage title="Account" description="Manage your buyer account details and preferences." />
+                  </BuyerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/buyer/home" element={
+                <RoleRoute roles={['buyer']}>
+                  <Navigate to="/dashboard" replace />
+                </RoleRoute>
+              } />
+              <Route path="/delivery-agent" element={
+                <RoleRoute roles={['delivery_agent']}>
+                  <Navigate to="/delivery/dashboard" replace />
+                </RoleRoute>
+              } />
+              <Route path="/delivery/dashboard" element={
+                <RoleRoute roles={['delivery_agent']}>
+                  <DeliveryAgentLayout><DeliveryAgentDashboard /></DeliveryAgentLayout>
+                </RoleRoute>
+              } />
+              <Route path="/delivery/assigned" element={
+                <RoleRoute roles={['delivery_agent']}>
+                  <DeliveryAgentLayout><DeliveryAssignedPage /></DeliveryAgentLayout>
+                </RoleRoute>
+              } />
+              <Route path="/delivery/completed" element={
+                <RoleRoute roles={['delivery_agent']}>
+                  <DeliveryAgentLayout><DeliveryCompletedPage /></DeliveryAgentLayout>
+                </RoleRoute>
+              } />
+              <Route path="/delivery/notifications" element={
+                <RoleRoute roles={['delivery_agent']}>
+                  <DeliveryAgentLayout><DeliveryNotificationsPage /></DeliveryAgentLayout>
+                </RoleRoute>
+              } />
+              <Route path="/delivery/profile" element={
+                <RoleRoute roles={['delivery_agent']}>
+                  <DeliveryAgentLayout><DeliveryAgentProfilePage /></DeliveryAgentLayout>
+                </RoleRoute>
+              } />
+              <Route path="/delivery/support-help-center" element={
+                <RoleRoute roles={['delivery_agent']}>
+                  <DeliveryAgentLayout><DeliverySupportHelpCenterPage /></DeliveryAgentLayout>
+                </RoleRoute>
+              } />
+              <Route path="/delivery/settings" element={
+                <RoleRoute roles={['delivery_agent']}>
+                  <DeliveryAgentLayout><DeliverySettingsPage /></DeliveryAgentLayout>
+                </RoleRoute>
+              } />
+              <Route path="/delivery-agent/dashboard" element={
+                <RoleRoute roles={['delivery_agent']}>
+                  <Navigate to="/delivery/dashboard" replace />
+                </RoleRoute>
               } />
 
               {/* Seller panel - requires seller role */}
@@ -179,6 +289,41 @@ const App = (): JSX.Element => {
               <Route path="/seller/orders" element={
                 <RoleRoute roles={['seller']}>
                   <SellerLayout><SellerOrders /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/shipping-delivery" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerShippingDelivery /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/returns-claims" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerReturnsClaims /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/finance-status" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerFinanceStatus /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/notification" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerNotificationCenter /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/buyer-message-center" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerBuyerMessageCenter /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/support-help-center" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerSupportHelpCenter /></SellerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/seller/settings" element={
+                <RoleRoute roles={['seller']}>
+                  <SellerLayout><SellerSettings /></SellerLayout>
                 </RoleRoute>
               } />
               <Route path="/seller/reviews" element={
@@ -226,6 +371,41 @@ const App = (): JSX.Element => {
               <Route path="/mechanic/orders" element={
                 <RoleRoute roles={['mechanic']}>
                   <MechanicLayout><MechanicOrders /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/shipping-delivery" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicShippingDelivery /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/returns-claims" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicReturnsClaims /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/finance-status" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicFinanceStatus /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/notification" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicNotifications /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/buyer-message-center" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><ChatPage /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/support-help-center" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicSupportHelpCenter /></MechanicLayout>
+                </RoleRoute>
+              } />
+              <Route path="/mechanic/settings" element={
+                <RoleRoute roles={['mechanic']}>
+                  <MechanicLayout><MechanicSettings /></MechanicLayout>
                 </RoleRoute>
               } />
               <Route path="/mechanic/reviews" element={
@@ -328,13 +508,27 @@ const App = (): JSX.Element => {
               
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-          </div>
-        </Router>
-      </AuthProvider>
-    </GoogleOAuthProvider>
+                </Routes>
+              </Suspense>
+              <Toaster />
+            </div>
+          </Router>
+        </OrderWorkflowNotificationsProvider>
+      </CartProvider>
+    </AuthProvider>
   );
-}
+};
+
+const App = (): JSX.Element => {
+  if (canUseGoogleAuth()) {
+    return (
+      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+        <AppContent />
+      </GoogleOAuthProvider>
+    );
+  }
+
+  return <AppContent />;
+};
 
 export default App;

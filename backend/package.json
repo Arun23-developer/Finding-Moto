@@ -11,6 +11,8 @@
     "seed:admin": "ts-node scripts/seedAdmin.ts",
     "seed:users": "ts-node scripts/seedUsers.ts",
     "seed:products": "ts-node scripts/seedProducts.ts",
+    "seed:mechanic-products": "ts-node scripts/seedMechanicProducts.ts",
+    "seed:services": "ts-node scripts/seedServices.ts",
     "embeddings:backfill": "ts-node scripts/backfillProductEmbeddings.ts"
   },
   "keywords": [

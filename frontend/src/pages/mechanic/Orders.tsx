@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
   Wrench,
   Search,
   Eye,
@@ -15,11 +24,11 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/services/api";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
 interface OrderItem {
   product: string;
   name: string;
@@ -40,7 +49,6 @@ interface Order {
   createdAt: string;
 }
 
-// Mechanic-friendly status labels (mapping backend statuses)
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   pending: { label: "Pending", color: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800", icon: Clock },
   confirmed: { label: "Accepted", color: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800", icon: CheckCircle },
@@ -59,16 +67,17 @@ function getBuyerName(buyer: Order["buyer"]): string {
   if (typeof buyer === "string") return buyer;
   return buyer.name || `${buyer.firstName || ""} ${buyer.lastName || ""}`.trim() || buyer.email;
 }
+
 function getBuyerEmail(buyer: Order["buyer"]): string {
   if (typeof buyer === "string") return "";
   return buyer.email;
 }
+
 function getBuyerPhone(buyer: Order["buyer"]): string {
   if (typeof buyer === "string") return "";
   return buyer.phone || "";
 }
 
-// ─── Order Detail Modal ─────────────────────────────────────────────────────
 function OrderDetailModal({
   order,
   onClose,
@@ -122,7 +131,7 @@ function OrderDetailModal({
                 <div key={i} className="bg-muted/30 rounded-lg p-4 flex items-center justify-between text-sm">
                   <div>
                     <p className="font-medium">{item.name}</p>
-                    <p className="text-muted-foreground">Qty: {item.qty} × LKR {item.price.toLocaleString()}</p>
+                    <p className="text-muted-foreground">Qty: {item.qty} x LKR {item.price.toLocaleString()}</p>
                   </div>
                   <p className="font-bold">LKR {(item.qty * item.price).toLocaleString()}</p>
                 </div>
@@ -175,17 +184,27 @@ function OrderDetailModal({
   );
 }
 
-// ─── Orders Page ────────────────────────────────────────────────────────────
 export default function MechanicOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"product-orders" | "service-orders">("product-orders");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [assignOrder, setAssignOrder] = useState<Order | null>(null);
+  const [agents, setAgents] = useState<{ _id: string; fullName: string; email: string }[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [assignLoading, setAssignLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
 
   const fetchOrders = useCallback(async () => {
+    if (activeTab !== "service-orders") {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -198,7 +217,7 @@ export default function MechanicOrders() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [activeTab, statusFilter]);
 
   useEffect(() => {
     fetchOrders();
@@ -216,6 +235,42 @@ export default function MechanicOrders() {
       setUpdating(false);
     }
   };
+
+  const openAssignDelivery = useCallback(async (order: Order) => {
+    setAssignOrder(order);
+    setSelectedAgentId("");
+    setAssignError(null);
+    try {
+      const res = await api.get("/deliveries/agents");
+      setAgents(Array.isArray(res.data.data) ? res.data.data : []);
+    } catch (err: any) {
+      setAgents([]);
+      setAssignError(err?.response?.data?.message || "Failed to load delivery agents");
+    }
+  }, []);
+
+  const handleAssignDelivery = useCallback(async () => {
+    if (!assignOrder || !selectedAgentId) {
+      setAssignError("Please select a delivery agent");
+      return;
+    }
+
+    setAssignLoading(true);
+    setAssignError(null);
+    try {
+      await api.post("/deliveries/assign", {
+        orderId: assignOrder._id,
+        agentId: selectedAgentId,
+      });
+      setAssignOrder(null);
+      setSelectedAgentId("");
+      await fetchOrders();
+    } catch (err: any) {
+      setAssignError(err?.response?.data?.message || "Failed to assign delivery");
+    } finally {
+      setAssignLoading(false);
+    }
+  }, [assignOrder, fetchOrders, selectedAgentId]);
 
   const filtered = orders.filter((o) => {
     const buyerName = getBuyerName(o.buyer).toLowerCase();
@@ -235,153 +290,232 @@ export default function MechanicOrders() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Service Orders</h1>
-          <p className="text-sm text-muted-foreground">{orders.length} total service requests</p>
+          <h1 className="text-2xl font-bold">Orders</h1>
+          <p className="text-sm text-muted-foreground">
+            {activeTab === "product-orders"
+              ? "Manage product orders from the mechanic dashboard"
+              : `${orders.length} total service requests`}
+          </p>
         </div>
         <button onClick={fetchOrders} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors">
           <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} /> Refresh
         </button>
       </div>
 
-      {/* Status Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {(["pending", "confirmed", "shipped", "delivered", "cancelled"] as const).map((status) => {
-          const Icon = statusConfig[status].icon;
-          return (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(statusFilter === status ? "all" : status)}
-              className={cn(
-                "rounded-lg border p-4 text-left transition-all",
-                statusFilter === status ? "ring-2 ring-amber-500 border-amber-500" : "hover:border-amber-300"
-              )}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Icon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{statusConfig[status].label}</span>
+      <div className="space-y-6">
+        <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
+          <button
+            type="button"
+            onClick={() => setActiveTab("product-orders")}
+            className={cn(
+              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all",
+              activeTab === "product-orders" && "bg-background text-foreground shadow-sm"
+            )}
+          >
+            Service Orders
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("service-orders")}
+            className={cn(
+              "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all",
+              activeTab === "service-orders" && "bg-background text-foreground shadow-sm"
+            )}
+          >
+            Product Orders
+          </button>
+        </div>
+
+        {activeTab === "product-orders" && (
+          <Card className="glass-card">
+            <CardContent className="py-12 text-center text-muted-foreground">
+              <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">Product Orders</p>
+              <p className="text-xs mt-1">Product order content will appear here.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "service-orders" && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {(["pending", "confirmed", "shipped", "delivered", "cancelled"] as const).map((status) => {
+                const Icon = statusConfig[status].icon;
+                return (
+                  <button
+                    key={status}
+                    onClick={() => setStatusFilter(statusFilter === status ? "all" : status)}
+                    className={cn(
+                      "rounded-lg border p-4 text-left transition-all",
+                      statusFilter === status ? "ring-2 ring-amber-500 border-amber-500" : "hover:border-amber-300"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">{statusConfig[status].label}</span>
+                    </div>
+                    <p className="text-2xl font-bold">{statusCounts[status]}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <Card className="glass-card">
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by request ID, customer, or service..." className="w-full pl-10 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40" />
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {["all", "pending", "confirmed", "shipped", "delivered", "cancelled"].map((s) => (
+                      <button key={s} onClick={() => setStatusFilter(s)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors", statusFilter === s ? "bg-amber-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80")}>
+                        {s === "all" ? `All (${statusCounts.all})` : `${statusConfig[s]?.label || s} (${statusCounts[s as keyof typeof statusCounts]})`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {error && (
+              <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                <p className="text-sm">{error}</p>
+                <button onClick={fetchOrders} className="ml-auto text-sm font-medium underline">Retry</button>
               </div>
-              <p className="text-2xl font-bold">{statusCounts[status]}</p>
-            </button>
-          );
-        })}
+            )}
+
+            {loading && (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            )}
+
+            {!loading && (
+              <Card className="glass-card">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-muted-foreground text-xs border-b border-border bg-muted/30">
+                          <th className="text-left py-3 px-4 font-medium">Request ID</th>
+                          <th className="text-left py-3 px-4 font-medium">Customer</th>
+                          <th className="text-left py-3 px-4 font-medium hidden md:table-cell">Items</th>
+                          <th className="text-left py-3 px-4 font-medium">Amount</th>
+                          <th className="text-left py-3 px-4 font-medium hidden lg:table-cell">Date</th>
+                          <th className="text-left py-3 px-4 font-medium">Status</th>
+                          <th className="text-right py-3 px-4 font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((order) => {
+                          const next = nextStatus[order.status];
+                          return (
+                            <tr key={order._id} className="border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors">
+                              <td className="py-3 px-4 font-mono font-medium text-amber-600">#{order._id.slice(-6).toUpperCase()}</td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 rounded-full bg-amber-600/10 flex items-center justify-center">
+                                    <span className="text-xs font-bold text-amber-600">{getBuyerName(order.buyer).charAt(0).toUpperCase()}</span>
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-medium truncate">{getBuyerName(order.buyer)}</p>
+                                    <p className="text-xs text-muted-foreground hidden sm:block">{getBuyerEmail(order.buyer)}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-muted-foreground hidden md:table-cell">
+                                {order.items.map((i) => i.name).join(", ").slice(0, 40)}
+                                {order.items.map((i) => i.name).join(", ").length > 40 ? "..." : ""}
+                              </td>
+                              <td className="py-3 px-4 font-semibold">LKR {order.totalAmount.toLocaleString()}</td>
+                              <td className="py-3 px-4 text-muted-foreground hidden lg:table-cell">{new Date(order.createdAt).toLocaleDateString()}</td>
+                              <td className="py-3 px-4">
+                                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusConfig[order.status].color}`}>
+                                  {statusConfig[order.status].label}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center justify-end gap-1">
+                                  {next && (
+                                  <button onClick={() => handleStatusChange(order._id, next.status)} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors">
+                                      {next.label}
+                                    </button>
+                                  )}
+                                  {(order.status === "confirmed" || order.status === "shipped") && (
+                                    <button onClick={() => openAssignDelivery(order)} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors">
+                                      Assign Delivery
+                                    </button>
+                                  )}
+                                  <button onClick={() => setSelectedOrder(order)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors" title="View Details">
+                                    <Eye className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {filtered.length === 0 && !error && (
+                          <tr>
+                            <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                              <Wrench className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                              <p className="font-medium">No service orders found</p>
+                              <p className="text-xs mt-1">{orders.length === 0 ? "Service orders will appear here when customers request your services" : "Try adjusting your search or filters"}</p>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Search + Filters */}
-      <Card className="glass-card">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by request ID, customer, or service..." className="w-full pl-10 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40" />
-            </div>
-            <div className="flex gap-1.5 flex-wrap">
-              {["all", "pending", "confirmed", "shipped", "delivered", "cancelled"].map((s) => (
-                <button key={s} onClick={() => setStatusFilter(s)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors", statusFilter === s ? "bg-amber-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80")}>
-                  {s === "all" ? `All (${statusCounts.all})` : `${statusConfig[s]?.label || s} (${statusCounts[s as keyof typeof statusCounts]})`}
-                </button>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Error State */}
-      {error && (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          <p className="text-sm">{error}</p>
-          <button onClick={fetchOrders} className="ml-auto text-sm font-medium underline">Retry</button>
-        </div>
-      )}
-
-      {/* Loading State */}
-      {loading && (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      )}
-
-      {/* Orders Table */}
-      {!loading && (
-        <Card className="glass-card">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-muted-foreground text-xs border-b border-border bg-muted/30">
-                    <th className="text-left py-3 px-4 font-medium">Request ID</th>
-                    <th className="text-left py-3 px-4 font-medium">Customer</th>
-                    <th className="text-left py-3 px-4 font-medium hidden md:table-cell">Items</th>
-                    <th className="text-left py-3 px-4 font-medium">Amount</th>
-                    <th className="text-left py-3 px-4 font-medium hidden lg:table-cell">Date</th>
-                    <th className="text-left py-3 px-4 font-medium">Status</th>
-                    <th className="text-right py-3 px-4 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((order) => {
-                    const next = nextStatus[order.status];
-                    return (
-                      <tr key={order._id} className="border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors">
-                        <td className="py-3 px-4 font-mono font-medium text-amber-600">#{order._id.slice(-6).toUpperCase()}</td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-amber-600/10 flex items-center justify-center">
-                              <span className="text-xs font-bold text-amber-600">{getBuyerName(order.buyer).charAt(0).toUpperCase()}</span>
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-medium truncate">{getBuyerName(order.buyer)}</p>
-                              <p className="text-xs text-muted-foreground hidden sm:block">{getBuyerEmail(order.buyer)}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-muted-foreground hidden md:table-cell">
-                          {order.items.map((i) => i.name).join(", ").slice(0, 40)}
-                          {order.items.map((i) => i.name).join(", ").length > 40 ? "…" : ""}
-                        </td>
-                        <td className="py-3 px-4 font-semibold">LKR {order.totalAmount.toLocaleString()}</td>
-                        <td className="py-3 px-4 text-muted-foreground hidden lg:table-cell">{new Date(order.createdAt).toLocaleDateString()}</td>
-                        <td className="py-3 px-4">
-                          <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusConfig[order.status].color}`}>
-                            {statusConfig[order.status].label}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center justify-end gap-1">
-                            {next && (
-                              <button onClick={() => handleStatusChange(order._id, next.status)} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors">
-                                {next.label}
-                              </button>
-                            )}
-                            <button onClick={() => setSelectedOrder(order)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors" title="View Details">
-                              <Eye className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filtered.length === 0 && !error && (
-                    <tr>
-                      <td colSpan={7} className="py-12 text-center text-muted-foreground">
-                        <Wrench className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                        <p className="font-medium">No service orders found</p>
-                        <p className="text-xs mt-1">{orders.length === 0 ? "Service orders will appear here when customers request your services" : "Try adjusting your search or filters"}</p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Order Detail Modal */}
       <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} onStatusChange={handleStatusChange} updating={updating} />
+      <Dialog open={Boolean(assignOrder)} onOpenChange={(open) => !open && setAssignOrder(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Delivery Agent</DialogTitle>
+            <DialogDescription>
+              Select a delivery agent for request #{assignOrder?._id.slice(-6).toUpperCase()}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <label htmlFor="mechanic-delivery-agent" className="text-sm font-medium">Delivery Agent</label>
+              <select
+                id="mechanic-delivery-agent"
+                value={selectedAgentId}
+                onChange={(event) => setSelectedAgentId(event.target.value)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                disabled={assignLoading}
+              >
+                <option value="">Select an agent</option>
+                {agents.map((agent) => (
+                  <option key={agent._id} value={agent._id}>
+                    {agent.fullName} {agent.email ? `(${agent.email})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {assignError && <p className="text-sm text-destructive">{assignError}</p>}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setAssignOrder(null)} disabled={assignLoading}>
+              Cancel
+            </Button>
+            <Button onClick={handleAssignDelivery} disabled={assignLoading}>
+              {assignLoading ? "Assigning..." : "Assign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

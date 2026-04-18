@@ -9,6 +9,7 @@ interface JwtPayload {
 
 // Map userId -> Set of socketIds (user can have multiple tabs)
 const onlineUsers = new Map<string, Set<string>>();
+let ioInstance: Server | null = null;
 
 export function setupSocket(httpServer: HttpServer): Server {
   const io = new Server(httpServer, {
@@ -17,6 +18,8 @@ export function setupSocket(httpServer: HttpServer): Server {
       credentials: true,
     },
   });
+
+  ioInstance = io;
 
   // Authenticate socket connections via JWT
   io.use((socket, next) => {
@@ -107,4 +110,9 @@ export function setupSocket(httpServer: HttpServer): Server {
   });
 
   return io;
+}
+
+export function emitToUser(userId: string, eventName: string, payload: unknown) {
+  if (!ioInstance || !userId) return;
+  ioInstance.to(userId).emit(eventName, payload);
 }

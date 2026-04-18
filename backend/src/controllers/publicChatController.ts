@@ -65,6 +65,7 @@ export const publicChat = async (
 
       const candidates = (await Product.find({
         status: { $ne: 'inactive' },
+        productStatus: 'ENABLED',
         embedding: { $exists: true, $ne: [] },
       })
         .select('name price stock embedding description category brand')
@@ -97,6 +98,7 @@ export const publicChat = async (
           { brand: { $regex: intent, $options: 'i' } },
         ],
         status: { $ne: 'inactive' },
+        productStatus: 'ENABLED',
       })
         .select('name price stock description category brand')
         .lean()) as unknown as ProductCandidate | null;

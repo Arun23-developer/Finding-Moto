@@ -3,6 +3,7 @@ import { MapPin, Phone, ArrowRight, Loader2, Wrench } from "lucide-react";
 import { Button } from "../ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { resolveMediaUrl } from "@/lib/imageUrl";
 
 interface Garage {
   _id: string;
@@ -79,7 +80,7 @@ export const ServicesSection: React.FC = () => {
               <div className="relative h-48 overflow-hidden bg-secondary flex items-center justify-center">
                 {garage.avatar ? (
                   <img
-                    src={garage.avatar.startsWith("http") ? garage.avatar : `${import.meta.env.VITE_API_URL?.replace("/api", "") || ""}${garage.avatar}`}
+                    src={resolveMediaUrl(garage.avatar, "https://placehold.co/400x300?text=Garage")}
                     alt={garage.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />

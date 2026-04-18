@@ -1,14 +1,19 @@
 import mongoose, { Document, Schema, Model } from 'mongoose';
 
+export type ServiceVisibilityStatus = 'ENABLED' | 'DISABLED';
+
 export interface IService extends Document {
   _id: mongoose.Types.ObjectId;
   mechanic: mongoose.Types.ObjectId;
   name: string;
   description: string;
   price: number;
+  originalPrice?: number;
   duration: string;
   category: string;
   active: boolean;
+  productStatus: ServiceVisibilityStatus;
+  images: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +40,10 @@ const serviceSchema = new Schema<IService>(
       required: [true, 'Price is required'],
       min: 0,
     },
+    originalPrice: {
+      type: Number,
+      min: 0,
+    },
     duration: {
       type: String,
       required: [true, 'Duration is required'],
@@ -49,12 +58,25 @@ const serviceSchema = new Schema<IService>(
       type: Boolean,
       default: true,
     },
+    productStatus: {
+      type: String,
+      enum: ['ENABLED', 'DISABLED'],
+      default: 'ENABLED',
+    },
+    images: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (value: string[]) => (value?.length ?? 0) <= 5,
+        message: 'Maximum 5 photos allowed',
+      },
+    },
   },
   { timestamps: true }
 );
 
-// Index for quick lookups by mechanic
-serviceSchema.index({ mechanic: 1, active: 1 });
+// Index for quick lookups by mechanic and buyer visibility
+serviceSchema.index({ mechanic: 1, active: 1, productStatus: 1 });
 
 const Service: Model<IService> = mongoose.model<IService>('Service', serviceSchema);
 export default Service;

@@ -67,7 +67,11 @@ cd Find_Moto
 
 ### 2. Install all dependencies
 ```bash
-npm run install-all
+cd backend
+npm install
+
+cd ../frontend
+npm install
 ```
 
 ### 3. Configure environment variables
@@ -79,18 +83,30 @@ PORT=5000
 MONGO_URI=mongodb://localhost:27017/finding-moto
 JWT_SECRET=your-secret-key
 JWT_EXPIRES_IN=7d
-CLIENT_URL=http://localhost:5173
+CLIENT_URL=http://localhost:3000
 ```
 
 **Frontend (.env in frontend/ folder):**
 ```env
-VITE_API_URL=http://localhost:5000/api
+# Recommended for local dev: keep this as /api so Vite proxies to the backend
+VITE_API_URL=/api
+
+# Optional: if your backend is not on http://localhost:5000
+VITE_API_PROXY_TARGET=http://localhost:5000
 ```
 
 ### 4. Run the application
 
 **Development mode (both frontend and backend):**
+Open two terminals:
+
 ```bash
+cd backend
+npm run dev
+```
+
+```bash
+cd frontend
 npm run dev
 ```
 
@@ -112,7 +128,7 @@ npm start
 
 ## Access the Application
 
-- Frontend: http://localhost:5173
+- Frontend: http://localhost:3000
 - Backend API: http://localhost:5000/api
 - API Health Check: http://localhost:5000/api/health
 

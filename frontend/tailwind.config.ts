@@ -1,16 +1,16 @@
-const withOpacity = (cssVar) => ({ opacityValue }) => {
-  if (opacityValue === undefined) {
-    return `hsl(var(${cssVar}))`;
-  }
+import type { Config } from 'tailwindcss';
 
-  return `hsl(var(${cssVar}) / ${opacityValue})`;
-};
+const withOpacity = (cssVar: `--${string}`): string => `hsl(var(${cssVar}) / <alpha-value>)`;
 
-module.exports = {
+const config = {
   darkMode: ['class'],
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        heading: ['Space Grotesk', 'Inter', 'system-ui', 'sans-serif'],
+        body: ['Inter', 'system-ui', 'sans-serif']
+      },
       colors: {
         background: withOpacity('--background'),
         foreground: withOpacity('--foreground'),
@@ -37,6 +37,10 @@ module.exports = {
         'warning-foreground': withOpacity('--warning-foreground'),
         info: withOpacity('--info'),
         'info-foreground': withOpacity('--info-foreground'),
+        surface: withOpacity('--card'),
+        'surface-hover': withOpacity('--secondary'),
+        'neon-blue': withOpacity('--info'),
+        'neon-orange': withOpacity('--warning'),
         sidebar: {
           DEFAULT: withOpacity('--sidebar-background'),
           foreground: withOpacity('--sidebar-foreground'),
@@ -53,8 +57,29 @@ module.exports = {
         md: 'calc(var(--radius) - 2px)',
         lg: 'var(--radius)',
         xl: 'calc(var(--radius) + 4px)'
+      },
+      keyframes: {
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' }
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' }
+        },
+        'pulse-glow': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.5' }
+        }
+      },
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
+        'pulse-glow': 'pulse-glow 2s ease-in-out infinite'
       }
     }
   },
-  plugins: []
-};
+  plugins: [require('tailwindcss-animate')]
+} satisfies Config;
+
+export default config;

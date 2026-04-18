@@ -28,6 +28,8 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
         experienceYears: user.experienceYears,
         workshopLocation: user.workshopLocation,
         workshopName: user.workshopName,
+        servicesOffered: user.servicesOffered || [],
+        mechanicBrands: user.mechanicBrands || [],
         createdAt: user.createdAt,
       },
     });
@@ -43,15 +45,18 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
 export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = req.user!;
-    const { firstName, lastName, phone, specialization, experienceYears, workshopLocation, workshopName } = req.body;
+    const { firstName, lastName, phone, email, specialization, experienceYears, workshopLocation, workshopName, servicesOffered, mechanicBrands } = req.body;
 
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
     if (phone !== undefined) user.phone = phone;
+    if (email !== undefined) user.email = email;
     if (specialization !== undefined) user.specialization = specialization;
     if (experienceYears !== undefined) user.experienceYears = experienceYears;
     if (workshopLocation !== undefined) user.workshopLocation = workshopLocation;
     if (workshopName !== undefined) user.workshopName = workshopName;
+    if (servicesOffered !== undefined) user.servicesOffered = Array.isArray(servicesOffered) ? servicesOffered : [];
+    if (mechanicBrands !== undefined) user.mechanicBrands = Array.isArray(mechanicBrands) ? mechanicBrands : [];
 
     await user.save();
 
@@ -71,6 +76,8 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
         experienceYears: user.experienceYears,
         workshopLocation: user.workshopLocation,
         workshopName: user.workshopName,
+        servicesOffered: user.servicesOffered || [],
+        mechanicBrands: user.mechanicBrands || [],
       },
     });
   } catch (err) {
@@ -120,53 +127,100 @@ export const getMechanicReviews = async (req: AuthRequest, res: Response): Promi
   try {
     const mechanicId = req.user!._id as mongoose.Types.ObjectId;
 
-    const products = await Product.find({ seller: mechanicId }).select('_id name').lean();
+    const [products, services, mechanicReviews] = await Promise.all([
+      Product.find({ seller: mechanicId, type: 'product' }).select('_id name').lean(),
+      Service.find({ mechanic: mechanicId }).select('_id name').lean(),
+      Review.find({ mechanicId })
+        .sort({ createdAt: -1 })
+        .populate('buyer', 'firstName lastName avatar')
+        .lean(),
+    ]);
     const productIds = products.map((p) => p._id);
     const productMap = new Map(products.map((p) => [p._id.toString(), p.name]));
-
-    const reviews = await Review.find({ productId: { $in: productIds } })
-      .sort({ createdAt: -1 })
-      .populate('buyer', 'firstName lastName avatar')
-      .lean();
-
-    const total = reviews.length;
-    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+    const productReviews = productIds.length > 0
+      ? await Review.find({ productId: { $in: productIds } })
+        .sort({ createdAt: -1 })
+        .populate('buyer', 'firstName lastName avatar')
+        .lean()
+      : [];
+    const allReviews = [...productReviews, ...mechanicReviews];
+    const total = allReviews.length;
+    const sum = allReviews.reduce((acc, review) => acc + review.rating, 0);
     const average = total > 0 ? Math.round((sum / total) * 10) / 10 : 0;
 
-    const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    reviews.forEach((r) => {
-      dist[r.rating] = (dist[r.rating] || 0) + 1;
+    const productRatings = products.map((product) => {
+      const itemReviews = productReviews.filter((review) => review.productId?.toString() === product._id.toString());
+      const reviewCount = itemReviews.length;
+      const averageRating = reviewCount > 0
+        ? Math.round((itemReviews.reduce((acc, review) => acc + review.rating, 0) / reviewCount) * 10) / 10
+        : 0;
+
+      return {
+        productId: product._id,
+        productName: product.name,
+        averageRating,
+        totalReviewCount: reviewCount,
+      };
+    }).sort((a, b) => {
+      if (b.totalReviewCount !== a.totalReviewCount) return b.totalReviewCount - a.totalReviewCount;
+      return b.averageRating - a.averageRating;
     });
 
-    const distribution = [5, 4, 3, 2, 1].map((stars) => ({
-      stars,
-      count: dist[stars],
-      percentage: total > 0 ? Math.round((dist[stars] / total) * 100) : 0,
-    }));
-
-    const recommended = total > 0
-      ? Math.round(((dist[4] + dist[5]) / total) * 100)
+    const directServiceReviewCount = mechanicReviews.length;
+    const directServiceAverage = directServiceReviewCount > 0
+      ? Math.round((mechanicReviews.reduce((acc, review) => acc + review.rating, 0) / directServiceReviewCount) * 10) / 10
       : 0;
 
-    const enrichedReviews = reviews.map((r) => {
-      const buyer = r.buyer as unknown as { firstName?: string; lastName?: string } | null;
-      return {
-        _id: r._id,
-        productId: r.productId,
-        productName: r.productId ? productMap.get(r.productId.toString()) || 'Service' : 'Service',
-        rating: r.rating,
-        comment: r.comment,
-        createdAt: r.createdAt,
-        customerName: buyer ? `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() : 'Customer',
-      };
-    });
+    const serviceRatings = services.map((service) => ({
+      serviceId: service._id,
+      serviceName: service.name,
+      averageRating: 0,
+      totalReviewCount: 0,
+    }));
+
+    if (directServiceReviewCount > 0) {
+      serviceRatings.unshift({
+        serviceId: new mongoose.Types.ObjectId(),
+        serviceName: 'Workshop Service Experience',
+        averageRating: directServiceAverage,
+        totalReviewCount: directServiceReviewCount,
+      });
+    }
+
+    const customerReviews = [
+      ...productReviews.map((review) => {
+        const buyer = review.buyer as unknown as { firstName?: string; lastName?: string } | null;
+        return {
+          _id: review._id,
+          itemType: 'product',
+          itemName: review.productId ? productMap.get(review.productId.toString()) || 'Product' : 'Product',
+          customerName: buyer ? `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || 'Customer' : 'Customer',
+          rating: review.rating,
+          comment: review.comment,
+          reviewDate: review.createdAt,
+        };
+      }),
+      ...mechanicReviews.map((review) => {
+        const buyer = review.buyer as unknown as { firstName?: string; lastName?: string } | null;
+        return {
+          _id: review._id,
+          itemType: 'service',
+          itemName: 'Workshop Service Experience',
+          customerName: buyer ? `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || 'Customer' : 'Customer',
+          rating: review.rating,
+          comment: review.comment,
+          reviewDate: review.createdAt,
+        };
+      }),
+    ].sort((a, b) => new Date(b.reviewDate).getTime() - new Date(a.reviewDate).getTime());
 
     res.json({
       success: true,
       data: {
-        stats: { average, total, recommended },
-        distribution,
-        reviews: enrichedReviews,
+        stats: { average, total },
+        productRatings,
+        serviceRatings,
+        customerReviews,
       },
     });
   } catch (err) {
@@ -195,11 +249,23 @@ export const getServices = async (req: AuthRequest, res: Response): Promise<void
 // @access  Private/Mechanic
 export const createService = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { name, description, price, duration, category, active } = req.body;
+    const { name, description, price, originalPrice, duration, category, active, productStatus, images } = req.body;
 
     if (!name || !price || !duration || !category) {
       res.status(400).json({ success: false, message: 'name, price, duration and category are required' });
       return;
+    }
+
+    if (Array.isArray(images) && images.length > 5) {
+      res.status(400).json({ success: false, message: 'Maximum 5 photos allowed' });
+      return;
+    }
+
+    const normalizedProductStatus = productStatus === 'DISABLED' ? 'DISABLED' : 'ENABLED';
+    let normalizedActive = active !== undefined ? Boolean(active) : normalizedProductStatus === 'ENABLED';
+
+    if (normalizedProductStatus === 'DISABLED') {
+      normalizedActive = false;
     }
 
     const service = await Service.create({
@@ -207,9 +273,12 @@ export const createService = async (req: AuthRequest, res: Response): Promise<vo
       name,
       description: description || '',
       price,
+      originalPrice,
       duration,
       category,
-      active: active !== undefined ? active : true,
+      active: normalizedActive,
+      productStatus: normalizedProductStatus,
+      images: Array.isArray(images) ? images.slice(0, 5) : [],
     });
 
     res.status(201).json({ success: true, data: service });
@@ -231,14 +300,31 @@ export const updateService = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const { name, description, price, duration, category, active } = req.body;
+    const { name, description, price, originalPrice, duration, category, active, productStatus, images } = req.body;
 
     if (name !== undefined) service.name = name;
     if (description !== undefined) service.description = description;
     if (price !== undefined) service.price = price;
+    if (originalPrice !== undefined) service.originalPrice = originalPrice;
     if (duration !== undefined) service.duration = duration;
     if (category !== undefined) service.category = category;
     if (active !== undefined) service.active = active;
+    if (productStatus !== undefined) {
+      service.productStatus = productStatus === 'DISABLED' ? 'DISABLED' : 'ENABLED';
+    }
+    if (images !== undefined) {
+      if (Array.isArray(images) && images.length > 5) {
+        res.status(400).json({ success: false, message: 'Maximum 5 photos allowed' });
+        return;
+      }
+      service.images = Array.isArray(images) ? images.slice(0, 5) : [];
+    }
+
+    if (service.productStatus === 'DISABLED') {
+      service.active = false;
+    } else if (productStatus !== undefined && active === undefined) {
+      service.active = true;
+    }
 
     await service.save();
 

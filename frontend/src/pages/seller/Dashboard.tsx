@@ -1,518 +1,670 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  Package,
-  ShoppingCart,
-  DollarSign,
-  ArrowUpRight,
+  AlertCircle,
+  Box,
+  Loader2,
+  PackageSearch,
+  RefreshCw,
+  Star,
   Eye,
-  Clock,
-  CheckCircle,
-  Truck,
-  AlertTriangle,
-  TrendingUp,
-  TrendingDown,
-  BarChart3,
 } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import { cn } from "@/lib/utils";
-import { useEffect, useState, useMemo } from "react";
-import api from "@/services/api";
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
-  BarChart, Bar, Legend,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
+import api from "@/services/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createAuthedSocket, type OrderWorkflowSocketEvent } from "@/lib/socket";
+import { useToast } from "@/hooks/use-toast";
 
-interface DashboardStats {
-  revenue: number;
-  totalOrders: number;
-  pendingOrders: number;
-  deliveredOrders: number;
-  totalProducts: number;
-  activeProducts: number;
-  totalViews: number;
+interface SellerDashboardData {
+  filter: "monthly";
+  kpis: {
+    totalRevenue: number;
+    ordersThisMonth: number;
+    ordersThisMonthAmount: number;
+    pendingOrders: number;
+    avgOrderValue: number;
+    completionRate: number;
+    revenueGrowth: number;
+  };
+  revenueSeries: Array<{
+    date: string;
+    revenue: number;
+  }>;
+  ordersThisMonth: Array<{
+    orderId: string;
+    customerName: string;
+    productName: string;
+    orderAmount: number;
+    orderDate: string;
+    orderStatus: string;
+  }>;
+  pendingOrders: Array<{
+    orderId: string;
+    customerName: string;
+    productName: string;
+    orderAmount: number;
+    orderDate: string;
+    orderStatus: string;
+  }>;
+  returnOrders: Array<{
+    orderId: string;
+    productName: string;
+    customerName: string;
+    returnReason: string;
+    returnDate: string;
+    refundAmount: number;
+  }>;
+  monthlyReviews: Array<{
+    customerName: string;
+    productName: string;
+    rating: number;
+    review: string;
+    reviewDate: string;
+  }>;
+  lowStockAlerts: Array<{
+    productName: string;
+    currentQuantity: number;
+    minimumRequiredQuantity: number;
+  }>;
+  topSellingProducts: Array<{
+    productId: string;
+    productName: string;
+    unitsSold: number;
+    revenueGenerated: number;
+  }>;
 }
 
-interface RecentOrder {
-  _id: string;
-  buyer: { name?: string; firstName?: string; lastName?: string; email: string };
-  items: { name: string }[];
-  totalAmount: number;
-  status: string;
-  createdAt: string;
-}
+// ─── Formatters ───────────────────────────────────────────────────────────
 
-interface TopProduct {
-  name: string;
-  category: string;
-  sales: number;
-  price: number;
-  stock: number;
-}
+const currencyFormatter = new Intl.NumberFormat("en-LK", {
+  style: "currency",
+  currency: "LKR",
+  maximumFractionDigits: 0,
+});
 
-interface WeeklySale {
-  _id: string;
-  revenue: number;
-  orders: number;
-}
+const percentFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 1,
+});
 
-const statusColors: Record<string, string> = {
-  Pending: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700",
-  Processing: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700",
-  Shipped: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700",
-  Delivered: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700",
-  Cancelled: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700",
+const dateFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+});
+
+const shortDateFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+});
+
+const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
+const formatPercent = (value: number) => `${percentFormatter.format(value || 0)}%`;
+const formatDate = (value: string) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : dateFormatter.format(date);
 };
-
-const statusIcons: Record<string, React.ReactNode> = {
-  Pending: <Clock className="h-3 w-3" />,
-  Processing: <Truck className="h-3 w-3" />,
-  Shipped: <Truck className="h-3 w-3" />,
-  Delivered: <CheckCircle className="h-3 w-3" />,
-  Cancelled: <span className="h-3 w-3">✕</span>,
+const formatShortDate = (value: string) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : shortDateFormatter.format(date);
 };
+const getOrderLabel = (orderId: string) => `#${orderId.slice(-6).toUpperCase()}`;
+
+// ─── Status Badge Classes ───────────────────────────────────────────────────
+
+function getStatusClasses(status: string) {
+  switch (status.toLowerCase()) {
+    case "accepted":
+      return "border-sky-200 bg-sky-50 text-sky-700 font-medium";
+    case "confirmed":
+      return "border-blue-200 bg-blue-50 text-blue-700 font-medium";
+    case "processing":
+      return "border-violet-200 bg-violet-50 text-violet-700 font-medium";
+    case "shipped":
+      return "border-cyan-200 bg-cyan-50 text-cyan-700 font-medium";
+    case "delivered":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700 font-medium";
+    case "cancelled":
+      return "border-red-200 bg-red-50 text-red-700 font-medium";
+    default:
+      return "border-amber-200 bg-amber-50 text-amber-700 font-medium";
+  }
+}
+
+// ─── KPI Card Component ──────────────────────────────────────────────────────
+
+// ─── Dashboard Table Component ────────────────────────────────────────────────
+
+interface DashboardTableProps {
+  title: string;
+  description: string;
+  columns: string[];
+  rows: ReactNode[][];
+  emptyTitle: string;
+  emptyDescription: string;
+}
+
+function DashboardTable({
+  title,
+  description,
+  columns,
+  rows,
+  emptyTitle,
+  emptyDescription,
+}: DashboardTableProps) {
+  return (
+    <Card className="glass-card border border-border/40">
+      <CardHeader className="pb-4 border-b border-border/30">
+        <CardTitle className="text-base font-semibold text-foreground">{title}</CardTitle>
+        <p className="text-sm text-muted-foreground mt-1">{description}</p>
+      </CardHeader>
+      <CardContent className="p-0">
+        {rows.length === 0 ? (
+          <div className="px-6 py-14 text-center">
+            <AlertCircle className="mx-auto h-8 w-8 text-muted-foreground/40 mb-3" />
+            <p className="font-medium text-sm text-foreground">{emptyTitle}</p>
+            <p className="mt-1.5 text-xs text-muted-foreground">{emptyDescription}</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-b border-border/30 bg-muted/30 text-left">
+                  {columns.map((column) => (
+                    <th key={column} className="px-4 py-3.5 font-semibold text-xs text-muted-foreground uppercase tracking-wide">
+                      {column}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => (
+                  <tr
+                    key={index}
+                    className="border-b border-border/20 hover:bg-muted/25 transition-colors align-top last:border-0"
+                  >
+                    {row.map((cell, cellIndex) => (
+                      <td key={cellIndex} className="px-4 py-3">
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Loading Skeleton ──────────────────────────────────────────────────────────
+
+// ─── Main Dashboard Component ─────────────────────────────────────────────────
 
 export default function SellerDashboard() {
-  const { user } = useAuth();
+  const { toast } = useToast();
+  const [dashboard, setDashboard] = useState<SellerDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
-  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
-  const [weeklySales, setWeeklySales] = useState<WeeklySale[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboard = useCallback(async (isRefreshing = false) => {
     try {
-      const [overviewRes, analyticsRes] = await Promise.all([
-        api.get('/seller/overview'),
-        api.get('/seller/analytics'),
-      ]);
-
-      if (overviewRes.data.success) {
-        const s = overviewRes.data.data.stats;
-        const ro = overviewRes.data.data.recentOrders;
-        const tp = overviewRes.data.data.topProducts;
-        setStats(s || null);
-        setRecentOrders(ro || []);
-        setTopProducts(tp || []);
+      if (isRefreshing) {
+        setRefreshing(true);
       } else {
-        setStats(null);
-        setRecentOrders([]);
-        setTopProducts([]);
+        setLoading(true);
       }
 
-      setWeeklySales(analyticsRes.data.success ? (analyticsRes.data.data.dailyRevenue || []) : []);
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      setStats(null);
-      setRecentOrders([]);
-      setTopProducts([]);
-      setWeeklySales([]);
+      setError("");
+      const { data } = await api.get("/seller/dashboard", {
+        params: { range: "monthly" },
+      });
+
+      if (data?.success) {
+        setDashboard(data.data);
+      } else {
+        setError("Failed to load seller dashboard.");
+      }
+    } catch {
+      setError("Failed to load seller dashboard.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, []);
 
-  const formatCurrency = (amount: number) => `LKR ${amount.toLocaleString()}`;
-  const formatDate = (date: string) => {
-    const diff = Date.now() - new Date(date).getTime();
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-    if (hours < 1) return 'Just now';
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    return new Date(date).toLocaleDateString();
-  };
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
 
-  const maxSale = weeklySales.length > 0 ? Math.max(...weeklySales.map((d) => d.revenue)) : 1;
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const totalWeeklyRevenue = weeklySales.reduce((sum, d) => sum + d.revenue, 0);
-  const fmt = (n: number) => `LKR ${n.toLocaleString()}`;
+  useEffect(() => {
+    const socket = createAuthedSocket();
+    if (!socket) return;
 
-  // Chart data
-  const revenueChartData = useMemo(() =>
-    weeklySales.map(item => {
-      const date = new Date(item._id);
-      return { day: dayNames[date.getDay()], revenue: item.revenue, orders: item.orders };
-    }), [weeklySales]);
+    const handleWorkflowEvent = (event: OrderWorkflowSocketEvent) => {
+      if (event.audience !== "seller") return;
+      fetchDashboard(true);
+      toast({
+        title: event.title,
+        description: event.message,
+      });
+    };
 
-  const orderStatusData = useMemo(() => {
-    const pending = stats?.pendingOrders ?? 0;
-    const delivered = stats?.deliveredOrders ?? 0;
-    const confirmed = recentOrders.filter(o => o.status.toLowerCase() === 'confirmed').length;
-    const shipped = recentOrders.filter(o => o.status.toLowerCase() === 'shipped').length;
-    return [
-      { name: 'Pending', value: pending, color: '#f59e0b' },
-      { name: 'Confirmed', value: confirmed, color: '#3b82f6' },
-      { name: 'Shipped', value: shipped, color: '#8b5cf6' },
-      { name: 'Delivered', value: delivered, color: '#10b981' },
-    ].filter(d => d.value > 0);
-  }, [stats, recentOrders]);
+    socket.on("order:workflow", handleWorkflowEvent);
 
-  const topProductsChartData = useMemo(() =>
-    topProducts.slice(0, 5).map(p => ({
-      name: p.name.length > 15 ? p.name.slice(0, 15) + '…' : p.name,
-      sales: p.sales,
-      stock: p.stock,
-    })), [topProducts]);
+    return () => {
+      socket.off("order:workflow", handleWorkflowEvent);
+      socket.disconnect();
+    };
+  }, [fetchDashboard, toast]);
 
-  const totalOrdersForPie = orderStatusData.reduce((s, d) => s + d.value, 0);
-  const fulfillmentRate = stats?.totalOrders ? Math.round(((stats?.deliveredOrders ?? 0) / stats.totalOrders) * 100) : 0;
+  const topSellingChartData = useMemo(
+    () =>
+      (dashboard?.topSellingProducts || []).slice(0, 10).map((product) => ({
+        name: product.productName.length > 18 ? `${product.productName.slice(0, 18)}...` : product.productName,
+        units: product.unitsSold,
+        revenue: Math.round(product.revenueGenerated),
+      })),
+    [dashboard]
+  );
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[500px]">
-        <div className="text-center space-y-4">
-          <div className="relative w-16 h-16 mx-auto">
-            <div className="absolute inset-0 rounded-full border-4 border-blue-200 dark:border-blue-900" />
-            <div className="absolute inset-0 rounded-full border-4 border-blue-600 border-t-transparent animate-spin" />
-          </div>
-          <div>
-            <p className="text-base font-semibold text-foreground">Loading dashboard</p>
-            <p className="text-sm text-muted-foreground">Fetching your shop data...</p>
+      <div className="space-y-6">
+        {/* Header skeleton */}
+        <div className="h-12 w-48 bg-muted rounded animate-pulse"></div>
+
+        {/* Charts skeleton */}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.8fr_1fr]">
+          <Card className="glass-card">
+            <CardContent className="p-6">
+              <div className="h-80 w-full bg-muted rounded animate-pulse"></div>
+            </CardContent>
+          </Card>
+          <div className="space-y-6">
+            <Card className="glass-card">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-20 bg-muted rounded animate-pulse"></div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Welcome Banner */}
-      <Card className="overflow-hidden border-0 shadow-xl">
-        <div className="relative p-6 sm:p-8 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 text-white">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-4 right-10 w-32 h-32 rounded-full bg-white/20 blur-2xl" />
-            <div className="absolute bottom-2 left-20 w-24 h-24 rounded-full bg-white/15 blur-xl" />
-          </div>
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <p className="text-blue-200 text-sm font-medium mb-1">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-              </p>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Welcome back, {user?.firstName || "Seller"}! 🏪</h1>
-              <p className="text-blue-100 mt-1.5 text-sm">Here's your store performance overview.</p>
-            </div>
-            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/20 backdrop-blur-sm border border-white/20 shadow-lg">
-              <Package className="h-5 w-5" />
-              <span className="text-sm font-bold">{user?.shopName || "My Shop"}</span>
-            </div>
-          </div>
+  if (error || !dashboard) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
+        <div className="rounded-full bg-red-500/10 p-3 mb-4">
+          <AlertCircle className="h-8 w-8 text-red-600" />
         </div>
-      </Card>
+        <p className="font-semibold text-foreground text-lg">{error || "Failed to load dashboard"}</p>
+        <p className="text-muted-foreground text-sm mt-1">Please check your connection and try again.</p>
+        <Button
+          onClick={() => fetchDashboard(true)}
+          className="mt-6 bg-blue-600 hover:bg-blue-700"
+        >
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Revenue', value: fmt(stats?.revenue ?? 0), sub: `${stats?.deliveredOrders ?? 0} delivered`, icon: DollarSign, iconGradient: 'from-emerald-500 to-teal-600', border: 'border-t-emerald-500', trend: stats?.revenue ? true : false },
-          { label: 'Total Orders', value: `${stats?.totalOrders ?? 0}`, sub: `${stats?.pendingOrders ?? 0} pending`, icon: ShoppingCart, iconGradient: 'from-blue-500 to-blue-600', border: 'border-t-blue-500', trend: true },
-          { label: 'Products', value: `${stats?.totalProducts ?? 0}`, sub: `${stats?.activeProducts ?? 0} active`, icon: Package, iconGradient: 'from-orange-500 to-orange-600', border: 'border-t-orange-500', trend: true },
-          { label: 'Store Views', value: `${stats?.totalViews ?? 0}`, sub: 'All-time views', icon: Eye, iconGradient: 'from-violet-500 to-purple-600', border: 'border-t-violet-500', trend: true },
-        ].map(kpi => (
-          <Card key={kpi.label} className={cn("glass-card border-t-4 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 group", kpi.border)}>
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{kpi.label}</p>
-                  <p className="text-2xl font-extrabold text-foreground">{kpi.value}</p>
-                  <div className="flex items-center gap-1.5">
-                    {kpi.trend ? <TrendingUp className="h-3 w-3 text-emerald-500" /> : <TrendingDown className="h-3 w-3 text-red-500" />}
-                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{kpi.sub}</p>
-                  </div>
+  return (
+    <div className="space-y-6 pb-8">
+      {/* Header with filters */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Seller Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">Real-time analytics and order monitoring for this month</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex rounded-lg border border-border/40 bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm">
+            Monthly
+          </div>
+
+          <Button
+            onClick={() => fetchDashboard(true)}
+            disabled={refreshing}
+            variant="outline"
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Revenue Chart and Side Panel */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.8fr_1fr]">
+        {/* Monthly Revenue Chart */}
+        <Card className="glass-card border border-border/40">
+          <CardHeader className="pb-4 border-b border-border/30">
+            <div className="flex flex-col gap-2">
+              <CardTitle className="text-lg font-semibold">Monthly Revenue Trend</CardTitle>
+              <p className="text-sm text-muted-foreground">Daily completed revenue for the current month</p>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="mb-4 rounded-lg border border-emerald-200/40 bg-emerald-50/30 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">Total Revenue</p>
+              <p className="mt-1.5 text-3xl font-bold text-emerald-700">
+                {formatCurrency(dashboard.kpis.totalRevenue)}
+              </p>
+            </div>
+            <div className="h-[340px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={dashboard.revenueSeries} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.1)" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={formatShortDate}
+                    tick={{ fontSize: 12, fill: "rgb(107, 114, 128)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`}
+                    tick={{ fontSize: 12, fill: "rgb(107, 114, 128)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [formatCurrency(value), "Revenue"]}
+                    labelFormatter={(label) => formatDate(label)}
+                    contentStyle={{
+                      backgroundColor: "rgba(17, 24, 39, 0.95)",
+                      border: "1px solid rgba(75, 85, 99, 0.3)",
+                      borderRadius: "8px",
+                      padding: "12px",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#2563eb"
+                    strokeWidth={3}
+                    dot={{ r: 4, strokeWidth: 2, fill: "#fff", stroke: "#2563eb" }}
+                    activeDot={{ r: 6, fill: "#2563eb" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Right Panel with KPIs */}
+        <div className="space-y-6">
+          {/* Revenue Comparison Card */}
+          <Card className="glass-card border border-border/40">
+            <CardHeader className="pb-4 border-b border-border/30">
+              <CardTitle className="text-base font-semibold">Performance Metrics</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4">
+              <div className="rounded-lg border border-border/40 bg-muted/50 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-foreground">Operational Success</span>
+                  <span className="font-semibold text-cyan-600">{formatPercent(dashboard.kpis.completionRate)}</span>
                 </div>
-                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br shadow-lg group-hover:scale-110 transition-transform", kpi.iconGradient)}>
-                  <kpi.icon className="h-6 w-6 text-white" />
+                <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-cyan-600 transition-all duration-500"
+                    style={{ width: `${Math.min(dashboard.kpis.completionRate, 100)}%` }}
+                  />
+                </div>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-muted/50 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Avg Order Value</p>
+                    <p className="mt-2 text-2xl font-bold text-violet-600">
+                      {formatCurrency(dashboard.kpis.avgOrderValue)}
+                    </p>
+                  </div>
+                  <div className="text-right text-xs text-muted-foreground">
+                    <p>Completed orders</p>
+                    <p className="mt-1 font-medium text-foreground">{dashboard.kpis.ordersThisMonth} this month</p>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
 
-      {/* Analytics Row: Revenue Chart + Order Status Donut */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Revenue Area Chart */}
-        <Card className="glass-card lg:col-span-2">
-          <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold">Revenue Analytics</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Daily revenue for the past week</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-extrabold text-foreground">{fmt(totalWeeklyRevenue)}</p>
-                <p className="text-[11px] font-semibold text-emerald-600">This week</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="h-[280px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={revenueChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#6366f1" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip
-                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px', boxShadow: '0 10px 40px rgba(0,0,0,0.12)', fontSize: '13px' }}
-                    formatter={(value: number) => [fmt(value), 'Revenue']}
-                    labelStyle={{ fontWeight: 700, marginBottom: 4, color: 'hsl(var(--foreground))' }}
-                  />
-                  <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={3} fill="url(#revenueGradient)" dot={{ r: 5, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7, fill: '#6366f1', strokeWidth: 3, stroke: '#fff' }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Order Status Donut */}
-        <Card className="glass-card">
-          <CardHeader className="pb-0">
-            <CardTitle className="text-lg font-bold">Order Status</CardTitle>
-            <p className="text-xs text-muted-foreground">Distribution of {totalOrdersForPie} orders</p>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="h-[200px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={orderStatusData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={4}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {orderStatusData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '10px', fontSize: '13px' }}
-                    formatter={(value: number, name: string) => [`${value} orders`, name]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            {/* Legend */}
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              {orderStatusData.map(item => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: item.color }} />
-                  <span className="text-xs text-muted-foreground">{item.name}</span>
-                  <span className="text-xs font-bold ml-auto">{item.value}</span>
+          {/* Top Selling Products Bar Chart */}
+          <Card className="glass-card border border-border/40">
+            <CardHeader className="pb-4 border-b border-border/30">
+              <CardTitle className="text-base font-semibold">Top Selling Products</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Top 10 products by units sold</p>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {topSellingChartData.length === 0 ? (
+                <div className="rounded-lg border border-border/40 bg-muted/30 px-4 py-12 text-center">
+                  <PackageSearch className="mx-auto h-8 w-8 text-muted-foreground/40 mb-3" />
+                  <p className="text-sm text-muted-foreground">No data available</p>
                 </div>
-              ))}
-            </div>
-            {/* Fulfillment Rate */}
-            <div className="mt-4 p-3 rounded-xl bg-muted/30 border border-border">
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-xs font-semibold text-muted-foreground">Fulfillment Rate</p>
-                <p className={cn("text-sm font-extrabold", fulfillmentRate >= 50 ? 'text-emerald-600' : fulfillmentRate > 0 ? 'text-amber-600' : 'text-muted-foreground')}>{fulfillmentRate}%</p>
-              </div>
-              <div className="w-full h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className={cn("h-full rounded-full transition-all duration-1000",
-                    fulfillmentRate >= 50 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : fulfillmentRate > 0 ? 'bg-gradient-to-r from-amber-500 to-amber-400' : ''
-                  )}
-                  style={{ width: `${fulfillmentRate}%` }}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              ) : (
+                <div className="h-[280px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topSellingChartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.1)" vertical={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: "rgb(107, 114, 128)" }} axisLine={false} tickLine={false} />
+                      <YAxis
+                        tick={{ fontSize: 12, fill: "rgb(107, 114, 128)" }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(value: number) => `${value}`}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "rgba(15, 118, 110, 0.08)" }}
+                        formatter={(_value: number, _name: string, item: { payload?: { units: number; revenue: number } }) => {
+                          if (!item?.payload) return null;
+                          return [
+                            <div className="space-y-1 py-1">
+                              <p className="text-xs font-medium text-slate-200">Units Sold: {item.payload.units}</p>
+                              <p className="text-xs font-medium text-slate-200">Revenue Generated: {formatCurrency(item.payload.revenue)}</p>
+                            </div>,
+                            "",
+                          ];
+                        }}
+                        labelFormatter={() => ""}
+                        contentStyle={{
+                          backgroundColor: "rgba(17, 24, 39, 0.95)",
+                          border: "1px solid rgba(75, 85, 99, 0.3)",
+                          borderRadius: "8px",
+                        }}
+                      />
+                      <Bar dataKey="units" fill="#0f766e" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      {/* Analytics Row 2: Top Products Bar Chart + Recent Orders */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Products Bar Chart */}
-        <Card className="glass-card">
-          <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-blue-500" />
-                  Top Products
-                </CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Sales vs Stock levels</p>
+      {/* Orders Table */}
+      <DashboardTable
+        title="Orders This Month"
+        description="All orders placed during this month"
+        columns={["Order ID", "Customer", "Product", "Amount", "Date", "Status"]}
+        rows={dashboard.ordersThisMonth.map((order) => [
+          <span className="font-mono font-semibold text-blue-600">{getOrderLabel(order.orderId)}</span>,
+          <span className="font-medium text-sm">{order.customerName}</span>,
+          <span className="text-sm truncate">{order.productName}</span>,
+          <span className="font-semibold">{formatCurrency(order.orderAmount)}</span>,
+          <span className="text-sm text-muted-foreground">{formatDate(order.orderDate)}</span>,
+          <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-medium ${getStatusClasses(order.orderStatus)}`}>
+            {order.orderStatus}
+          </span>,
+        ])}
+        emptyTitle="No orders"
+        emptyDescription="Orders placed during this period will appear here"
+      />
+
+      {/* Pending Orders */}
+      <DashboardTable
+        title="Pending Orders"
+        description="Orders confirmed but not yet shipped — prioritize these for fulfillment"
+        columns={["Order ID", "Customer", "Product", "Amount", "Date", "Status"]}
+        rows={dashboard.pendingOrders.map((order) => [
+          <span className="font-mono font-semibold text-amber-600">{getOrderLabel(order.orderId)}</span>,
+          <span className="font-medium text-sm">{order.customerName}</span>,
+          <span className="text-sm truncate">{order.productName}</span>,
+          <span className="font-semibold">{formatCurrency(order.orderAmount)}</span>,
+          <span className="text-sm text-muted-foreground">{formatDate(order.orderDate)}</span>,
+          <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-medium ${getStatusClasses(order.orderStatus)}`}>
+            {order.orderStatus}
+          </span>,
+        ])}
+        emptyTitle="All caught up!"
+        emptyDescription="No pending orders waiting for shipment"
+      />
+
+      {/* Returns and Reviews Section */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        {/* Return Orders */}
+        <DashboardTable
+          title="Return Orders (This Month)"
+          description="Cancelled and refunded orders requiring attention"
+          columns={["Order ID", "Product", "Customer", "Reason", "Refund", "Date"]}
+          rows={dashboard.returnOrders.map((order) => [
+            <span className="font-mono font-semibold text-red-600">{getOrderLabel(order.orderId)}</span>,
+            <span className="text-sm font-medium truncate">{order.productName}</span>,
+            <span className="text-sm">{order.customerName}</span>,
+            <span className="text-xs text-muted-foreground max-w-[200px] truncate">{order.returnReason}</span>,
+            <span className="font-semibold text-red-600">{formatCurrency(order.refundAmount)}</span>,
+            <span className="text-sm text-muted-foreground">{formatDate(order.returnDate)}</span>,
+          ])}
+          emptyTitle="No returns"
+          emptyDescription="Cancelled orders will appear here"
+        />
+
+        {/* Customer Reviews */}
+        <DashboardTable
+          title="Customer Reviews"
+          description="Product feedback from customers this month"
+          columns={["Customer", "Product", "Rating", "Review", "Date"]}
+          rows={dashboard.monthlyReviews.map((review) => [
+            <span className="text-sm font-medium">{review.customerName}</span>,
+            <span className="text-sm truncate">{review.productName}</span>,
+            <span className="flex items-center gap-1.5">
+              {[...Array(5)].map((_, i) => (
+                <Star
+                  key={i}
+                  className={`h-3.5 w-3.5 ${i < review.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+                />
+              ))}
+              <span className="ml-1 font-semibold text-sm text-amber-600">{review.rating}</span>
+            </span>,
+            <span className="text-xs text-muted-foreground max-w-[250px] truncate">{review.review}</span>,
+            <span className="text-sm text-muted-foreground">{formatDate(review.reviewDate)}</span>,
+          ])}
+          emptyTitle="No reviews"
+          emptyDescription="Customer feedback will appear here"
+        />
+      </div>
+
+      {/* Low Stock Alerts */}
+      <div className="grid grid-cols-1 gap-6">
+        <Card className="glass-card border border-border/40">
+          <CardHeader className="pb-4 border-b border-border/30">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/15">
+                <AlertCircle className="h-4 w-4 text-red-600" />
               </div>
-              <Link to="/seller/products" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors">
-                View All <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
+              <div>
+                <CardTitle className="text-base font-semibold">Low Stock Alert</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Products below minimum threshold</p>
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="pt-4">
-            {topProducts.length > 0 ? (
-              <div className="h-[280px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={topProductsChartData} margin={{ top: 5, right: 10, left: -10, bottom: 40 }} barGap={4}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} angle={-25} textAnchor="end" interval={0} />
-                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                    <Tooltip
-                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px', boxShadow: '0 10px 40px rgba(0,0,0,0.12)', fontSize: '13px' }}
-                      labelStyle={{ fontWeight: 700, color: 'hsl(var(--foreground))' }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
-                    <Bar dataKey="sales" name="Sales" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="stock" name="Stock" fill="#22d3ee" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+          <CardContent className="pt-4 space-y-3">
+            {dashboard.lowStockAlerts.length === 0 ? (
+              <div className="rounded-lg border border-emerald-200/40 bg-emerald-50/30 px-4 py-8 text-center">
+                <div className="flex justify-center mb-2">
+                  <Box className="h-5 w-5 text-emerald-600" />
+                </div>
+                <p className="text-sm font-medium text-emerald-700">All products in stock</p>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Package className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">No products yet</p>
-                <Link to="/seller/products" className="text-xs text-blue-600 mt-2 hover:underline font-semibold">Add your first product</Link>
-              </div>
+              dashboard.lowStockAlerts.map((product, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-3 rounded-lg border border-red-200/40 bg-red-50/30 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{product.productName}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Min: {product.minimumRequiredQuantity}</p>
+                  </div>
+                  <span className="flex-shrink-0 rounded-lg bg-red-500/10 px-3 py-1 text-sm font-bold text-red-600">
+                    {product.currentQuantity}
+                  </span>
+                </div>
+              ))
             )}
           </CardContent>
         </Card>
-
-        {/* Recent Orders */}
-        <Card className="glass-card">
-          <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold">Recent Orders</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Latest customer purchases</p>
-              </div>
-              <Link to="/seller/orders" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors">
-                View All <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="space-y-1">
-              {recentOrders.length > 0 ? recentOrders.slice(0, 5).map((order) => {
-                const statusKey = order.status.charAt(0).toUpperCase() + order.status.slice(1);
-                const buyerName = order.buyer?.name || (order.buyer?.firstName ? `${order.buyer.firstName} ${order.buyer.lastName || ''}`.trim() : 'Unknown');
-                return (
-                  <div key={order._id} className="flex items-center gap-3 py-3 border-b border-border/40 last:border-0 group hover:bg-muted/20 rounded-lg px-2 -mx-2 transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                      <span className="text-sm font-bold text-white">{buyerName.charAt(0).toUpperCase()}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{buyerName}</p>
-                      <p className="text-xs text-muted-foreground truncate">{order.items[0]?.name || 'N/A'}</p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold">{fmt(order.totalAmount)}</p>
-                      <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border", statusColors[statusKey] || statusColors.Pending)}>
-                        {statusIcons[statusKey]} {statusKey}
-                      </span>
-                    </div>
-                  </div>
-                );
-              }) : (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <ShoppingCart className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                  <p className="text-sm text-muted-foreground">No orders yet</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Order Pipeline */}
-      <Card className="glass-card">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg font-bold">Order Pipeline</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">Track orders through each stage</p>
+      {/* Footer Summary Card */}
+      <Card className="glass-card border border-border/40 bg-gradient-to-br from-slate-50/50 to-blue-50/30">
+        <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600 text-white">
+              <Eye className="h-6 w-6" />
             </div>
-            <Link to="/seller/orders" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors">
-              Manage <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
+            <div>
+              <p className="font-semibold text-foreground text-lg">Performance Overview</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Dashboard updated with real-time seller data
+              </p>
+            </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {[
-              { label: 'Pending', count: stats?.pendingOrders ?? 0, icon: Clock, gradient: 'from-amber-400 to-amber-500', labelColor: 'text-amber-700 dark:text-amber-400', pulse: (stats?.pendingOrders ?? 0) > 0 },
-              { label: 'Confirmed', count: recentOrders.filter(o => o.status.toLowerCase() === 'confirmed').length, icon: CheckCircle, gradient: 'from-blue-400 to-blue-500', labelColor: 'text-blue-700 dark:text-blue-400', pulse: false },
-              { label: 'Shipped', count: recentOrders.filter(o => o.status.toLowerCase() === 'shipped').length, icon: Truck, gradient: 'from-violet-400 to-violet-500', labelColor: 'text-violet-700 dark:text-violet-400', pulse: false },
-              { label: 'Delivered', count: stats?.deliveredOrders ?? 0, icon: CheckCircle, gradient: 'from-emerald-400 to-emerald-500', labelColor: 'text-emerald-700 dark:text-emerald-400', pulse: false },
-              { label: 'Total', count: stats?.totalOrders ?? 0, icon: ShoppingCart, gradient: 'from-slate-400 to-slate-500', labelColor: 'text-slate-700 dark:text-slate-400', pulse: false },
-            ].map(item => (
-              <Link key={item.label} to="/seller/orders" className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-border bg-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1 text-center relative">
-                {item.pulse && (
-                  <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
-                  </span>
-                )}
-                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br shadow-lg", item.gradient)}>
-                  <item.icon className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-extrabold text-foreground">{item.count}</p>
-                  <p className={cn("text-[11px] font-bold uppercase tracking-wider", item.labelColor)}>{item.label}</p>
-                </div>
-              </Link>
-            ))}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="rounded-lg border border-border/30 bg-white/50 px-4 py-3">
+              <p className="text-xs text-muted-foreground font-medium">Revenue</p>
+              <p className="mt-1.5 font-bold text-emerald-600">{formatCurrency(dashboard.kpis.totalRevenue)}</p>
+            </div>
+            <div className="rounded-lg border border-border/30 bg-white/50 px-4 py-3">
+              <p className="text-xs text-muted-foreground font-medium">Orders</p>
+              <p className="mt-1.5 font-bold text-blue-600">{dashboard.kpis.ordersThisMonth}</p>
+            </div>
+            <div className="rounded-lg border border-border/30 bg-white/50 px-4 py-3">
+              <p className="text-xs text-muted-foreground font-medium">Pending</p>
+              <p className="mt-1.5 font-bold text-amber-600">{dashboard.kpis.pendingOrders}</p>
+            </div>
+            <div className="rounded-lg border border-border/30 bg-white/50 px-4 py-3">
+              <p className="text-xs text-muted-foreground font-medium">Growth</p>
+              <p className={`mt-1.5 font-bold ${dashboard.kpis.revenueGrowth >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                {formatPercent(dashboard.kpis.revenueGrowth)}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Needs Attention */}
-      {recentOrders.filter(o => o.status.toLowerCase() === 'pending').length > 0 && (
-        <Card className="glass-card border-l-4 border-l-amber-500">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-500" />
-                <CardTitle className="text-lg font-bold">Needs Attention</CardTitle>
-                <span className="inline-flex items-center justify-center h-6 min-w-[24px] px-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold shadow-md">
-                  {recentOrders.filter(o => o.status.toLowerCase() === 'pending').length}
-                </span>
-              </div>
-              <Link to="/seller/orders" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
-                View All <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {recentOrders.filter(o => o.status.toLowerCase() === 'pending').slice(0, 3).map((order) => {
-              const buyerName = order.buyer?.name || (order.buyer?.firstName ? `${order.buyer.firstName} ${order.buyer.lastName || ''}`.trim() : 'Unknown');
-              return (
-                <Link
-                  key={order._id}
-                  to="/seller/orders"
-                  className="flex items-center gap-4 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors group"
-                >
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-md">
-                    <span className="text-sm font-bold text-white">{buyerName.charAt(0).toUpperCase()}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold">{buyerName}</p>
-                    <p className="text-xs text-muted-foreground">{order.items[0]?.name || 'N/A'} — {fmt(order.totalAmount)}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
-                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border mt-1", statusColors.Pending)}>
-                      <Clock className="h-3 w-3" /> Pending
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

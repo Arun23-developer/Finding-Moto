@@ -4,6 +4,31 @@ import Chat from '../models/Chat';
 import User from '../models/User';
 import mongoose from 'mongoose';
 
+// Helper function to check if two users can chat
+const canUserChat = (currentUser: any, recipient: any): boolean => {
+  // Buyers can chat with anyone (sellers, mechanics)
+  if (currentUser.role === 'buyer') {
+    return recipient.role === 'seller' || recipient.role === 'mechanic';
+  }
+  
+  // Sellers can only chat with buyers
+  if (currentUser.role === 'seller') {
+    return recipient.role === 'buyer';
+  }
+  
+  // Mechanics can only chat with buyers
+  if (currentUser.role === 'mechanic') {
+    return recipient.role === 'buyer';
+  }
+  
+  // Admins can chat with anyone
+  if (currentUser.role === 'admin') {
+    return true;
+  }
+  
+  return false;
+};
+
 // Get list of sellers & mechanics that the buyer can chat with
 // OR get buyers who have chatted with the seller/mechanic
 export const getChatUsers = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -20,8 +45,34 @@ export const getChatUsers = async (req: AuthRequest, res: Response): Promise<voi
       }).select('firstName lastName role avatar shopName workshopName specialization');
 
       res.json(users);
-    } else {
-      // Sellers/Mechanics: return users they have open conversations with
+    } else if (role === 'seller' || role === 'mechanic') {
+      // Sellers/Mechanics: return ONLY buyers they have open conversations with
+      // They cannot initiate chats with other sellers/mechanics
+      const chats = await Chat.find({ participants: userId })
+        .sort({ updatedAt: -1 })
+        .populate('participants', 'firstName lastName role avatar shopName workshopName specialization');
+
+      // Filter to show only buyers in the chat list
+      const users = chats
+        .filter((chat) => {
+          const other = chat.participants.find(
+            (p: any) => p._id.toString() !== userId.toString()
+          );
+          return (other as any)?.role === 'buyer';
+        })
+        .map((chat) => {
+          const other = chat.participants.find(
+            (p: any) => p._id.toString() !== userId.toString()
+          );
+          const unreadCount = chat.messages.filter(
+            (m) => m.sender.toString() !== userId.toString() && !m.read
+          ).length;
+          return { user: other, chatId: chat._id, lastMessage: chat.lastMessage, unreadCount };
+        });
+
+      res.json(users);
+    } else if (role === 'admin') {
+      // Admins can see all users they've chatted with
       const chats = await Chat.find({ participants: userId })
         .sort({ updatedAt: -1 })
         .populate('participants', 'firstName lastName role avatar shopName workshopName specialization');
@@ -37,6 +88,8 @@ export const getChatUsers = async (req: AuthRequest, res: Response): Promise<voi
       });
 
       res.json(users);
+    } else {
+      res.json([]);
     }
   } catch (error) {
     console.error('getChatUsers error:', error);
@@ -48,6 +101,7 @@ export const getChatUsers = async (req: AuthRequest, res: Response): Promise<voi
 export const getOrCreateChat = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!._id;
+    const userRole = req.user!.role;
     const { recipientId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(recipientId)) {
@@ -64,6 +118,14 @@ export const getOrCreateChat = async (req: AuthRequest, res: Response): Promise<
     const recipient = await User.findById(recipientId).select('firstName lastName role avatar shopName workshopName specialization');
     if (!recipient) {
       res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    // Validate chat permissions
+    if (!canUserChat(req.user, recipient)) {
+      res.status(403).json({ 
+        message: 'Sellers and mechanics can only chat with buyers. You cannot chat with each other.' 
+      });
       return;
     }
 
@@ -100,6 +162,7 @@ export const getOrCreateChat = async (req: AuthRequest, res: Response): Promise<
 export const sendMessage = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!._id;
+    const userRole = req.user!.role;
     const { chatId } = req.params;
     const { content } = req.body;
 
@@ -113,7 +176,9 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    const chat = await Chat.findById(chatId);
+    const chat = await Chat.findById(chatId)
+      .populate('participants', 'role');
+
     if (!chat) {
       res.status(404).json({ message: 'Chat not found' });
       return;
@@ -121,11 +186,26 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
 
     // Verify user is a participant
     const isParticipant = chat.participants.some(
-      (p) => p.toString() === userId.toString()
+      (p) => p._id.toString() === userId.toString()
     );
     if (!isParticipant) {
       res.status(403).json({ message: 'Not authorized' });
       return;
+    }
+
+    // Verify chat participants can communicate
+    const otherParticipant = chat.participants.find(
+      (p) => p._id.toString() !== userId.toString()
+    );
+    
+    if (otherParticipant) {
+      const currentUser = { role: userRole };
+      if (!canUserChat(currentUser, otherParticipant)) {
+        res.status(403).json({ 
+          message: 'Sellers and mechanics can only chat with buyers. You cannot chat with each other.' 
+        });
+        return;
+      }
     }
 
     const message = {

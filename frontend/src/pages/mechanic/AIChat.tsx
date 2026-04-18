@@ -10,10 +10,7 @@ import {
   Lightbulb,
   RotateCcw,
   Loader2,
-  ChevronRight,
   BarChart3,
-  ShieldCheck,
-  Star,
   ImagePlus,
   X,
 } from "lucide-react";
@@ -66,25 +63,6 @@ const quickActions = [
     prompt: "Explain the step-by-step process for replacing a motorcycle clutch kit",
     color: "text-emerald-600",
     bg: "bg-emerald-600/10 hover:bg-emerald-600/20",
-  },
-];
-
-const reportQuickActions = [
-  {
-    label: "Current Report",
-    prompt: "Generate my current mechanic report with jobs, services, revenue, and review summary.",
-  },
-  {
-    label: "Jobs Report",
-    prompt: "Generate current jobs report with total jobs, pending jobs, in-progress jobs, and completed jobs.",
-  },
-  {
-    label: "Revenue Report",
-    prompt: "Generate current revenue report with total revenue, monthly revenue, and average job value.",
-  },
-  {
-    label: "Review Report",
-    prompt: "Generate review report with total reviews and average rating.",
   },
 ];
 
@@ -525,44 +503,6 @@ export default function MechanicAIChat() {
 
             </CardContent>
 
-            {/* Quick Actions (shown when few messages) */}
-            {messages.length <= 1 && (
-              <div className="px-4 pb-2">
-                <p className="text-xs text-muted-foreground mb-2 font-medium">Quick Actions</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {quickActions.map((action) => (
-                    <button
-                      key={action.label}
-                      onClick={() => sendMessage(action.prompt)}
-                      className={cn(
-                        "flex items-center gap-2 p-3 rounded-xl text-left text-sm font-medium transition-all",
-                        action.bg
-                      )}
-                    >
-                      <action.icon className={cn("h-4 w-4", action.color)} />
-                      <span>{action.label}</span>
-                      <ChevronRight className="h-3 w-3 ml-auto opacity-50" />
-                    </button>
-                  ))}
-                </div>
-
-                <p className="text-xs text-muted-foreground mt-3 mb-2 font-medium">Report Actions (Mechanic Only)</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {reportQuickActions.map((action) => (
-                    <button
-                      key={action.label}
-                      onClick={() => sendMessage(action.prompt)}
-                      className="flex items-center gap-2 p-3 rounded-xl text-left text-sm font-medium transition-all bg-slate-100 hover:bg-slate-200"
-                    >
-                      <BarChart3 className="h-4 w-4 text-slate-700" />
-                      <span>{action.label}</span>
-                      <ChevronRight className="h-3 w-3 ml-auto opacity-50" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Input */}
             <div className="p-4 border-t border-border">
               {selectedImageDataUrl && (
@@ -632,48 +572,6 @@ export default function MechanicAIChat() {
 
         {/* Sidebar - Suggestions */}
         <div className="space-y-4">
-          <Card className="glass-card border-amber-200">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-amber-600" /> Mechanic Report Mode
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-xs text-muted-foreground">
-              <p className="rounded-lg bg-amber-50 text-amber-700 px-3 py-2">Reports are generated only for mechanic accounts using current workshop data.</p>
-              <div className="flex items-center gap-2"><BarChart3 className="h-3.5 w-3.5 text-amber-600" /> Jobs and revenue metrics</div>
-              <div className="flex items-center gap-2"><Wrench className="h-3.5 w-3.5 text-blue-600" /> Active service overview</div>
-              <div className="flex items-center gap-2"><Star className="h-3.5 w-3.5 text-violet-600" /> Review performance</div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-amber-600" /> Suggested Prompts
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {[
-                "Generate my current mechanic report",
-                "Give me jobs and revenue report now",
-                "Diagnose unusual engine noise on a Yamaha FZ",
-                "How to fix a motorcycle electrical short circuit?",
-                "Service quote for brake pad replacement",
-                "Best practices for motorcycle chain maintenance",
-                "How to increase workshop customer retention?",
-                "Guide for carburetor cleaning and tuning",
-              ].map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => sendMessage(prompt)}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </CardContent>
-          </Card>
-
           <Card className="glass-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">AI Capabilities</CardTitle>

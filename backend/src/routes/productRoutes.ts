@@ -31,11 +31,15 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
   fileFilter: (_req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|webp/;
-    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mime = allowed.test(file.mimetype);
-    if (ext && mime) return cb(null, true);
-    cb(new Error('Only image files (jpg, png, gif, webp) are allowed'));
+    const allowedExtensions = new Set([
+      '.jpeg', '.jpg', '.png', '.gif', '.webp', '.jfif', '.avif', '.heic', '.heif',
+    ]);
+    const ext = path.extname(file.originalname).toLowerCase();
+    const hasAllowedExt = allowedExtensions.has(ext);
+    const isImageMime = file.mimetype.toLowerCase().startsWith('image/');
+
+    if (hasAllowedExt || isImageMime) return cb(null, true);
+    cb(new Error('Only image files are allowed'));
   },
 });
 

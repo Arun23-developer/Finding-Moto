@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
 import {
   Search,
   Send,
@@ -22,13 +21,9 @@ import {
   ChatConversation,
   ChatMessage,
 } from '@/services/chatService';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
-function getSocketUrl() {
-  // Strip /api from the URL to get the socket server base
-  return API_URL.replace(/\/api\/?$/, '') || 'http://localhost:5000';
-}
+import { resolveMediaUrl } from '@/lib/imageUrl';
+import { createAuthedSocket } from '@/lib/socket';
+import type { Socket } from 'socket.io-client';
 
 function formatTime(dateStr: string) {
   const d = new Date(dateStr);
@@ -96,13 +91,8 @@ export default function ChatPage() {
 
   // Setup Socket.IO connection
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    const s = io(getSocketUrl(), {
-      auth: { token },
-      transports: ['websocket', 'polling'],
-    });
+    const s = createAuthedSocket();
+    if (!s) return;
 
     s.on('connect', () => {
       s.emit('users:online');
@@ -342,7 +332,7 @@ export default function ChatPage() {
               <div className="chat-avatar-wrap">
                 <div className="chat-avatar">
                   {convo.user?.avatar ? (
-                    <img src={convo.user.avatar} alt="" />
+                    <img src={resolveMediaUrl(convo.user.avatar)} alt="" />
                   ) : (
                     <span>{getInitials(convo.user)}</span>
                   )}
@@ -389,7 +379,7 @@ export default function ChatPage() {
                   <div className="chat-avatar-wrap">
                     <div className="chat-avatar">
                       {u.avatar ? (
-                        <img src={u.avatar} alt="" />
+                        <img src={resolveMediaUrl(u.avatar)} alt="" />
                       ) : (
                         <span>{getInitials(u)}</span>
                       )}
@@ -441,7 +431,7 @@ export default function ChatPage() {
               <div className="chat-avatar-wrap">
                 <div className="chat-avatar chat-avatar-sm">
                   {activeRecipient.avatar ? (
-                    <img src={activeRecipient.avatar} alt="" />
+                    <img src={resolveMediaUrl(activeRecipient.avatar)} alt="" />
                   ) : (
                     <span>{getInitials(activeRecipient)}</span>
                   )}
@@ -490,7 +480,7 @@ export default function ChatPage() {
                       {!isOwn && (
                         <div className="chat-avatar chat-avatar-xs">
                           {activeRecipient.avatar ? (
-                            <img src={activeRecipient.avatar} alt="" />
+                            <img src={resolveMediaUrl(activeRecipient.avatar)} alt="" />
                           ) : (
                             <span style={{ fontSize: '10px' }}>{getInitials(activeRecipient)}</span>
                           )}

@@ -1,9 +1,17 @@
-const DEFAULT_PRODUCT_FALLBACK = "https://placehold.co/400x400?text=Bike+Part";
+const DEFAULT_PRODUCT_FALLBACK =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="#e5e7eb"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#6b7280" font-family="Arial, sans-serif" font-size="24">Bike Part</text></svg>'
+  );
 
 function getApiOrigin(): string {
-  const apiUrl = (import.meta.env.VITE_API_URL || "/api").trim();
+  const configuredApiUrl = (import.meta.env.VITE_API_URL || "").trim();
+  const apiUrl = configuredApiUrl || "/api";
   if (apiUrl.startsWith("http://") || apiUrl.startsWith("https://")) {
     return apiUrl.replace(/\/api\/?$/i, "");
+  }
+  if (typeof window !== "undefined") {
+    return window.location.origin;
   }
   return "";
 }
@@ -31,8 +39,11 @@ export function resolveMediaUrl(input?: string | null, fallback = DEFAULT_PRODUC
   }
 
   const absolutePath = withoutApiPrefix.startsWith("/") ? withoutApiPrefix : `/${withoutApiPrefix}`;
+  const lowerPath = absolutePath.toLowerCase();
+  const needsUploadsPrefix = lowerPath.startsWith("/products/") || lowerPath.startsWith("/avatars/");
+  const normalizedPath = needsUploadsPrefix ? `/uploads${absolutePath}` : absolutePath;
 
-  return apiOrigin ? `${apiOrigin}${absolutePath}` : absolutePath;
+  return apiOrigin ? `${apiOrigin}${normalizedPath}` : normalizedPath;
 }
 
 export function resolveProductImage(

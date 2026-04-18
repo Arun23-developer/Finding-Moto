@@ -1,6 +1,11 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = (() => {
+  const configuredApiUrl = (import.meta.env.VITE_API_URL || '').trim();
+
+  if (configuredApiUrl) return configuredApiUrl;
+  return '/api';
+})();
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -13,6 +18,12 @@ const api: AxiosInstance = axios.create({
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('token');
+
+    if (config.data instanceof FormData && config.headers) {
+      // Let browser/axios set multipart boundary automatically for file uploads.
+      delete config.headers['Content-Type'];
+    }
+
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }

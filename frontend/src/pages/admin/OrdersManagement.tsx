@@ -17,11 +17,37 @@ interface Order {
 }
 
 const statusStyles: Record<string, string> = {
-  delivered: "bg-success/15 text-success border-success/20",
-  shipped: "bg-info/15 text-info border-info/20",
-  confirmed: "bg-warning/15 text-warning border-warning/20",
   pending: "bg-muted text-muted-foreground border-border",
+  awaiting_seller_confirmation: "bg-amber-500/15 text-amber-700 border-amber-500/20",
+  confirmed: "bg-warning/15 text-warning border-warning/20",
+  rejected: "bg-destructive/15 text-destructive border-destructive/20",
+  processing: "bg-violet-500/15 text-violet-700 border-violet-500/20",
+  ready_for_dispatch: "bg-sky-500/15 text-sky-700 border-sky-500/20",
+  pickup_assigned: "bg-cyan-500/15 text-cyan-700 border-cyan-500/20",
+  picked_up: "bg-indigo-500/15 text-indigo-700 border-indigo-500/20",
+  out_for_delivery: "bg-info/15 text-info border-info/20",
+  shipped: "bg-info/15 text-info border-info/20",
+  delivered: "bg-success/15 text-success border-success/20",
+  completed: "bg-emerald-500/15 text-emerald-700 border-emerald-500/20",
   cancelled: "bg-destructive/15 text-destructive border-destructive/20",
+  refunded: "bg-rose-500/15 text-rose-700 border-rose-500/20",
+};
+
+const statusLabels: Record<string, string> = {
+  pending: "Pending",
+  awaiting_seller_confirmation: "Awaiting Seller Confirmation",
+  confirmed: "Confirmed",
+  rejected: "Rejected",
+  processing: "Processing",
+  ready_for_dispatch: "Ready for Dispatch",
+  pickup_assigned: "Pickup Assigned",
+  picked_up: "Picked Up",
+  out_for_delivery: "Out for Delivery",
+  shipped: "Out for Delivery",
+  delivered: "Delivered",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  refunded: "Refunded",
 };
 
 export default function OrdersManagement() {
@@ -52,9 +78,9 @@ export default function OrdersManagement() {
   }, [fetchOrders]);
 
   const totalCount = orders.length;
-  const pendingCount = orders.filter((o) => o.status === "pending").length;
-  const processingCount = orders.filter((o) => ["confirmed", "shipped"].includes(o.status)).length;
-  const deliveredCount = orders.filter((o) => o.status === "delivered").length;
+  const pendingCount = orders.filter((o) => ["pending", "awaiting_seller_confirmation"].includes(o.status)).length;
+  const processingCount = orders.filter((o) => ["confirmed", "processing", "ready_for_dispatch", "pickup_assigned", "picked_up", "out_for_delivery"].includes(o.status)).length;
+  const deliveredCount = orders.filter((o) => ["delivered", "completed"].includes(o.status)).length;
 
   if (loading) {
     return (
@@ -112,7 +138,7 @@ export default function OrdersManagement() {
           />
         </div>
         <div className="flex gap-1.5 flex-wrap">
-          {["all", "pending", "confirmed", "shipped", "delivered", "cancelled"].map((s) => (
+          {["all", "pending", "awaiting_seller_confirmation", "confirmed", "processing", "ready_for_dispatch", "pickup_assigned", "picked_up", "out_for_delivery", "delivered", "completed", "cancelled", "refunded"].map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -123,7 +149,7 @@ export default function OrdersManagement() {
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
               )}
             >
-              {s === "all" ? "All" : s}
+              {s === "all" ? "All" : statusLabels[s] || s}
             </button>
           ))}
         </div>
@@ -164,7 +190,7 @@ export default function OrdersManagement() {
                       <td className="py-3 font-semibold">LKR {order.totalAmount.toLocaleString()}</td>
                       <td className="py-3">
                         <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${statusStyles[order.status] || ""}`}>
-                          {order.status}
+                          {statusLabels[order.status] || order.status}
                         </span>
                       </td>
                       <td className="py-3 text-muted-foreground">

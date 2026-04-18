@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
+import { canUseGoogleAuth, getGoogleAuthIssue } from '../lib/googleAuth';
+import { getDefaultRouteForRole } from '../lib/roleRoutes';
 
 interface FormData {
   email: string;
@@ -12,7 +14,8 @@ const ROLE_LABELS: Record<string, { icon: string; label: string }> = {
   buyer: { icon: '🛒', label: 'Buyer' },
   seller: { icon: '🏪', label: 'Seller' },
   mechanic: { icon: '🔧', label: 'Mechanic' },
-  admin: { icon: '⚙️', label: 'Admin' }
+  admin: { icon: '⚙️', label: 'Admin' },
+  delivery_agent: { icon: '🚚', label: 'Delivery Agent' }
 };
 
 const BIKE_SLIDES = [
@@ -95,6 +98,8 @@ const Login: React.FC = () => {
   const [activeSlide, setActiveSlide] = useState(0);
   const { login, loginWithRole, googleAuth } = useAuth();
   const navigate = useNavigate();
+  const googleAuthIssue = getGoogleAuthIssue();
+  const showGoogleLogin = canUseGoogleAuth();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -117,10 +122,7 @@ const Login: React.FC = () => {
         setRoleSelection({ email: result.email, roles: result.roles });
         return;
       }
-      if (result.user?.role === 'admin') navigate('/admin');
-      else if (result.user?.role === 'seller') navigate('/seller/dashboard');
-      else if (result.user?.role === 'mechanic') navigate('/mechanic/dashboard');
-      else navigate('/dashboard');
+      navigate(getDefaultRouteForRole(result.user?.role));
     } catch (error: any) {
       const data = error.response?.data;
       if (data?.requiresVerification) {
@@ -141,10 +143,7 @@ const Login: React.FC = () => {
     try {
       const result = await loginWithRole(formData.email, formData.password, role);
       setRoleSelection(null);
-      if (result.user?.role === 'admin') navigate('/admin');
-      else if (result.user?.role === 'seller') navigate('/seller/dashboard');
-      else if (result.user?.role === 'mechanic') navigate('/mechanic/dashboard');
-      else navigate('/dashboard');
+      navigate(getDefaultRouteForRole(result.user?.role));
     } catch (error: any) {
       const data = error.response?.data;
       if (data?.requiresVerification) {
@@ -161,16 +160,13 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
+  const handleGoogleSuccess = useCallback(async (credentialResponse: any) => {
     setError('');
     setApprovalInfo(null);
     setLoading(true);
     try {
       const result = await googleAuth(credentialResponse.credential);
-      if (result.user?.role === 'admin') navigate('/admin');
-      else if (result.user?.role === 'seller') navigate('/seller/dashboard');
-      else if (result.user?.role === 'mechanic') navigate('/mechanic/dashboard');
-      else navigate('/dashboard');
+      navigate(getDefaultRouteForRole(result.user?.role));
     } catch (error: any) {
       const data = error.response?.data;
       if (data?.approvalStatus) {
@@ -181,11 +177,23 @@ const Login: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [googleAuth, navigate]);
 
-  const handleGoogleError = () => {
+  const handleGoogleError = useCallback(() => {
     setError('Google sign-in was unsuccessful. Please try again.');
-  };
+  }, []);
+
+  const googleLoginButton = useMemo(() => (
+    <GoogleLogin
+      onSuccess={handleGoogleSuccess}
+      onError={handleGoogleError}
+      size="large"
+      width="320"
+      theme="outline"
+      text="signin_with"
+      shape="rectangular"
+    />
+  ), [handleGoogleError, handleGoogleSuccess]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -451,15 +459,11 @@ const Login: React.FC = () => {
           </div>
 
           <div className="google-btn-wrapper">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={handleGoogleError}
-              size="large"
-              width="320"
-              theme="outline"
-              text="signin_with"
-              shape="rectangular"
-            />
+            {showGoogleLogin ? googleLoginButton : (
+              <div className="login-alert login-alert-info">
+                {googleAuthIssue}
+              </div>
+            )}
           </div>
 
           <p className="login-footer">

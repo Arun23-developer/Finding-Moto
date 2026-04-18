@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import api from '../services/api';
 
-export type UserRole = 'buyer' | 'seller' | 'mechanic' | 'admin';
+export type UserRole = 'buyer' | 'seller' | 'mechanic' | 'admin' | 'delivery_agent';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 //       "approvalStatus": "pending", // or "approved", "rejected"
 
@@ -12,6 +12,7 @@ interface User {
   lastName: string;
   fullName: string;
   phone?: string;
+  address?: string;
   avatar?: string;
   role: UserRole;
   approvalStatus: ApprovalStatus;
@@ -27,6 +28,12 @@ interface User {
   experienceYears?: number;
   workshopLocation?: string;
   workshopName?: string;
+  // Delivery agent fields
+  vehicleType?: string;
+  vehicleNumber?: string;
+  licenseNumber?: string;
+  payoutMethod?: string;
+  payoutAccountName?: string;
 }
 
 interface LoginCredentials {
@@ -71,6 +78,7 @@ interface AuthContextType {
   isSeller: boolean;
   isMechanic: boolean;
   isAdmin: boolean;
+  isDeliveryAgent: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -205,7 +213,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isBuyer: user?.role === 'buyer',
     isSeller: user?.role === 'seller',
     isMechanic: user?.role === 'mechanic',
-    isAdmin: user?.role === 'admin'
+    isAdmin: user?.role === 'admin',
+    isDeliveryAgent: user?.role === 'delivery_agent'
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

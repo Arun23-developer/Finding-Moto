@@ -1,8 +1,11 @@
 import mongoose, { Document, Schema, Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+export const USER_ROLES = ['buyer', 'seller', 'mechanic', 'admin', 'delivery_agent'] as const;
+export const APPROVAL_REQUIRED_ROLES = ['seller', 'mechanic'] as const;
+
 // Role types
-export type UserRole = 'buyer' | 'seller' | 'mechanic' | 'admin';
+export type UserRole = (typeof USER_ROLES)[number];
 
 // Approval status types (for seller and mechanic)
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
@@ -37,6 +40,16 @@ export interface IUser extends Document {
   experienceYears?: number;
   workshopLocation?: string;
   workshopName?: string;
+  servicesOffered?: string[];
+  mechanicBrands?: string[];
+  // Delivery agent-specific fields
+  vehicleType?: string;
+  vehicleNumber?: string;
+  licenseNumber?: string;
+  payoutMethod?: string;
+  payoutAccountName?: string;
+  agent_status?: 'ENABLED' | 'DISABLED';
+  work_status?: 'AVAILABLE' | 'BUSY' | 'OFFLINE';
   fullName: string;
   createdAt: Date;
   updatedAt: Date;
@@ -89,7 +102,7 @@ const userSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ['buyer', 'seller', 'mechanic', 'admin'],
+      enum: USER_ROLES,
       default: 'buyer'
     },
     approvalStatus: {
@@ -164,6 +177,50 @@ const userSchema = new Schema<IUser>(
       type: String,
       trim: true,
       default: null
+    },
+    servicesOffered: {
+      type: [String],
+      default: []
+    },
+    mechanicBrands: {
+      type: [String],
+      default: []
+    },
+    // Delivery agent-specific fields
+    vehicleType: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    vehicleNumber: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    licenseNumber: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    payoutMethod: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    payoutAccountName: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    agent_status: {
+      type: String,
+      enum: ['ENABLED', 'DISABLED'],
+      default: 'ENABLED'
+    },
+    work_status: {
+      type: String,
+      enum: ['AVAILABLE', 'BUSY', 'OFFLINE'],
+      default: 'AVAILABLE'
     }
   },
   {
@@ -195,9 +252,9 @@ userSchema.pre('save', async function (next) {
   if (this.isNew) {
     if (this.role === 'buyer') {
       this.approvalStatus = 'approved';
-    } else if (this.role === 'seller' || this.role === 'mechanic') {
+    } else if (APPROVAL_REQUIRED_ROLES.includes(this.role as (typeof APPROVAL_REQUIRED_ROLES)[number])) {
       this.approvalStatus = 'pending';
-    } else if (this.role === 'admin') {
+    } else if (this.role === 'admin' || this.role === 'delivery_agent') {
       this.approvalStatus = 'approved';
     }
   }
@@ -218,7 +275,7 @@ userSchema.methods.matchPassword = async function (
 userSchema.methods.canLogin = function (this: IUser): boolean {
   if (!this.isActive) return false;
   // Buyers and admins can always login
-  if (this.role === 'buyer' || this.role === 'admin') return true;
+  if (this.role === 'buyer' || this.role === 'admin' || this.role === 'delivery_agent') return true;
   // Sellers and mechanics need approval
   return this.approvalStatus === 'approved';
 };
@@ -227,6 +284,9 @@ userSchema.methods.canLogin = function (this: IUser): boolean {
 userSchema.methods.getApprovalMessage = function (this: IUser): string {
   if (this.role === 'buyer') {
     return 'Welcome! Your account is ready to use.';
+  }
+  if (this.role === 'delivery_agent') {
+    return 'Welcome! Your delivery agent account is ready to use.';
   }
   if (this.approvalStatus === 'pending') {
     return 'Your account is pending admin approval. You will be notified once approved.';

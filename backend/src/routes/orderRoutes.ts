@@ -5,6 +5,7 @@ import {
   createOrder,
   getBuyerOrders,
   cancelBuyerOrder,
+  confirmOrderReceived,
   getOrders,
   getOrderStats,
   updateOrderStatus,
@@ -19,6 +20,7 @@ router.use(protect);
 router.post('/', authorize('buyer'), createOrder);
 router.get('/my', authorize('buyer'), getBuyerOrders);
 router.patch('/my/:id/cancel', authorize('buyer'), cancelBuyerOrder);
+router.patch('/my/:id/confirm-received', authorize('buyer'), confirmOrderReceived);
 
 // ─── Seller / Mechanic routes ───────────────────────────────────────────────
 router.get('/stats', authorize('seller', 'mechanic'), getOrderStats);

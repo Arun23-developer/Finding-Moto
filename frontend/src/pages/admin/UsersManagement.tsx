@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +17,7 @@ import {
   Search,
   Store,
   Shield,
+  Truck,
   User,
   Wrench,
   CheckCircle,
@@ -31,7 +33,7 @@ import {
 import api from "@/services/api";
 
 // ─── Types ─────────────────────────────────────────────────────────
-type UserRole = "buyer" | "seller" | "mechanic" | "admin";
+type UserRole = "buyer" | "seller" | "mechanic" | "admin" | "delivery_agent";
 type ApprovalStatus = "pending" | "approved" | "rejected";
 
 interface AdminUser {
@@ -69,6 +71,7 @@ const roleIcon = (role: UserRole) => {
     case "seller": return <Store className={cls} />;
     case "mechanic": return <Wrench className={cls} />;
     case "admin": return <Shield className={cls} />;
+    case "delivery_agent": return <Truck className={cls} />;
     default: return <User className={cls} />;
   }
 };
@@ -78,6 +81,7 @@ const roleLabel: Record<UserRole, string> = {
   seller: "Seller",
   mechanic: "Mechanic",
   admin: "Admin",
+  delivery_agent: "Delivery Agent",
 };
 
 const roleBadgeClass: Record<UserRole, string> = {
@@ -85,6 +89,7 @@ const roleBadgeClass: Record<UserRole, string> = {
   seller: "bg-purple-500/15 text-purple-600 border-purple-500/20",
   mechanic: "bg-orange-500/15 text-orange-600 border-orange-500/20",
   admin: "bg-primary/15 text-primary border-primary/20",
+  delivery_agent: "bg-sky-500/15 text-sky-600 border-sky-500/20",
 };
 
 const approvalBadgeClass: Record<ApprovalStatus, string> = {
@@ -171,22 +176,22 @@ export default function UsersManagement() {
   }, [searchParams, activeTab]);
 
   useEffect(() => {
-    const current = searchParams.get("tab");
-    if (activeTab === "all") {
-      if (current) {
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.delete("tab");
-        setSearchParams(nextParams, { replace: true });
-      }
-      return;
-    }
+    setSearchParams((prev) => {
+      const nextParams = new URLSearchParams(prev);
+      const current = nextParams.get("tab");
 
-    if (current !== activeTab) {
-      const nextParams = new URLSearchParams(searchParams);
-      nextParams.set("tab", activeTab);
-      setSearchParams(nextParams, { replace: true });
-    }
-  }, [activeTab, searchParams, setSearchParams]);
+      if (activeTab === "all") {
+        if (current) nextParams.delete("tab");
+        return nextParams;
+      }
+
+      if (current !== activeTab) {
+        nextParams.set("tab", activeTab);
+      }
+
+      return nextParams;
+    }, { replace: true });
+  }, [activeTab, setSearchParams]);
 
   // ── Stats ────────────────────────────────────────────────────────
   const stats = {
@@ -548,6 +553,9 @@ export default function UsersManagement() {
               )}
               {modalAction === "approve" ? "Approve Account" : "Reject / Revoke Account"}
             </DialogTitle>
+            <DialogDescription>
+              Review user details and confirm your approval decision.
+            </DialogDescription>
           </DialogHeader>
 
           {modalUser && (
@@ -660,6 +668,9 @@ export default function UsersManagement() {
               )}
               {toggleUser?.isActive ? "Deactivate User?" : "Activate User?"}
             </DialogTitle>
+            <DialogDescription>
+              Confirm account access change for this user.
+            </DialogDescription>
           </DialogHeader>
           {toggleUser && (
             <p className="text-sm text-muted-foreground py-2">
@@ -692,6 +703,9 @@ export default function UsersManagement() {
               <Eye className="h-5 w-5 text-primary" />
               User Details
             </DialogTitle>
+            <DialogDescription>
+              View full account and role-specific details.
+            </DialogDescription>
           </DialogHeader>
           {detailLoading ? (
             <div className="flex items-center justify-center py-12">
