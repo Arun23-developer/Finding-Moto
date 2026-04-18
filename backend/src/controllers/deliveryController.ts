@@ -5,12 +5,14 @@ import Delivery, { DELIVERY_STATUSES, DeliveryStatus } from '../models/Delivery'
 import Order from '../models/Order';
 import User from '../models/User';
 import { normalizeOrderStatus, getOrderStatusLabel } from '../utils/orderStatus';
+import { emitOrderWorkflowEvent } from '../utils/orderWorkflowEvents';
 
 const DELIVERY_TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = {
   ASSIGNED: ['PICKED_UP'],
   PICKED_UP: ['IN_TRANSIT'],
-  IN_TRANSIT: ['DELIVERED'],
+  IN_TRANSIT: ['DELIVERED', 'FAILED'],
   DELIVERED: [],
+  FAILED: [],
 };
 
 const formatDelivery = (delivery: any) => ({
@@ -54,22 +56,22 @@ export const getDeliveryAgents = async (_req: AuthRequest, res: Response): Promi
 
 export const assignDelivery = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { orderId, agentId } = req.body as { orderId?: string; agentId?: string };
+    const { orderId: requestedOrderId, agentId } = req.body as { orderId?: string; agentId?: string };
 
-    if (!orderId || !agentId) {
+    if (!requestedOrderId || !agentId) {
       res.status(400).json({ success: false, message: 'Order ID and agent ID are required' });
       return;
     }
 
-    if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(agentId)) {
+    if (!mongoose.Types.ObjectId.isValid(requestedOrderId) || !mongoose.Types.ObjectId.isValid(agentId)) {
       res.status(400).json({ success: false, message: 'Invalid order or agent ID' });
       return;
     }
 
     const [order, agent, existingDelivery] = await Promise.all([
-      Order.findById(orderId),
+      Order.findById(requestedOrderId),
       User.findById(agentId).select('firstName lastName role isActive isEmailVerified'),
-      Delivery.findOne({ orderId }),
+      Delivery.findOne({ orderId: requestedOrderId }),
     ]);
 
     if (!order) {
@@ -115,6 +117,42 @@ export const assignDelivery = async (req: AuthRequest, res: Response): Promise<v
     });
     order.status = 'pickup_assigned';
     await order.save();
+
+    const orderId = order._id.toString();
+    const buyerUserId = order.buyer.toString();
+    const sellerUserId = order.seller.toString();
+    const agentUserId = agent._id.toString();
+    const agentName = `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || 'Delivery agent';
+
+    emitOrderWorkflowEvent({
+      userId: buyerUserId,
+      audience: 'buyer',
+      orderId,
+      status: 'pickup_assigned',
+      title: 'Delivery agent assigned',
+      message: 'A delivery agent has been assigned to your order',
+      actorRole: 'seller',
+    });
+
+    emitOrderWorkflowEvent({
+      userId: sellerUserId,
+      audience: 'seller',
+      orderId,
+      status: 'pickup_assigned',
+      title: 'Delivery assigned',
+      message: `${agentName} has been assigned for pickup`,
+      actorRole: 'seller',
+    });
+
+    emitOrderWorkflowEvent({
+      userId: agentUserId,
+      audience: 'delivery_agent',
+      orderId,
+      status: 'pickup_assigned',
+      title: 'New Pickup Request',
+      message: 'You have a new Pickup Request from Seller',
+      actorRole: 'seller',
+    });
 
     const populatedDelivery = await Delivery.findById(delivery._id)
       .populate('agentId', 'firstName lastName email phone')
@@ -213,19 +251,98 @@ export const updateDeliveryStatus = async (req: AuthRequest, res: Response): Pro
     const order = await Order.findById(delivery.orderId);
     if (order) {
       const currentOrderStatus = normalizeOrderStatus(order.status);
+      const orderId = order._id.toString();
+      const buyerUserId = order.buyer.toString();
+      const sellerUserId = order.seller.toString();
 
       if (status === 'PICKED_UP' && currentOrderStatus !== 'picked_up') {
         order.statusHistory.push({ status: order.status, changedAt: new Date(), note: 'Collected by delivery agent' });
         order.status = 'picked_up';
         await order.save();
+        emitOrderWorkflowEvent({
+          userId: buyerUserId,
+          audience: 'buyer',
+          orderId,
+          status: 'picked_up',
+          title: 'Order picked up',
+          message: 'Your order has been picked up',
+          actorRole: 'delivery_agent',
+        });
+        emitOrderWorkflowEvent({
+          userId: sellerUserId,
+          audience: 'seller',
+          orderId,
+          status: 'picked_up',
+          title: 'Order picked up',
+          message: 'Delivery agent has picked up the order',
+          actorRole: 'delivery_agent',
+        });
       } else if (status === 'IN_TRANSIT' && normalizeOrderStatus(order.status) !== 'out_for_delivery') {
         order.statusHistory.push({ status: order.status, changedAt: new Date(), note: 'Out for delivery' });
         order.status = 'out_for_delivery';
         await order.save();
+        emitOrderWorkflowEvent({
+          userId: buyerUserId,
+          audience: 'buyer',
+          orderId,
+          status: 'out_for_delivery',
+          title: 'Out for delivery',
+          message: 'Your order is out for delivery',
+          actorRole: 'delivery_agent',
+        });
+        emitOrderWorkflowEvent({
+          userId: sellerUserId,
+          audience: 'seller',
+          orderId,
+          status: 'out_for_delivery',
+          title: 'Out for delivery',
+          message: 'Order is out for delivery',
+          actorRole: 'delivery_agent',
+        });
       } else if (status === 'DELIVERED' && normalizeOrderStatus(order.status) !== 'delivered') {
         order.statusHistory.push({ status: order.status, changedAt: new Date(), note: 'Delivered by assigned delivery agent' });
         order.status = 'delivered';
         await order.save();
+        emitOrderWorkflowEvent({
+          userId: buyerUserId,
+          audience: 'buyer',
+          orderId,
+          status: 'delivered',
+          title: 'Order delivered',
+          message: 'Your order has been successfully delivered',
+          actorRole: 'delivery_agent',
+        });
+        emitOrderWorkflowEvent({
+          userId: sellerUserId,
+          audience: 'seller',
+          orderId,
+          status: 'delivered',
+          title: 'Order delivered',
+          message: 'Order delivered successfully',
+          actorRole: 'delivery_agent',
+        });
+      } else if (status === 'FAILED' && normalizeOrderStatus(order.status) !== 'delivery_failed') {
+        order.statusHistory.push({ status: order.status, changedAt: new Date(), note: 'Delivery attempt failed' });
+        order.status = 'delivery_failed';
+        await order.save();
+        emitOrderWorkflowEvent({
+          userId: buyerUserId,
+          audience: 'buyer',
+          orderId,
+          status: 'delivery_failed',
+          title: 'Delivery failed',
+          message: 'Delivery attempt failed',
+          actorRole: 'delivery_agent',
+        });
+        emitOrderWorkflowEvent({
+          userId: sellerUserId,
+          audience: 'seller',
+          orderId,
+          status: 'delivery_failed',
+          title: 'Delivery failed',
+          message: 'Delivery attempt failed',
+          actorRole: 'delivery_agent',
+        });
       }
     }
 

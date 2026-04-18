@@ -1,24 +1,28 @@
 // ─── Order Management Controller — Saran ────────────────────────────────────
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import Order, { OrderStatus } from '../models/Order';
+import Order from '../models/Order';
 import Product from '../models/Product';
 import mongoose from 'mongoose';
 import {
   ORDER_STATUS_FLOW,
   getOrderStatusLabel,
+  type OrderStatus,
   normalizeOrderStatus,
 } from '../utils/orderStatus';
+import { emitOrderWorkflowEvent } from '../utils/orderWorkflowEvents';
 
-const SELLER_PENDING_STATUSES: OrderStatus[] = [
-  'awaiting_seller_confirmation',
-  'confirmed',
-  'processing',
-  'ready_for_dispatch',
-  'pickup_assigned',
-];
+interface PopulatedSeller {
+  _id: mongoose.Types.ObjectId | string;
+  firstName?: string | null;
+  lastName?: string | null;
+  shopName?: string | null;
+}
 
-const SHIPPED_STATUSES: OrderStatus[] = ['picked_up', 'out_for_delivery', 'delivered', 'completed'];
+const isPopulatedSeller = (seller: unknown): seller is PopulatedSeller => {
+  return typeof seller === 'object' && seller !== null && '_id' in seller;
+};
+
 const CANCELLABLE_STATUSES: OrderStatus[] = [
   'pending',
   'awaiting_seller_confirmation',
@@ -26,6 +30,8 @@ const CANCELLABLE_STATUSES: OrderStatus[] = [
   'processing',
   'ready_for_dispatch',
 ];
+
+const SELLER_PRE_PICKUP_TARGET_STATUSES: OrderStatus[] = ['confirmed', 'ready_for_dispatch', 'cancelled'];
 
 // ─── Buyer endpoints ────────────────────────────────────────────────────────
 
@@ -42,12 +48,12 @@ export const createOrder = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    const product = await Product.findOne({ _id: productId, status: 'active' })
+    const product = await Product.findOne({ _id: productId, status: 'active', productStatus: 'ENABLED' })
       .populate('seller', 'firstName lastName shopName')
       .lean();
 
     if (!product) {
-      res.status(404).json({ success: false, message: 'Product not found or unavailable' });
+      res.status(404).json({ success: false, message: 'This product/service is currently unavailable' });
       return;
     }
 
@@ -93,6 +99,34 @@ export const createOrder = async (req: AuthRequest, res: Response): Promise<void
     } else {
       await Product.updateOne({ _id: productId }, { $inc: { sales: quantity } });
     }
+
+    const orderId = order._id.toString();
+    const populatedSeller = isPopulatedSeller(product.seller) ? (product.seller as PopulatedSeller) : null;
+    const sellerUserId = populatedSeller ? String(populatedSeller._id) : String(product.seller);
+    const sellerName =
+      populatedSeller
+        ? `${populatedSeller.firstName || ''} ${populatedSeller.lastName || ''}`.trim() || populatedSeller.shopName || 'Seller'
+        : 'Seller';
+
+    emitOrderWorkflowEvent({
+      userId: String(buyerId),
+      audience: 'buyer',
+      orderId,
+      status: 'awaiting_seller_confirmation',
+      title: 'Order placed',
+      message: 'Your order has been placed successfully',
+      actorRole: 'buyer',
+    });
+
+    emitOrderWorkflowEvent({
+      userId: sellerUserId,
+      audience: 'seller',
+      orderId,
+      status: 'awaiting_seller_confirmation',
+      title: 'New order placed',
+      message: `A new order has been placed and is waiting for confirmation from ${sellerName}`,
+      actorRole: 'buyer',
+    });
 
     res.status(201).json({ success: true, data: order });
   } catch (err) {
@@ -163,6 +197,28 @@ export const cancelBuyerOrder = async (req: AuthRequest, res: Response): Promise
       await Product.updateOne({ _id: item.product }, { $inc: { stock: item.qty, sales: -item.qty } });
     }
 
+    const orderId = order._id.toString();
+
+    emitOrderWorkflowEvent({
+      userId: String(order.buyer),
+      audience: 'buyer',
+      orderId,
+      status: 'cancelled',
+      title: 'Order cancelled',
+      message: 'Your order has been cancelled',
+      actorRole: 'buyer',
+    });
+
+    emitOrderWorkflowEvent({
+      userId: String(order.seller),
+      audience: 'seller',
+      orderId,
+      status: 'cancelled',
+      title: 'Order cancelled by buyer',
+      message: 'The buyer cancelled this order before pickup',
+      actorRole: 'buyer',
+    });
+
     res.json({ success: true, data: order });
   } catch (err) {
     console.error('cancelBuyerOrder error:', err);
@@ -206,7 +262,13 @@ export const getOrderStats = async (req: AuthRequest, res: Response): Promise<vo
               $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] },
             },
             pendingOrders: {
-              $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] },
+              $sum: {
+                $cond: [
+                  { $in: ['$status', ['pending', 'awaiting_seller_confirmation', 'confirmed', 'processing', 'ready_for_dispatch']] },
+                  1,
+                  0,
+                ],
+              },
             },
             avgOrderValue: { $avg: '$totalAmount' },
           },
@@ -371,6 +433,14 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
     const currentStatus = normalizeOrderStatus(order.status);
     const allowedTransitions = ORDER_STATUS_FLOW[currentStatus] || [];
 
+    if (req.user!.role === 'seller' && !SELLER_PRE_PICKUP_TARGET_STATUSES.includes(targetStatus)) {
+      res.status(400).json({
+        success: false,
+        message: 'Seller can only confirm, cancel, or mark an order as package ready before pickup',
+      });
+      return;
+    }
+
     if (!allowedTransitions.includes(targetStatus)) {
       res.status(400).json({
         success: false,
@@ -386,6 +456,44 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
     });
     order.status = targetStatus;
     await order.save();
+
+    const orderId = order._id.toString();
+    const buyerUserId = order.buyer.toString();
+    const sellerUserId = order.seller.toString();
+
+    const buyerMessages: Partial<Record<OrderStatus, string>> = {
+      confirmed: 'Your order has been confirmed',
+      cancelled: 'Your order has been cancelled',
+      ready_for_dispatch: 'Your package is ready',
+    };
+
+    const sellerMessages: Partial<Record<OrderStatus, string>> = {
+      confirmed: 'Order confirmed successfully',
+      cancelled: 'Order cancelled successfully',
+      ready_for_dispatch: 'Package marked as ready',
+    };
+
+    if (buyerMessages[targetStatus]) {
+      emitOrderWorkflowEvent({
+        userId: buyerUserId,
+        audience: 'buyer',
+        orderId,
+        status: targetStatus,
+        title: getOrderStatusLabel(targetStatus),
+        message: buyerMessages[targetStatus]!,
+        actorRole: 'seller',
+      });
+    }
+
+    emitOrderWorkflowEvent({
+      userId: sellerUserId,
+      audience: 'seller',
+      orderId,
+      status: targetStatus,
+      title: getOrderStatusLabel(targetStatus),
+      message: sellerMessages[targetStatus] || `Order status updated to ${getOrderStatusLabel(targetStatus)}`,
+      actorRole: 'seller',
+    });
 
     res.json({ success: true, data: order });
   } catch (err) {
@@ -421,6 +529,16 @@ export const confirmOrderReceived = async (req: AuthRequest, res: Response): Pro
     });
     order.status = 'completed';
     await order.save();
+
+    emitOrderWorkflowEvent({
+      userId: String(order.seller),
+      audience: 'seller',
+      orderId: order._id.toString(),
+      status: 'completed',
+      title: 'Order completed',
+      message: 'Buyer confirmed successful delivery',
+      actorRole: 'buyer',
+    });
 
     res.json({ success: true, data: order });
   } catch (err) {

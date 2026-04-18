@@ -4,11 +4,10 @@ import {
   LifeBuoy,
   MessageSquare,
   Package,
+  Star,
   RotateCcw,
   Settings,
   ShoppingCart,
-  Truck,
-  Wallet,
   Wrench,
 } from "lucide-react";
 import { DashboardShell } from "./DashboardShell";
@@ -18,9 +17,8 @@ const navItems = [
   { title: "Products (Add / Manage)", icon: Package, path: "/mechanic/products" },
   { title: "Services (Add / Manage)", icon: Wrench, path: "/mechanic/services" },
   { title: "Orders", icon: ShoppingCart, path: "/mechanic/orders" },
-  { title: "Shipping & Delivery", icon: Truck, path: "/mechanic/shipping-delivery" },
+  { title: "Rating & Review", icon: Star, path: "/mechanic/reviews" },
   { title: "Returns & Claims", icon: RotateCcw, path: "/mechanic/returns-claims" },
-  { title: "Finance status", icon: Wallet, path: "/mechanic/finance-status" },
   { title: "Notification", icon: Bell, path: "/mechanic/notification" },
   { title: "Buyer message center", icon: MessageSquare, path: "/mechanic/buyer-message-center" },
   { title: "Support / Help Center", icon: LifeBuoy, path: "/mechanic/support-help-center" },

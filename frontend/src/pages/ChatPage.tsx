@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
 import {
   Search,
   Send,
@@ -23,24 +22,8 @@ import {
   ChatMessage,
 } from '@/services/chatService';
 import { resolveMediaUrl } from '@/lib/imageUrl';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
-function getSocketUrl() {
-  if (API_URL.startsWith('http://') || API_URL.startsWith('https://')) {
-    return API_URL.replace(/\/api\/?$/, '');
-  }
-
-  if (import.meta.env.DEV) {
-    return 'http://localhost:5000';
-  }
-
-  if (typeof window !== 'undefined') {
-    return window.location.origin;
-  }
-
-  return 'http://localhost:5000';
-}
+import { createAuthedSocket } from '@/lib/socket';
+import type { Socket } from 'socket.io-client';
 
 function formatTime(dateStr: string) {
   const d = new Date(dateStr);
@@ -108,13 +91,8 @@ export default function ChatPage() {
 
   // Setup Socket.IO connection
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    const s = io(getSocketUrl(), {
-      auth: { token },
-      transports: ['websocket', 'polling'],
-    });
+    const s = createAuthedSocket();
+    if (!s) return;
 
     s.on('connect', () => {
       s.emit('users:online');

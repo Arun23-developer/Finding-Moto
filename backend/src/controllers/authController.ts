@@ -16,6 +16,8 @@ interface EmailValidationResult {
   reason?: string;
 }
 
+const normalizeEmail = (value: string): string => value.trim().toLowerCase();
+
 interface RegisterRequestBody {
   firstName: string;
   lastName: string;
@@ -165,6 +167,8 @@ export const register = async (
       return;
     }
 
+    const normalizedEmail = normalizeEmail(email);
+
     // Validate role
     const validRoles: UserRole[] = [...USER_ROLES];
     const userRole = role || 'buyer';
@@ -184,14 +188,14 @@ export const register = async (
     }
 
     // Validate email format and domain
-    const emailCheck = await validateEmail(email);
+    const emailCheck = await validateEmail(normalizedEmail);
     if (!emailCheck.valid) {
       res.status(400).json({ message: emailCheck.reason });
       return;
     }
 
     // Check if user already exists with same email AND role
-    const userExists = await User.findOne({ email, role: userRole });
+    const userExists = await User.findOne({ email: normalizedEmail, role: userRole });
     if (userExists) {
       res.status(400).json({ message: `An account with this email already exists as ${userRole}` });
       return;
@@ -199,7 +203,12 @@ export const register = async (
 
     // Build user data
     const userData: any = {
-      firstName, lastName, email, password, phone, role: userRole
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: normalizedEmail,
+      password,
+      phone,
+      role: userRole
     };
 
     // Add seller-specific fields
@@ -229,7 +238,7 @@ export const register = async (
 
     // Send OTP email
     try {
-      await sendOTPEmail(email, otp, firstName);
+      await sendOTPEmail(normalizedEmail, otp, firstName.trim());
     } catch (emailError) {
       console.error('Failed to send OTP email:', emailError);
       // Don't fail registration, user can resend OTP
@@ -269,14 +278,31 @@ export const login = async (
       return;
     }
 
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedPassword = password.trim();
+
+    if (!normalizedPassword) {
+      res.status(400).json({ message: 'Please provide email and password' });
+      return;
+    }
+
     // If role is specified (user chose from role selection), find that specific account
     if (role) {
-      const user = await User.findOne({ email, role }).select('+password');
+      const user = await User.findOne({ email: normalizedEmail, role }).select('+password');
       if (!user || !user.password) {
         res.status(401).json({ message: 'Invalid email or password' });
         return;
       }
-      const isMatch = await user.matchPassword(password);
+
+      let isMatch = false;
+      try {
+        isMatch = await user.matchPassword(normalizedPassword);
+      } catch (passwordError) {
+        console.error(`Password comparison failed for user ${user._id}:`, passwordError);
+        res.status(401).json({ message: 'Invalid email or password' });
+        return;
+      }
+
       if (!isMatch) {
         res.status(401).json({ message: 'Invalid email or password' });
         return;
@@ -305,7 +331,7 @@ export const login = async (
     }
 
     // Check for user — same email may have multiple role accounts
-    const users = await User.find({ email }).select('+password');
+    const users = await User.find({ email: normalizedEmail }).select('+password');
     if (!users || users.length === 0) {
       res.status(401).json({ message: 'Invalid email or password' });
       return;
@@ -315,9 +341,13 @@ export const login = async (
     const matchedUsers: IUser[] = [];
     for (const candidate of users) {
       if (!candidate.password) continue;
-      const isMatch = await candidate.matchPassword(password);
-      if (isMatch) {
-        matchedUsers.push(candidate);
+      try {
+        const isMatch = await candidate.matchPassword(normalizedPassword);
+        if (isMatch) {
+          matchedUsers.push(candidate);
+        }
+      } catch (passwordError) {
+        console.error(`Skipping user ${candidate._id} during login because password comparison failed:`, passwordError);
       }
     }
 
@@ -336,7 +366,7 @@ export const login = async (
       }));
       res.json({
         requiresRoleSelection: true,
-        email,
+        email: normalizedEmail,
         roles
       });
       return;
@@ -386,8 +416,8 @@ export const login = async (
       token: generateToken(user._id, user.role)
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ message: errorMessage });
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Login failed. Please try again.' });
   }
 };
 
@@ -420,8 +450,10 @@ export const googleAuth = async (
       return;
     }
 
+    const normalizedEmail = normalizeEmail(email);
+
     // Check if user exists (Google auth = buyer only)
-    let user = await User.findOne({ $or: [{ googleId }, { email, role: 'buyer' }] });
+    let user = await User.findOne({ $or: [{ googleId }, { email: normalizedEmail, role: 'buyer' }] });
 
     if (user) {
       // Update Google ID and avatar if not set
@@ -448,7 +480,7 @@ export const googleAuth = async (
       user = await User.create({
         firstName: given_name || 'User',
         lastName: family_name || '',
-        email,
+        email: normalizedEmail,
         googleId,
         avatar: picture,
         role: 'buyer'
@@ -481,7 +513,7 @@ export const verifyOTP = async (
     }
 
     // Find the unverified user with this email (and optional role)
-    const filter: any = { email, isEmailVerified: false };
+    const filter: any = { email: normalizeEmail(email), isEmailVerified: false };
     if (role) filter.role = role;
     const user = await User.findOne(filter).sort({ createdAt: -1 });
     if (!user) {
@@ -558,7 +590,7 @@ export const resendOTP = async (
     }
 
     // Find the unverified user with this email (and optional role)
-    const filter: any = { email, isEmailVerified: false };
+    const filter: any = { email: normalizeEmail(email), isEmailVerified: false };
     if (role) filter.role = role;
     const user = await User.findOne(filter).sort({ createdAt: -1 });
     if (!user) {

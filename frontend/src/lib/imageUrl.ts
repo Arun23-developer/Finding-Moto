@@ -6,9 +6,12 @@ const DEFAULT_PRODUCT_FALLBACK =
 
 function getApiOrigin(): string {
   const configuredApiUrl = (import.meta.env.VITE_API_URL || "").trim();
-  const apiUrl = configuredApiUrl || (import.meta.env.DEV ? "http://localhost:5000/api" : "/api");
+  const apiUrl = configuredApiUrl || "/api";
   if (apiUrl.startsWith("http://") || apiUrl.startsWith("https://")) {
     return apiUrl.replace(/\/api\/?$/i, "");
+  }
+  if (typeof window !== "undefined") {
+    return window.location.origin;
   }
   return "";
 }

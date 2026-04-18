@@ -14,10 +14,13 @@ import {
   ShoppingBag,
   ChevronDown,
   Star,
+  RotateCcw,
 } from "lucide-react";
 import api from "../services/api";
 import { resolveMediaUrl } from "@/lib/imageUrl";
 import reviewService from "@/services/reviewService";
+import { useToast } from "@/hooks/use-toast";
+import { createAuthedSocket, type OrderWorkflowSocketEvent } from "@/lib/socket";
 
 interface OrderItem {
   product: string;
@@ -41,6 +44,7 @@ interface Order {
     | "pickup_assigned"
     | "picked_up"
     | "out_for_delivery"
+    | "delivery_failed"
     | "delivered"
     | "completed"
     | "cancelled"
@@ -55,14 +59,15 @@ interface Order {
 
 const statusConfig: Record<string, { icon: React.ReactNode; label: string; color: string; bg: string }> = {
   pending: { icon: <Clock className="h-4 w-4" />, label: "Pending", color: "text-yellow-600 dark:text-yellow-400", bg: "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800" },
-  awaiting_seller_confirmation: { icon: <Clock className="h-4 w-4" />, label: "Awaiting Seller Confirmation", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800" },
+  awaiting_seller_confirmation: { icon: <Clock className="h-4 w-4" />, label: "Placed", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800" },
   confirmed: { icon: <CheckCircle2 className="h-4 w-4" />, label: "Confirmed", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800" },
   rejected: { icon: <XCircle className="h-4 w-4" />, label: "Rejected", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" },
   processing: { icon: <ShoppingBag className="h-4 w-4" />, label: "Processing", color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800" },
-  ready_for_dispatch: { icon: <ShoppingBag className="h-4 w-4" />, label: "Ready for Dispatch", color: "text-sky-600 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800" },
-  pickup_assigned: { icon: <Truck className="h-4 w-4" />, label: "Pickup Assigned", color: "text-cyan-600 dark:text-cyan-400", bg: "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800" },
+  ready_for_dispatch: { icon: <ShoppingBag className="h-4 w-4" />, label: "Package Ready", color: "text-sky-600 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800" },
+  pickup_assigned: { icon: <Truck className="h-4 w-4" />, label: "Delivery Agent Assigned", color: "text-cyan-600 dark:text-cyan-400", bg: "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800" },
   picked_up: { icon: <Truck className="h-4 w-4" />, label: "Picked Up", color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800" },
   out_for_delivery: { icon: <Truck className="h-4 w-4" />, label: "Out for Delivery", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" },
+  delivery_failed: { icon: <XCircle className="h-4 w-4" />, label: "Delivery Failed", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" },
   delivered: { icon: <CheckCircle2 className="h-4 w-4" />, label: "Delivered", color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" },
   completed: { icon: <CheckCircle2 className="h-4 w-4" />, label: "Completed", color: "text-emerald-700 dark:text-emerald-300", bg: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800" },
   cancelled: { icon: <XCircle className="h-4 w-4" />, label: "Cancelled", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" },
@@ -80,6 +85,7 @@ const statusFilters = [
   "pickup_assigned",
   "picked_up",
   "out_for_delivery",
+  "delivery_failed",
   "delivered",
   "completed",
   "cancelled",
@@ -103,6 +109,7 @@ const orderDateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 const MyOrders: React.FC = () => {
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,6 +117,7 @@ const MyOrders: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [reviewedProductIds, setReviewedProductIds] = useState<Set<string>>(new Set());
+  const [returnRequestOrderIds, setReturnRequestOrderIds] = useState<Set<string>>(new Set());
   const latestOrdersRequestIdRef = useRef(0);
 
   const fetchOrders = useCallback(async () => {
@@ -152,6 +160,18 @@ const MyOrders: React.FC = () => {
     }
   }, []);
 
+  const fetchReturnRequestOrderIds = useCallback(async () => {
+    try {
+      const response = await api.get("/returns/my");
+      const orderIds = (Array.isArray(response.data.data) ? response.data.data : [])
+        .map((item: any) => item.order?._id)
+        .filter((id: string | undefined): id is string => Boolean(id));
+      setReturnRequestOrderIds(new Set(orderIds));
+    } catch {
+      setReturnRequestOrderIds(new Set());
+    }
+  }, []);
+
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
@@ -159,6 +179,29 @@ const MyOrders: React.FC = () => {
   useEffect(() => {
     fetchReviewedProductIds();
   }, [fetchReviewedProductIds]);
+
+  useEffect(() => {
+    fetchReturnRequestOrderIds();
+  }, [fetchReturnRequestOrderIds]);
+
+  useEffect(() => {
+    const socket = createAuthedSocket();
+    if (!socket) return;
+
+    socket.on("order:workflow", (event: OrderWorkflowSocketEvent) => {
+      if (event.audience !== "buyer") return;
+      fetchOrders();
+      fetchReturnRequestOrderIds();
+      toast({
+        title: event.title,
+        description: event.message,
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchOrders, fetchReturnRequestOrderIds, toast]);
 
   const handleCancel = async (orderId: string) => {
     if (!confirm("Are you sure you want to cancel this order?")) return;
@@ -262,7 +305,7 @@ const MyOrders: React.FC = () => {
           {!loading && orders.length > 0 && (
             <div className="space-y-4">
               {orders.map((order) => {
-                const sc = statusConfig[order.status];
+                const sc = statusConfig[order.status] || statusConfig.pending;
                 return (
                   <div key={order._id} className={`p-5 rounded-xl border ${sc.bg} transition-all`}>
                     {/* Header */}
@@ -344,7 +387,7 @@ const MyOrders: React.FC = () => {
                             LKR {order.totalAmount.toLocaleString()}
                           </p>
                         </div>
-                        {order.status === "pending" && (
+                        {["pending", "awaiting_seller_confirmation", "confirmed", "processing", "ready_for_dispatch"].includes(order.status) && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -374,6 +417,28 @@ const MyOrders: React.FC = () => {
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                             )}
                             Confirm Receipt
+                          </Button>
+                        )}
+                        {order.status === "delivered" && !returnRequestOrderIds.has(order._id) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 shrink-0"
+                            onClick={() => navigate(`/buyer/returns-claims?orderId=${order._id}`)}
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Return
+                          </Button>
+                        )}
+                        {order.status === "delivered" && returnRequestOrderIds.has(order._id) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0"
+                            onClick={() => navigate("/buyer/returns-claims")}
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Track Return
                           </Button>
                         )}
                       </div>

@@ -78,9 +78,9 @@ export default function OrdersManagement() {
   }, [fetchOrders]);
 
   const totalCount = orders.length;
-  const pendingCount = orders.filter((o) => o.status === "pending").length;
-  const processingCount = orders.filter((o) => ["confirmed", "shipped"].includes(o.status)).length;
-  const deliveredCount = orders.filter((o) => o.status === "delivered").length;
+  const pendingCount = orders.filter((o) => ["pending", "awaiting_seller_confirmation"].includes(o.status)).length;
+  const processingCount = orders.filter((o) => ["confirmed", "processing", "ready_for_dispatch", "pickup_assigned", "picked_up", "out_for_delivery"].includes(o.status)).length;
+  const deliveredCount = orders.filter((o) => ["delivered", "completed"].includes(o.status)).length;
 
   if (loading) {
     return (
@@ -138,7 +138,7 @@ export default function OrdersManagement() {
           />
         </div>
         <div className="flex gap-1.5 flex-wrap">
-          {["all", "pending", "confirmed", "shipped", "delivered", "cancelled"].map((s) => (
+          {["all", "pending", "awaiting_seller_confirmation", "confirmed", "processing", "ready_for_dispatch", "pickup_assigned", "picked_up", "out_for_delivery", "delivered", "completed", "cancelled", "refunded"].map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -149,7 +149,7 @@ export default function OrdersManagement() {
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
               )}
             >
-              {s === "all" ? "All" : s}
+              {s === "all" ? "All" : statusLabels[s] || s}
             </button>
           ))}
         </div>
@@ -190,7 +190,7 @@ export default function OrdersManagement() {
                       <td className="py-3 font-semibold">LKR {order.totalAmount.toLocaleString()}</td>
                       <td className="py-3">
                         <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${statusStyles[order.status] || ""}`}>
-                          {order.status}
+                          {statusLabels[order.status] || order.status}
                         </span>
                       </td>
                       <td className="py-3 text-muted-foreground">

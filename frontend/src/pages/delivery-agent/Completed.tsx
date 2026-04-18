@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import api from "@/services/api";
 
-type DeliveryStatus = "ASSIGNED" | "PICKED_UP" | "IN_TRANSIT" | "DELIVERED";
+type DeliveryStatus = "ASSIGNED" | "PICKED_UP" | "IN_TRANSIT" | "DELIVERED" | "FAILED";
 
 interface DeliveryItem {
   name?: string;
@@ -62,6 +62,11 @@ const statusConfig: Record<DeliveryStatus, { label: string; className: string }>
     label: "Delivered",
     className:
       "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800",
+  },
+  FAILED: {
+    label: "Delivery Failed",
+    className:
+      "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800",
   },
 };
 
@@ -143,7 +148,7 @@ export default function DeliveryCompletedPage() {
   }, [fetchDeliveries]);
 
   const completedDeliveries = useMemo(
-    () => deliveries.filter((delivery) => delivery.status === "DELIVERED"),
+    () => deliveries.filter((delivery) => delivery.status === "DELIVERED" || delivery.status === "FAILED"),
     [deliveries]
   );
 

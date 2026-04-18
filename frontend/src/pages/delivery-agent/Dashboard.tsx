@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Loader2, Package, RefreshCw, Truck } from "lucide-react";
 import api from "@/services/api";
 
-type DeliveryStatus = "ASSIGNED" | "PICKED_UP" | "IN_TRANSIT" | "DELIVERED";
+type DeliveryStatus = "ASSIGNED" | "PICKED_UP" | "IN_TRANSIT" | "DELIVERED" | "FAILED";
 
 interface DeliveryItem {
   name: string;
@@ -34,7 +34,7 @@ interface DeliveryRecord {
 
 const statusConfig: Record<DeliveryStatus, { label: string; action?: DeliveryStatus; actionLabel?: string; className: string }> = {
   ASSIGNED: {
-    label: "Assigned",
+    label: "Pickup Request",
     action: "PICKED_UP",
     actionLabel: "Mark Picked Up",
     className: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800",
@@ -46,16 +46,23 @@ const statusConfig: Record<DeliveryStatus, { label: string; action?: DeliverySta
     className: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800",
   },
   IN_TRANSIT: {
-    label: "In Transit",
-    action: "DELIVERED",
-    actionLabel: "Mark Delivered",
+    label: "Out for Delivery",
     className: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-800",
   },
   DELIVERED: {
     label: "Delivered",
     className: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800",
   },
+  FAILED: {
+    label: "Delivery Failed",
+    className: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800",
+  },
 };
+
+const inTransitActions: Array<{ status: DeliveryStatus; label: string }> = [
+  { status: "DELIVERED", label: "Mark Delivered" },
+  { status: "FAILED", label: "Mark Failed" },
+];
 
 const getBuyerName = (delivery: DeliveryRecord) => {
   const buyer = delivery.order?.buyer;
@@ -189,10 +196,28 @@ export default function DeliveryAgentDashboard() {
                             >
                               {updatingId === delivery._id ? "Updating..." : cfg.actionLabel}
                             </Button>
+                          ) : delivery.status === "IN_TRANSIT" ? (
+                            <div className="flex justify-end gap-2">
+                              {inTransitActions.map((action) => (
+                                <Button
+                                  key={action.status}
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={updatingId === delivery._id}
+                                  onClick={() => handleStatusUpdate(delivery._id, action.status)}
+                                >
+                                  {updatingId === delivery._id ? "Updating..." : action.label}
+                                </Button>
+                              ))}
+                            </div>
                           ) : (
-                            <span className="inline-flex items-center gap-2 text-xs text-emerald-600">
+                            <span
+                              className={`inline-flex items-center gap-2 text-xs ${
+                                delivery.status === "FAILED" ? "text-red-600" : "text-emerald-600"
+                              }`}
+                            >
                               <Truck className="h-4 w-4" />
-                              Completed
+                              {delivery.status === "FAILED" ? "Failed" : "Completed"}
                             </span>
                           )}
                         </td>

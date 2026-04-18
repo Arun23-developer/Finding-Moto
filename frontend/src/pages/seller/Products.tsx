@@ -18,7 +18,6 @@ import { ProductsTable } from "./components/ProductsTable";
 import { ProductsToolbar } from "./components/ProductsToolbar";
 import { StatusFilterBar } from "./components/StatusFilterBar";
 import {
-  getResolvedStatus,
   type ProductFormValues,
   type ProductListMeta,
   type SellerProduct,
@@ -26,6 +25,24 @@ import {
 
 const FETCH_LIMIT = 100;
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
+const PRODUCT_FILTER_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "enabled", label: "Enable" },
+  { value: "disabled", label: "Disable" },
+  { value: "out_of_stock", label: "Out Of Stock" },
+];
+
+const getProductFilterKey = (product: SellerProduct): "enabled" | "disabled" | "out_of_stock" => {
+  if (product.productStatus === "DISABLED") {
+    return "disabled";
+  }
+
+  if ((product.stock ?? 0) <= 0) {
+    return "out_of_stock";
+  }
+
+  return "enabled";
+};
 
 export default function SellerProducts() {
   const [products, setProducts] = useState<SellerProduct[]>([]);
@@ -104,13 +121,13 @@ export default function SellerProducts() {
   const counts = useMemo(() => {
     const totals = {
       all: products.length,
-      active: 0,
-      inactive: 0,
+      enabled: 0,
+      disabled: 0,
       out_of_stock: 0,
     };
 
     products.forEach((product) => {
-      const status = getResolvedStatus(product);
+      const status = getProductFilterKey(product);
       totals[status] += 1;
     });
 
@@ -119,7 +136,7 @@ export default function SellerProducts() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      const matchesStatus = statusFilter === "all" || getResolvedStatus(product) === statusFilter;
+      const matchesStatus = statusFilter === "all" || getProductFilterKey(product) === statusFilter;
       const matchesSearch =
         !searchQuery ||
         (product.name || "").toLowerCase().includes(searchQuery) ||
@@ -181,6 +198,7 @@ export default function SellerProducts() {
       brand: values.brand.trim(),
       description: values.description.trim(),
       status: values.status,
+      productStatus: values.visibilityStatus,
       images: values.images ?? [],
     };
 
@@ -217,21 +235,21 @@ export default function SellerProducts() {
     setTogglingProductId(product._id);
 
     try {
-      const nextStatus = product.status === "active" ? "inactive" : "active";
-      await api.put(`/products/${product._id}`, { status: nextStatus });
+      const nextProductStatus = product.productStatus === "DISABLED" ? "ENABLED" : "DISABLED";
+      await api.put(`/products/${product._id}`, { productStatus: nextProductStatus });
       setProducts((current) =>
         current.map((item) =>
-          item._id === product._id ? { ...item, status: nextStatus } : item,
+          item._id === product._id ? { ...item, productStatus: nextProductStatus } : item,
         ),
       );
       if (editingProduct?._id === product._id) {
-        setEditingProduct((current) => (current ? { ...current, status: nextStatus } : current));
+        setEditingProduct((current) => (current ? { ...current, productStatus: nextProductStatus } : current));
       }
       if (selectedProduct?._id === product._id) {
-        setSelectedProduct((current) => (current ? { ...current, status: nextStatus } : current));
+        setSelectedProduct((current) => (current ? { ...current, productStatus: nextProductStatus } : current));
       }
     } catch {
-      setError("Unable to update product status.");
+      setError("Unable to update product visibility.");
     } finally {
       setTogglingProductId(null);
     }
@@ -292,6 +310,7 @@ export default function SellerProducts() {
           activeFilter={statusFilter}
           counts={counts}
           onChange={setStatusFilter}
+          options={PRODUCT_FILTER_OPTIONS}
         />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

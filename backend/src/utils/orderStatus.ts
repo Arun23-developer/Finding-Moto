@@ -8,6 +8,7 @@ export const ORDER_STATUSES = [
   'pickup_assigned',
   'picked_up',
   'out_for_delivery',
+  'delivery_failed',
   'delivered',
   'completed',
   'cancelled',
@@ -19,14 +20,15 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   pending: 'Pending',
-  awaiting_seller_confirmation: 'Awaiting Seller Confirmation',
+  awaiting_seller_confirmation: 'Placed',
   confirmed: 'Confirmed',
   rejected: 'Rejected',
   processing: 'Processing',
-  ready_for_dispatch: 'Ready for Dispatch',
-  pickup_assigned: 'Pickup Assigned',
+  ready_for_dispatch: 'Package Ready',
+  pickup_assigned: 'Delivery Agent Assigned',
   picked_up: 'Picked Up',
   out_for_delivery: 'Out for Delivery',
+  delivery_failed: 'Delivery Failed',
   delivered: 'Delivered',
   completed: 'Completed',
   cancelled: 'Cancelled',
@@ -37,13 +39,14 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 export const ORDER_STATUS_FLOW: Record<OrderStatus, OrderStatus[]> = {
   pending: ['awaiting_seller_confirmation', 'cancelled'],
   awaiting_seller_confirmation: ['confirmed', 'rejected', 'cancelled'],
-  confirmed: ['processing', 'cancelled'],
+  confirmed: ['processing', 'ready_for_dispatch', 'cancelled'],
   rejected: ['refunded'],
   processing: ['ready_for_dispatch', 'cancelled'],
   ready_for_dispatch: ['pickup_assigned', 'cancelled'],
   pickup_assigned: ['picked_up'],
   picked_up: ['out_for_delivery'],
-  out_for_delivery: ['delivered'],
+  out_for_delivery: ['delivered', 'delivery_failed'],
+  delivery_failed: [],
   delivered: ['completed'],
   completed: ['refunded'],
   cancelled: ['refunded'],
@@ -73,5 +76,5 @@ export const getOrderStatusLabel = (status?: string | null): string => {
 
 export const isTerminalOrderStatus = (status?: string | null): boolean => {
   const normalized = normalizeOrderStatus(status);
-  return ['rejected', 'completed', 'cancelled', 'refunded'].includes(normalized);
+  return ['rejected', 'delivery_failed', 'completed', 'cancelled', 'refunded'].includes(normalized);
 };

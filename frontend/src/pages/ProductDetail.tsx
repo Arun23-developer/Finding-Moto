@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
 import { resolveMediaUrl } from "@/lib/imageUrl";
 import reviewService from "@/services/reviewService";
 
@@ -39,6 +40,7 @@ interface ProductDetail {
   description: string;
   inStock: boolean;
   stock: number;
+  productStatus?: "ENABLED" | "DISABLED";
   type: "product" | "service";
   seller: { _id: string; firstName: string; lastName: string; shopName?: string };
   reviews: Array<{
@@ -58,6 +60,7 @@ const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { addToCart } = useCart();
 
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,18 +81,23 @@ const ProductDetailPage: React.FC = () => {
   const [reviewError, setReviewError] = useState("");
   const [reviewSuccess, setReviewSuccess] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [addToCartLoading, setAddToCartLoading] = useState(false);
+  const [addToCartMessage, setAddToCartMessage] = useState("");
+  const [addToCartError, setAddToCartError] = useState("");
 
   const fetchProduct = async () => {
     if (!id) return;
 
     try {
       setLoading(true);
+      setError("");
       const { data: res } = await api.get(`/public/products/${id}`);
       if (res.success) {
         setProduct(res.data);
       }
-    } catch {
-      setError("Failed to load product details.");
+    } catch (err: any) {
+      setProduct(null);
+      setError(err.response?.data?.message || "Failed to load product details.");
     } finally {
       setLoading(false);
     }
@@ -187,6 +195,38 @@ const ProductDetailPage: React.FC = () => {
       setReviewError(err.response?.data?.message || 'Failed to submit review');
     } finally {
       setReviewSubmitting(false);
+    }
+  };
+
+  const handleAddToCart = async () => {
+    if (!product) return;
+    if (product.productStatus === "DISABLED") {
+      setAddToCartError("This product is currently unavailable");
+      setAddToCartMessage("");
+      return;
+    }
+    if (!product.inStock) {
+      setAddToCartError("Product is currently out of stock");
+      setAddToCartMessage("");
+      return;
+    }
+
+    try {
+      setAddToCartLoading(true);
+      setAddToCartError("");
+      setAddToCartMessage("");
+      const result = await addToCart({
+        productId: product._id,
+        productName: product.name,
+        productImage: product.image || product.images?.[0] || null,
+        productPrice: product.price,
+        quantity: qty,
+      });
+      setAddToCartMessage(result.message);
+    } catch {
+      setAddToCartError("Failed to add product to cart. Please try again.");
+    } finally {
+      setAddToCartLoading(false);
     }
   };
 
@@ -430,7 +470,26 @@ const ProductDetailPage: React.FC = () => {
 
               {/* Action buttons */}
               {!showOrderForm ? (
-                <div className="flex gap-3 pt-4">
+                <div className="flex flex-col gap-3 pt-4 sm:flex-row">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="flex-1 gap-2"
+                    disabled={!product.inStock || addToCartLoading}
+                    onClick={handleAddToCart}
+                  >
+                    {addToCartLoading ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="h-5 w-5" />
+                        {product.inStock ? "Add to Cart" : "Currently Out of Stock"}
+                      </>
+                    )}
+                  </Button>
                   <Button
                     size="lg"
                     className="flex-1 gap-2"
@@ -444,7 +503,7 @@ const ProductDetailPage: React.FC = () => {
                     }}
                   >
                     <ShoppingCart className="h-5 w-5" />
-                    {product.inStock ? "Order Now" : "Out of Stock"}
+                    {product.inStock ? "Buy Now" : "Out of Stock"}
                   </Button>
                 </div>
               ) : (
@@ -583,6 +642,13 @@ const ProductDetailPage: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {addToCartMessage ? (
+                <p className="text-sm font-medium text-green-600 dark:text-green-400">{addToCartMessage}</p>
+              ) : null}
+              {addToCartError ? (
+                <p className="text-sm font-medium text-red-600 dark:text-red-400">{addToCartError}</p>
+              ) : null}
             </div>
           </div>
 

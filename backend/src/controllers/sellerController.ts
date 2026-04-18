@@ -5,7 +5,7 @@ import Product from '../models/Product';
 import Order from '../models/Order';
 import Review from '../models/Review';
 import mongoose from 'mongoose';
-import { normalizeOrderStatus, getOrderStatusLabel } from '../utils/orderStatus';
+import { getOrderStatusLabel } from '../utils/orderStatus';
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -512,53 +512,55 @@ export const getSellerReviews = async (req: AuthRequest, res: Response): Promise
   try {
     const sellerId = req.user!._id as mongoose.Types.ObjectId;
 
-    // Get all product IDs owned by this seller
-    const products = await Product.find({ seller: sellerId }).select('_id name').lean();
+    const products = await Product.find({ seller: sellerId, type: 'product' }).select('_id name').lean();
     const productIds = products.map((p) => p._id);
     const productMap = new Map(products.map((p) => [p._id.toString(), p.name]));
 
-    // Get all reviews for those products
     const reviews = await Review.find({ productId: { $in: productIds } })
       .sort({ createdAt: -1 })
+      .populate('buyer', 'firstName lastName')
       .lean();
 
-    // Calculate stats
     const total = reviews.length;
     const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
     const average = total > 0 ? Math.round((sum / total) * 10) / 10 : 0;
+    const productRatings = products.map((product) => {
+      const productReviewSet = reviews.filter((review) => review.productId?.toString() === product._id.toString());
+      const reviewCount = productReviewSet.length;
+      const averageRating = reviewCount > 0
+        ? Math.round((productReviewSet.reduce((acc, review) => acc + review.rating, 0) / reviewCount) * 10) / 10
+        : 0;
 
-    // Rating distribution
-    const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    reviews.forEach((r) => {
-      dist[r.rating] = (dist[r.rating] || 0) + 1;
+      return {
+        productId: product._id,
+        productName: product.name,
+        averageRating,
+        totalReviewCount: reviewCount,
+      };
+    }).sort((a, b) => {
+      if (b.totalReviewCount !== a.totalReviewCount) return b.totalReviewCount - a.totalReviewCount;
+      return b.averageRating - a.averageRating;
     });
-    const distribution = [5, 4, 3, 2, 1].map((stars) => ({
-      stars,
-      count: dist[stars],
-      percentage: total > 0 ? Math.round((dist[stars] / total) * 100) : 0,
-    }));
 
-    // Recommended: count of 4-5 star reviews
-    const recommended = total > 0
-      ? Math.round(((dist[4] + dist[5]) / total) * 100)
-      : 0;
-
-    // Enrich reviews with product name
-    const enrichedReviews = reviews.map((r) => ({
-      _id: r._id,
-      productId: r.productId,
-      productName: r.productId ? productMap.get(r.productId.toString()) || 'Unknown Product' : 'Unknown Product',
-      rating: r.rating,
-      comment: r.comment,
-      createdAt: r.createdAt,
-    }));
+    const customerReviews = reviews.map((review) => {
+      const buyer = review.buyer as unknown as { firstName?: string; lastName?: string } | null;
+      return {
+        _id: review._id,
+        productId: review.productId,
+        productName: review.productId ? productMap.get(review.productId.toString()) || 'Unknown Product' : 'Unknown Product',
+        customerName: buyer ? `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || 'Customer' : 'Customer',
+        rating: review.rating,
+        comment: review.comment,
+        reviewDate: review.createdAt,
+      };
+    });
 
     res.json({
       success: true,
       data: {
-        stats: { average, total, recommended },
-        distribution,
-        reviews: enrichedReviews,
+        stats: { average, total },
+        productRatings,
+        customerReviews,
       },
     });
   } catch (err) {

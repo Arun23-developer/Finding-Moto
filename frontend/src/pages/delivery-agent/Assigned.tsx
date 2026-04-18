@@ -10,8 +10,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import api from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
+import { createAuthedSocket, type OrderWorkflowSocketEvent } from "@/lib/socket";
 
-type DeliveryStatus = "ASSIGNED" | "PICKED_UP" | "IN_TRANSIT" | "DELIVERED";
+type DeliveryStatus = "ASSIGNED" | "PICKED_UP" | "IN_TRANSIT" | "DELIVERED" | "FAILED";
 
 interface DeliveryItem {
   name?: string;
@@ -49,23 +51,21 @@ const statusConfig: Record<
   { label: string; action?: DeliveryStatus; actionLabel?: string; className: string }
 > = {
   ASSIGNED: {
-    label: "Assigned",
+    label: "Pickup Request",
     action: "PICKED_UP",
-    actionLabel: "Mark PICKED_UP",
+    actionLabel: "Mark Picked Up",
     className:
       "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800",
   },
   PICKED_UP: {
     label: "Picked Up",
     action: "IN_TRANSIT",
-    actionLabel: "Mark IN_TRANSIT",
+    actionLabel: "Start Delivery",
     className:
       "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800",
   },
   IN_TRANSIT: {
-    label: "In Transit",
-    action: "DELIVERED",
-    actionLabel: "Mark DELIVERED",
+    label: "Out for Delivery",
     className:
       "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-800",
   },
@@ -74,7 +74,17 @@ const statusConfig: Record<
     className:
       "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800",
   },
+  FAILED: {
+    label: "Delivery Failed",
+    className:
+      "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800",
+  },
 };
+
+const inTransitActions: Array<{ status: DeliveryStatus; label: string }> = [
+  { status: "DELIVERED", label: "Mark Delivered" },
+  { status: "FAILED", label: "Mark Failed" },
+];
 
 const getText = (value?: string | number | null) => {
   if (value === null || value === undefined) return "-";
@@ -122,6 +132,7 @@ const getAssignedAtLabel = (value?: string) => {
 };
 
 export default function DeliveryAssignedPage() {
+  const { toast } = useToast();
   const [deliveries, setDeliveries] = useState<DeliveryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +170,24 @@ export default function DeliveryAssignedPage() {
   useEffect(() => {
     fetchDeliveries();
   }, [fetchDeliveries]);
+
+  useEffect(() => {
+    const socket = createAuthedSocket();
+    if (!socket) return;
+
+    socket.on("order:workflow", (event: OrderWorkflowSocketEvent) => {
+      if (event.audience !== "delivery_agent") return;
+      fetchDeliveries();
+      toast({
+        title: event.title,
+        description: event.message,
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchDeliveries, toast]);
 
   const handleStatusUpdate = useCallback(async (deliveryId: string, nextStatus: DeliveryStatus) => {
     setUpdatingId(deliveryId);
@@ -274,10 +303,28 @@ export default function DeliveryAssignedPage() {
                               >
                                 {updatingId === delivery._id ? "Updating..." : cfg.actionLabel}
                               </Button>
+                            ) : delivery.status === "IN_TRANSIT" ? (
+                              <div className="flex justify-end gap-2">
+                                {inTransitActions.map((action) => (
+                                  <Button
+                                    key={action.status}
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={updatingId === delivery._id}
+                                    onClick={() => handleStatusUpdate(delivery._id, action.status)}
+                                  >
+                                    {updatingId === delivery._id ? "Updating..." : action.label}
+                                  </Button>
+                                ))}
+                              </div>
                             ) : (
-                              <span className="inline-flex items-center gap-2 px-3 text-xs text-emerald-600">
+                              <span
+                                className={`inline-flex items-center gap-2 px-3 text-xs ${
+                                  delivery.status === "FAILED" ? "text-red-600" : "text-emerald-600"
+                                }`}
+                              >
                                 <Truck className="h-4 w-4" />
-                                Completed
+                                {delivery.status === "FAILED" ? "Failed" : "Completed"}
                               </span>
                             )}
                           </div>

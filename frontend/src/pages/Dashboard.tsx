@@ -209,6 +209,10 @@ const Dashboard: React.FC = () => {
   };
 
   const roleConfig = user ? ROLE_CONFIG[user.role] || ROLE_CONFIG.buyer : ROLE_CONFIG.buyer;
+  const latestOrder = { _id: '', status: '', createdAt: '' };
+  const latestOrderSequence = 0;
+  const buyerTrackingSteps: Array<{ key: string; label: string }> = [];
+  const buyerStatusSequence: Record<string, number> = {};
 
   return (
     <BuyerLayout>
@@ -310,7 +314,7 @@ const Dashboard: React.FC = () => {
           <div style={{
             background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB',
             padding: '12px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-            display: 'flex', alignItems: 'center', gap: 14, flex: '1 1 280px', minWidth: 240
+            display: 'none', alignItems: 'center', gap: 14, flex: '1 1 280px', minWidth: 240
           }}>
             <div style={{
               width: 40, height: 40, borderRadius: 10,
@@ -364,6 +368,80 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {false && (
+          <div style={{
+            background: '#fff',
+            borderRadius: 14,
+            border: '1px solid #E5E7EB',
+            padding: '16px 18px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            marginBottom: 12
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>Latest Order Tracking</h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#6B7280' }}>
+                  Order #{latestOrder._id.slice(-6).toUpperCase()} · {new Date(latestOrder.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              <button onClick={() => navigate('/my-orders')} style={{
+                padding: '8px 14px',
+                borderRadius: 8,
+                border: 'none',
+                background: '#4F46E5',
+                color: '#fff',
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: 'pointer'
+              }}>
+                View Full Tracking
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 10 }}>
+              {buyerTrackingSteps
+                .filter((step) => latestOrder.status !== 'cancelled' || ['awaiting_seller_confirmation', 'cancelled'].includes(step.key))
+                .filter((step) => latestOrder.status !== 'delivery_failed' || step.key !== 'delivered')
+                .map((step) => {
+                  const isActive = latestOrder.status === step.key;
+                  const isCompleted =
+                    latestOrder.status !== 'cancelled' &&
+                    latestOrder.status !== 'delivery_failed' &&
+                    latestOrderSequence > (buyerStatusSequence[step.key] || 0);
+
+                  const background = isActive
+                    ? '#EEF2FF'
+                    : isCompleted
+                      ? '#ECFDF5'
+                      : '#F9FAFB';
+                  const border = isActive
+                    ? '#4F46E5'
+                    : isCompleted
+                      ? '#10B981'
+                      : '#E5E7EB';
+                  const text = isActive
+                    ? '#4338CA'
+                    : isCompleted
+                      ? '#047857'
+                      : '#6B7280';
+
+                  return (
+                    <div key={step.key} style={{
+                      border: `1px solid ${border}`,
+                      background,
+                      borderRadius: 12,
+                      padding: '12px 14px'
+                    }}>
+                      <p style={{ margin: 0, fontSize: 11, color: text, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                        {isActive ? 'Current' : isCompleted ? 'Completed' : 'Upcoming'}
+                      </p>
+                      <p style={{ margin: '6px 0 0', fontSize: 14, fontWeight: 600, color: '#111827' }}>{step.label}</p>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
 
         {/* ── Center Content ── */}
         <main style={{ width: '100%' }}>

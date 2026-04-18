@@ -1,17 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AlertCircle,
-  ArrowDownRight,
-  ArrowUpRight,
   Box,
-  Clock3,
   Loader2,
   PackageSearch,
   RefreshCw,
-  ShoppingCart,
   Star,
-  TrendingUp,
-  Wallet,
   Eye,
 } from "lucide-react";
 import {
@@ -24,16 +18,15 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  Legend,
 } from "recharts";
 import api from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-type DashboardFilter = "monthly" | "weekly";
+import { createAuthedSocket, type OrderWorkflowSocketEvent } from "@/lib/socket";
+import { useToast } from "@/hooks/use-toast";
 
 interface SellerDashboardData {
-  filter: DashboardFilter;
+  filter: "monthly";
   kpis: {
     totalRevenue: number;
     ordersThisMonth: number;
@@ -149,38 +142,6 @@ function getStatusClasses(status: string) {
 
 // ─── KPI Card Component ──────────────────────────────────────────────────────
 
-interface KPICardProps {
-  title: string;
-  value: string;
-  hint: string;
-  icon: React.ComponentType<{ className?: string }>;
-  tone: string;
-  change?: number;
-}
-
-const KPICard: React.FC<KPICardProps> = ({ title, value, hint, icon: Icon, tone, change }) => (
-  <Card className="glass-card overflow-hidden border border-border/40 shadow-sm transition-all hover:shadow-md hover:border-border/60">
-    <CardContent className="p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</p>
-          <p className="mt-2.5 text-2xl font-bold text-foreground">{value}</p>
-          <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>
-          {change !== undefined && (
-            <div className={`mt-2 flex items-center gap-1 text-xs font-medium ${change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-              {change >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-              <span>{Math.abs(change).toFixed(1)}%</span>
-            </div>
-          )}
-        </div>
-        <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${tone} flex-shrink-0`}>
-          <Icon className="h-6 w-6" />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-);
-
 // ─── Dashboard Table Component ────────────────────────────────────────────────
 
 interface DashboardTableProps {
@@ -249,31 +210,16 @@ function DashboardTable({
 
 // ─── Loading Skeleton ──────────────────────────────────────────────────────────
 
-const SkeletonKPI = () => (
-  <Card className="glass-card">
-    <CardContent className="p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 space-y-2">
-          <div className="h-3 w-20 bg-muted rounded animate-pulse"></div>
-          <div className="h-8 w-32 bg-muted rounded animate-pulse"></div>
-          <div className="h-3 w-24 bg-muted rounded animate-pulse mt-2"></div>
-        </div>
-        <div className="h-12 w-12 bg-muted rounded-lg animate-pulse flex-shrink-0"></div>
-      </div>
-    </CardContent>
-  </Card>
-);
-
 // ─── Main Dashboard Component ─────────────────────────────────────────────────
 
 export default function SellerDashboard() {
-  const [filter, setFilter] = useState<DashboardFilter>("monthly");
+  const { toast } = useToast();
   const [dashboard, setDashboard] = useState<SellerDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchDashboard = useCallback(async (selectedFilter: DashboardFilter, isRefreshing = false) => {
+  const fetchDashboard = useCallback(async (isRefreshing = false) => {
     try {
       if (isRefreshing) {
         setRefreshing(true);
@@ -283,7 +229,7 @@ export default function SellerDashboard() {
 
       setError("");
       const { data } = await api.get("/seller/dashboard", {
-        params: { range: selectedFilter },
+        params: { range: "monthly" },
       });
 
       if (data?.success) {
@@ -300,57 +246,29 @@ export default function SellerDashboard() {
   }, []);
 
   useEffect(() => {
-    fetchDashboard(filter);
-  }, [fetchDashboard, filter]);
+    fetchDashboard();
+  }, [fetchDashboard]);
 
-  const summaryCards = useMemo(() => {
-    if (!dashboard) return [];
+  useEffect(() => {
+    const socket = createAuthedSocket();
+    if (!socket) return;
 
-    return [
-      {
-        title: "Total Revenue",
-        value: formatCurrency(dashboard.kpis.totalRevenue),
-        hint: "All completed orders",
-        icon: Wallet,
-        tone: "bg-emerald-500/15 text-emerald-600",
-      },
-      {
-        title: "Orders This Month",
-        value: `${dashboard.kpis.ordersThisMonth}`,
-        hint: formatCurrency(dashboard.kpis.ordersThisMonthAmount),
-        icon: ShoppingCart,
-        tone: "bg-blue-500/15 text-blue-600",
-      },
-      {
-        title: "Pending Orders",
-        value: `${dashboard.kpis.pendingOrders}`,
-        hint: "Awaiting shipment",
-        icon: Clock3,
-        tone: "bg-amber-500/15 text-amber-600",
-      },
-      {
-        title: "Avg Order Value",
-        value: formatCurrency(dashboard.kpis.avgOrderValue),
-        hint: "Per completed order",
-        icon: TrendingUp,
-        tone: "bg-violet-500/15 text-violet-600",
-      },
-      {
-        title: "Completion Rate",
-        value: formatPercent(dashboard.kpis.completionRate),
-        hint: "Shipped or delivered",
-        icon: Box,
-        tone: "bg-cyan-500/15 text-cyan-600",
-      },
-      {
-        title: "Revenue Growth",
-        value: formatPercent(dashboard.kpis.revenueGrowth),
-        hint: "vs previous month",
-        icon: dashboard.kpis.revenueGrowth >= 0 ? ArrowUpRight : ArrowDownRight,
-        tone: dashboard.kpis.revenueGrowth >= 0 ? "bg-emerald-500/15 text-emerald-600" : "bg-red-500/15 text-red-600",
-      },
-    ];
-  }, [dashboard]);
+    const handleWorkflowEvent = (event: OrderWorkflowSocketEvent) => {
+      if (event.audience !== "seller") return;
+      fetchDashboard(true);
+      toast({
+        title: event.title,
+        description: event.message,
+      });
+    };
+
+    socket.on("order:workflow", handleWorkflowEvent);
+
+    return () => {
+      socket.off("order:workflow", handleWorkflowEvent);
+      socket.disconnect();
+    };
+  }, [fetchDashboard, toast]);
 
   const topSellingChartData = useMemo(
     () =>
@@ -367,13 +285,6 @@ export default function SellerDashboard() {
       <div className="space-y-6">
         {/* Header skeleton */}
         <div className="h-12 w-48 bg-muted rounded animate-pulse"></div>
-        
-        {/* KPI Cards skeleton */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {[...Array(6)].map((_, i) => (
-            <SkeletonKPI key={i} />
-          ))}
-        </div>
 
         {/* Charts skeleton */}
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.8fr_1fr]">
@@ -407,7 +318,7 @@ export default function SellerDashboard() {
         <p className="font-semibold text-foreground text-lg">{error || "Failed to load dashboard"}</p>
         <p className="text-muted-foreground text-sm mt-1">Please check your connection and try again.</p>
         <Button
-          onClick={() => fetchDashboard(filter, true)}
+          onClick={() => fetchDashboard(true)}
           className="mt-6 bg-blue-600 hover:bg-blue-700"
         >
           <RefreshCw className="w-4 h-4 mr-2" />
@@ -423,31 +334,16 @@ export default function SellerDashboard() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Seller Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Real-time analytics and order monitoring for {filter === "monthly" ? "this month" : "this week"}
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">Real-time analytics and order monitoring for this month</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex rounded-lg border border-border/40 bg-muted/50 p-1.5">
-            {(["monthly", "weekly"] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setFilter(option)}
-                className={`rounded-md px-4 py-2 text-sm font-medium transition-all ${
-                  filter === option
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {option === "monthly" ? "Monthly" : "Weekly"}
-              </button>
-            ))}
+          <div className="inline-flex rounded-lg border border-border/40 bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm">
+            Monthly
           </div>
 
           <Button
-            onClick={() => fetchDashboard(filter, true)}
+            onClick={() => fetchDashboard(true)}
             disabled={refreshing}
             variant="outline"
             className="gap-2"
@@ -458,13 +354,6 @@ export default function SellerDashboard() {
         </div>
       </div>
 
-      {/* KPI Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {summaryCards.map((card) => (
-          <KPICard key={card.title} {...card} />
-        ))}
-      </div>
-
       {/* Revenue Chart and Side Panel */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.8fr_1fr]">
         {/* Monthly Revenue Chart */}
@@ -472,9 +361,7 @@ export default function SellerDashboard() {
           <CardHeader className="pb-4 border-b border-border/30">
             <div className="flex flex-col gap-2">
               <CardTitle className="text-lg font-semibold">Monthly Revenue Trend</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Daily completed revenue for the {filter === "monthly" ? "current month" : "last 7 days"}
-              </p>
+              <p className="text-sm text-muted-foreground">Daily completed revenue for the current month</p>
             </div>
           </CardHeader>
           <CardContent className="pt-6">
@@ -537,45 +424,8 @@ export default function SellerDashboard() {
           <Card className="glass-card border border-border/40">
             <CardHeader className="pb-4 border-b border-border/30">
               <CardTitle className="text-base font-semibold">Performance Metrics</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">Current vs previous period performance</p>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
-              {/* Revenue Growth */}
-              <div className="rounded-lg border border-border/40 bg-muted/50 p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Revenue Growth</p>
-                  {dashboard.kpis.revenueGrowth >= 0 ? (
-                    <ArrowUpRight className="w-4 h-4 text-emerald-600" />
-                  ) : (
-                    <ArrowDownRight className="w-4 h-4 text-red-600" />
-                  )}
-                </div>
-                <p
-                  className={`text-3xl font-bold ${
-                    dashboard.kpis.revenueGrowth >= 0 ? "text-emerald-600" : "text-red-600"
-                  }`}
-                >
-                  {formatPercent(dashboard.kpis.revenueGrowth)}
-                </p>
-              </div>
-
-              {/* AOV and Completion Rate Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border border-border/40 bg-muted/50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">AOV</p>
-                  <p className="mt-2 text-2xl font-bold text-violet-600">
-                    {formatCurrency(dashboard.kpis.avgOrderValue)}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-border/40 bg-muted/50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Completion</p>
-                  <p className="mt-2 text-2xl font-bold text-cyan-600">
-                    {formatPercent(dashboard.kpis.completionRate)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Completion Rate Progress */}
               <div className="rounded-lg border border-border/40 bg-muted/50 p-4">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-foreground">Operational Success</span>
@@ -588,13 +438,27 @@ export default function SellerDashboard() {
                   />
                 </div>
               </div>
+              <div className="rounded-lg border border-border/40 bg-muted/50 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Avg Order Value</p>
+                    <p className="mt-2 text-2xl font-bold text-violet-600">
+                      {formatCurrency(dashboard.kpis.avgOrderValue)}
+                    </p>
+                  </div>
+                  <div className="text-right text-xs text-muted-foreground">
+                    <p>Completed orders</p>
+                    <p className="mt-1 font-medium text-foreground">{dashboard.kpis.ordersThisMonth} this month</p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
           {/* Top Selling Products Bar Chart */}
           <Card className="glass-card border border-border/40">
             <CardHeader className="pb-4 border-b border-border/30">
-              <CardTitle className="text-base font-semibold">Top Sellers</CardTitle>
+              <CardTitle className="text-base font-semibold">Top Selling Products</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">Top 10 products by units sold</p>
             </CardHeader>
             <CardContent className="pt-6">
@@ -609,9 +473,25 @@ export default function SellerDashboard() {
                     <BarChart data={topSellingChartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.1)" vertical={false} />
                       <XAxis dataKey="name" tick={{ fontSize: 11, fill: "rgb(107, 114, 128)" }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 12, fill: "rgb(107, 114, 128)" }} axisLine={false} tickLine={false} />
+                      <YAxis
+                        tick={{ fontSize: 12, fill: "rgb(107, 114, 128)" }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(value: number) => `${value}`}
+                      />
                       <Tooltip
-                        formatter={(value: number) => [value, "Units"]}
+                        cursor={{ fill: "rgba(15, 118, 110, 0.08)" }}
+                        formatter={(_value: number, _name: string, item: { payload?: { units: number; revenue: number } }) => {
+                          if (!item?.payload) return null;
+                          return [
+                            <div className="space-y-1 py-1">
+                              <p className="text-xs font-medium text-slate-200">Units Sold: {item.payload.units}</p>
+                              <p className="text-xs font-medium text-slate-200">Revenue Generated: {formatCurrency(item.payload.revenue)}</p>
+                            </div>,
+                            "",
+                          ];
+                        }}
+                        labelFormatter={() => ""}
                         contentStyle={{
                           backgroundColor: "rgba(17, 24, 39, 0.95)",
                           border: "1px solid rgba(75, 85, 99, 0.3)",
@@ -631,7 +511,7 @@ export default function SellerDashboard() {
       {/* Orders Table */}
       <DashboardTable
         title="Orders This Month"
-        description={`All orders placed during this ${filter === "monthly" ? "month" : "week"}`}
+        description="All orders placed during this month"
         columns={["Order ID", "Customer", "Product", "Amount", "Date", "Status"]}
         rows={dashboard.ordersThisMonth.map((order) => [
           <span className="font-mono font-semibold text-blue-600">{getOrderLabel(order.orderId)}</span>,
@@ -710,9 +590,8 @@ export default function SellerDashboard() {
         />
       </div>
 
-      {/* Low Stock and Top Products */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        {/* Low Stock Alerts */}
+      {/* Low Stock Alerts */}
+      <div className="grid grid-cols-1 gap-6">
         <Card className="glass-card border border-border/40">
           <CardHeader className="pb-4 border-b border-border/30">
             <div className="flex items-center gap-2">
@@ -748,20 +627,6 @@ export default function SellerDashboard() {
             )}
           </CardContent>
         </Card>
-
-        {/* Top Selling Products Table */}
-        <DashboardTable
-          title="Top Selling Products"
-          description="Best performers ranked by units sold"
-          columns={["Product", "Units Sold", "Revenue"]}
-          rows={dashboard.topSellingProducts.map((product) => [
-            <span className="font-medium text-sm">{product.productName}</span>,
-            <span className="font-semibold text-center">{product.unitsSold}</span>,
-            <span className="font-semibold text-emerald-600">{formatCurrency(product.revenueGenerated)}</span>,
-          ])}
-          emptyTitle="No sales data"
-          emptyDescription="Top products will appear as orders are completed"
-        />
       </div>
 
       {/* Footer Summary Card */}

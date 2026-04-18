@@ -3,6 +3,7 @@ import {
   House,
   MessageSquare,
   Package,
+  RotateCcw,
   ShoppingCart,
   User,
   UserCircle,
@@ -13,6 +14,7 @@ const navItems = [
   { title: "Home / Explore", icon: House, path: "/dashboard" },
   { title: "Cart", icon: Package, path: "/buyer/cart" },
   { title: "My Orders", icon: ShoppingCart, path: "/my-orders" },
+  { title: "Return & Claims", icon: RotateCcw, path: "/buyer/returns-claims" },
   { title: "Chat", icon: MessageSquare, path: "/chat" },
   { title: "Notifications", icon: Bell, path: "/buyer/notifications" },
   {
@@ -55,6 +57,7 @@ export function BuyerLayout({ children }: BuyerLayoutProps) {
       profileLabel="Account"
       profileSubtitle="Buyer account"
       aiPath="/ai-chat"
+      notificationRole="buyer"
     >
       {children}
     </DashboardShell>

@@ -3,15 +3,6 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 const API_URL = (() => {
   const configuredApiUrl = (import.meta.env.VITE_API_URL || '').trim();
 
-  // In local development, prefer the backend directly when the env value is
-  // left as a relative /api path. This avoids proxy-specific failures while
-  // keeping explicit absolute URLs intact.
-  if (import.meta.env.DEV) {
-    if (!configuredApiUrl || configuredApiUrl === '/api' || configuredApiUrl.startsWith('/')) {
-      return 'http://localhost:5000/api';
-    }
-  }
-
   if (configuredApiUrl) return configuredApiUrl;
   return '/api';
 })();

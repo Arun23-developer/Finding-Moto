@@ -1,5 +1,7 @@
 import mongoose, { Document, Schema, Model } from 'mongoose';
 
+export type ServiceVisibilityStatus = 'ENABLED' | 'DISABLED';
+
 export interface IService extends Document {
   _id: mongoose.Types.ObjectId;
   mechanic: mongoose.Types.ObjectId;
@@ -10,6 +12,7 @@ export interface IService extends Document {
   duration: string;
   category: string;
   active: boolean;
+  productStatus: ServiceVisibilityStatus;
   images: string[];
   createdAt: Date;
   updatedAt: Date;
@@ -55,6 +58,11 @@ const serviceSchema = new Schema<IService>(
       type: Boolean,
       default: true,
     },
+    productStatus: {
+      type: String,
+      enum: ['ENABLED', 'DISABLED'],
+      default: 'ENABLED',
+    },
     images: {
       type: [String],
       default: [],
@@ -67,8 +75,8 @@ const serviceSchema = new Schema<IService>(
   { timestamps: true }
 );
 
-// Index for quick lookups by mechanic
-serviceSchema.index({ mechanic: 1, active: 1 });
+// Index for quick lookups by mechanic and buyer visibility
+serviceSchema.index({ mechanic: 1, active: 1, productStatus: 1 });
 
 const Service: Model<IService> = mongoose.model<IService>('Service', serviceSchema);
 export default Service;

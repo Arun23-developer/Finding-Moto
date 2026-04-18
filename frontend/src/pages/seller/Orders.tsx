@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   BarChart3,
@@ -28,6 +28,8 @@ import { BuyerDetailsModal } from "./orders/BuyerDetailsModal";
 import { getBuyerName } from "./orders/helpers";
 import { OrdersTable } from "./orders/OrdersTable";
 import type { Order, OrderStats } from "./orders/types";
+import { useToast } from "@/hooks/use-toast";
+import { createAuthedSocket, type OrderWorkflowSocketEvent } from "@/lib/socket";
 
 const mockOrders: Order[] = [
   {
@@ -53,6 +55,7 @@ const mockOrders: Order[] = [
 ];
 
 export default function OrdersPage() {
+  const { toast } = useToast();
   const [agents, setAgents] = useState<{ _id: string; fullName: string; email: string }[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,8 +67,10 @@ export default function OrdersPage() {
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [stats, setStats] = useState<OrderStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const latestEventRef = useRef<string | null>(null);
 
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
@@ -98,6 +103,45 @@ export default function OrdersPage() {
     fetchStats();
   }, [fetchOrders, fetchStats]);
 
+  useEffect(() => {
+    const socket = createAuthedSocket();
+    if (!socket) return;
+
+    socket.on("order:workflow", (event: OrderWorkflowSocketEvent) => {
+      if (event.audience !== "seller") return;
+      const eventKey = `${event.orderId}:${event.status}:${event.timestamp}`;
+      if (latestEventRef.current === eventKey) return;
+      latestEventRef.current = eventKey;
+
+      fetchOrders();
+      fetchStats();
+      toast({
+        title: event.title,
+        description: event.message,
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchOrders, fetchStats, toast]);
+
+  const handleStatusChange = useCallback(
+    async (orderId: string, status: Order["status"]) => {
+      setUpdatingOrderId(orderId);
+      setError(null);
+      try {
+        await api.patch(`/orders/${orderId}/status`, { status });
+        await Promise.all([fetchOrders(), fetchStats()]);
+      } catch (err: any) {
+        setError(err?.response?.data?.message || "Failed to update order status");
+      } finally {
+        setUpdatingOrderId(null);
+      }
+    },
+    [fetchOrders, fetchStats]
+  );
+
   const openAssignDelivery = useCallback(async (order: Order) => {
     setAssignOrder(order);
     setSelectedAgentId("");
@@ -126,7 +170,7 @@ export default function OrdersPage() {
       });
       setAssignOrder(null);
       setSelectedAgentId("");
-      await fetchOrders();
+      await Promise.all([fetchOrders(), fetchStats()]);
     } catch (err: any) {
       setAssignError(err?.response?.data?.message || "Failed to assign delivery");
     } finally {
@@ -147,10 +191,14 @@ export default function OrdersPage() {
 
   const statusCounts = {
     all: orders.length,
-    pending: orders.filter((order) => order.status === "pending").length,
+    pending: orders.filter((order) => ["pending", "awaiting_seller_confirmation"].includes(order.status)).length,
     confirmed: orders.filter((order) => order.status === "confirmed").length,
-    shipped: orders.filter((order) => order.status === "shipped").length,
-    delivered: orders.filter((order) => order.status === "delivered").length,
+    package_ready: orders.filter((order) => order.status === "ready_for_dispatch").length,
+    assigned: orders.filter((order) => order.status === "pickup_assigned").length,
+    picked_up: orders.filter((order) => order.status === "picked_up").length,
+    out_for_delivery: orders.filter((order) => order.status === "out_for_delivery").length,
+    delivered: orders.filter((order) => ["delivered", "completed"].includes(order.status)).length,
+    delivery_failed: orders.filter((order) => order.status === "delivery_failed").length,
     cancelled: orders.filter((order) => order.status === "cancelled").length,
   };
 
@@ -290,7 +338,7 @@ export default function OrdersPage() {
             </p>
           </div>
           <button
-            onClick={() => setStatusFilter("pending")}
+            onClick={() => setStatusFilter("awaiting_seller_confirmation")}
             className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
           >
             View Pending
@@ -312,7 +360,18 @@ export default function OrdersPage() {
               />
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {["all", "pending", "confirmed", "shipped", "delivered", "cancelled"].map((status) => (
+              {[
+                "all",
+                "awaiting_seller_confirmation",
+                "confirmed",
+                "ready_for_dispatch",
+                "pickup_assigned",
+                "picked_up",
+                "out_for_delivery",
+                "delivered",
+                "delivery_failed",
+                "cancelled",
+              ].map((status) => (
                 <button
                   key={status}
                   onClick={() => setStatusFilter(status)}
@@ -323,9 +382,16 @@ export default function OrdersPage() {
                       : "bg-muted text-muted-foreground hover:bg-muted/80"
                   )}
                 >
-                  {status === "all"
-                    ? `All (${statusCounts.all})`
-                    : `${status.charAt(0).toUpperCase() + status.slice(1)} (${statusCounts[status as keyof typeof statusCounts]})`}
+                  {status === "all" && `All (${statusCounts.all})`}
+                  {status === "awaiting_seller_confirmation" && `Placed (${statusCounts.pending})`}
+                  {status === "confirmed" && `Confirmed (${statusCounts.confirmed})`}
+                  {status === "ready_for_dispatch" && `Package Ready (${statusCounts.package_ready})`}
+                  {status === "pickup_assigned" && `Assigned (${statusCounts.assigned})`}
+                  {status === "picked_up" && `Picked Up (${statusCounts.picked_up})`}
+                  {status === "out_for_delivery" && `Out for Delivery (${statusCounts.out_for_delivery})`}
+                  {status === "delivered" && `Delivered (${statusCounts.delivered})`}
+                  {status === "delivery_failed" && `Delivery Failed (${statusCounts.delivery_failed})`}
+                  {status === "cancelled" && `Cancelled (${statusCounts.cancelled})`}
                 </button>
               ))}
             </div>
@@ -358,6 +424,8 @@ export default function OrdersPage() {
               error={error}
               onBuyerDetails={setSelectedOrder}
               onAssignDelivery={openAssignDelivery}
+              onStatusChange={handleStatusChange}
+              updatingOrderId={updatingOrderId}
             />
           </CardContent>
         </Card>

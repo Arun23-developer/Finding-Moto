@@ -4,6 +4,7 @@ import { Menu, X, Search, ShoppingCart, User, LogOut, LayoutDashboard, Settings 
 import { Button } from "../ui/button";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
+import { useCart } from "../../context/CartContext";
 import { resolveMediaUrl } from "@/lib/imageUrl";
 
 interface NavLink {
@@ -25,6 +26,7 @@ export const Header: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { cartCount } = useCart();
   const profileRef = useRef<HTMLDivElement>(null);
 
   // Close profile dropdown when clicking outside
@@ -87,8 +89,13 @@ export const Header: React.FC = () => {
           <Button variant="ghost" size="icon" aria-label="Search" onClick={() => navigate("/products") }>
             <Search className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" aria-label="Cart" onClick={() => navigate("/my-orders") }>
+          <Button variant="ghost" size="icon" aria-label="Cart" className="relative" onClick={() => navigate("/buyer/cart") }>
             <ShoppingCart className="h-5 w-5" />
+            {cartCount > 0 ? (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-foreground">
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            ) : null}
           </Button>
 
           {user ? (
@@ -171,15 +178,24 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Mobile Menu Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          aria-label="Toggle menu"
-        >
-          {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
+        <div className="flex items-center gap-1 md:hidden">
+          <Button variant="ghost" size="icon" aria-label="Cart" className="relative" onClick={() => navigate("/buyer/cart") }>
+            <ShoppingCart className="h-5 w-5" />
+            {cartCount > 0 ? (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-foreground">
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            ) : null}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label="Toggle menu"
+          >
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
       </div>
 
       {/* Mobile Navigation */}

@@ -17,7 +17,7 @@ import { useAuth } from "@/context/AuthContext";
 import { resolveMediaUrl } from "@/lib/imageUrl";
 import { NotificationPanel } from "./NotificationPanel";
 
-type NotificationRole = "seller" | "mechanic" | "admin" | "delivery_agent";
+type NotificationRole = "buyer" | "seller" | "mechanic" | "admin" | "delivery_agent";
 
 export interface DashboardNavItem {
   title: string;

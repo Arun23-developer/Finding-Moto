@@ -2,7 +2,9 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
 import type { UserRole } from './context/AuthContext';
+import { OrderWorkflowNotificationsProvider } from './context/OrderWorkflowNotificationsContext';
 import { canUseGoogleAuth, getGoogleClientId } from './lib/googleAuth';
 import { getDefaultRouteForRole } from './lib/roleRoutes';
 
@@ -54,6 +56,9 @@ const BuyerAIChat = lazy(() => import('./pages/BuyerAIChat'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const ChatPage = lazy(() => import('./pages/ChatPage'));
 const BuyerSectionPage = lazy(() => import('./pages/buyer/SectionPage'));
+const BuyerCartPage = lazy(() => import('./pages/buyer/CartPage'));
+const BuyerNotificationsPage = lazy(() => import('./pages/buyer/Notifications'));
+const BuyerReturnsClaimsPage = lazy(() => import('./pages/buyer/ReturnsClaims'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -148,10 +153,12 @@ const RouteLoader: React.FC = () => (
 const AppContent = (): JSX.Element => {
   return (
     <AuthProvider>
-      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <div className="app">
-          <Suspense fallback={<RouteLoader />}>
-            <Routes>
+      <CartProvider>
+        <OrderWorkflowNotificationsProvider>
+          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <div className="app">
+              <Suspense fallback={<RouteLoader />}>
+                <Routes>
               {/* Public pages - accessible to everyone */}
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
@@ -196,16 +203,17 @@ const AppContent = (): JSX.Element => {
               } />
               <Route path="/buyer/cart" element={
                 <RoleRoute roles={['buyer']}>
-                  <BuyerLayout>
-                    <BuyerSectionPage title="Cart" description="Review saved items before placing your order." />
-                  </BuyerLayout>
+                  <BuyerLayout><BuyerCartPage /></BuyerLayout>
                 </RoleRoute>
               } />
               <Route path="/buyer/notifications" element={
                 <RoleRoute roles={['buyer']}>
-                  <BuyerLayout>
-                    <BuyerSectionPage title="Notifications" description="Check updates related to your account, chats, and orders." />
-                  </BuyerLayout>
+                  <BuyerLayout><BuyerNotificationsPage /></BuyerLayout>
+                </RoleRoute>
+              } />
+              <Route path="/buyer/returns-claims" element={
+                <RoleRoute roles={['buyer']}>
+                  <BuyerLayout><BuyerReturnsClaimsPage /></BuyerLayout>
                 </RoleRoute>
               } />
               <Route path="/buyer/account" element={
@@ -499,10 +507,12 @@ const AppContent = (): JSX.Element => {
               
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </div>
-      </Router>
+                </Routes>
+              </Suspense>
+            </div>
+          </Router>
+        </OrderWorkflowNotificationsProvider>
+      </CartProvider>
     </AuthProvider>
   );
 };

@@ -19,6 +19,8 @@ import publicRoutes from './routes/publicRoutes';
 import chatRoutes from './routes/chatRoutes';
 import aiRoutes from './routes/aiRoutes';
 import deliveryRoutes from './routes/deliveryRoutes';
+import cartRoutes from './routes/cartRoutes';
+import returnRoutes from './routes/returnRoutes';
 
 const app: Application = express();
 
@@ -79,6 +81,8 @@ app.use('/api/reviews', reviewRoutes);     // Sivaganga â€” Rating & Review
 app.use('/api/chat', chatRoutes);          // Chat â€” Real-time messaging
 app.use('/api/ai', aiRoutes);              // AI assistant â€” Gemini-powered
 app.use('/api/deliveries', deliveryRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/returns', returnRoutes);
 
 // Error handler
 app.use(errorHandler);

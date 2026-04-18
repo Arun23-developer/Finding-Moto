@@ -48,6 +48,8 @@ export interface IUser extends Document {
   licenseNumber?: string;
   payoutMethod?: string;
   payoutAccountName?: string;
+  agent_status?: 'ENABLED' | 'DISABLED';
+  work_status?: 'AVAILABLE' | 'BUSY' | 'OFFLINE';
   fullName: string;
   createdAt: Date;
   updatedAt: Date;
@@ -209,6 +211,16 @@ const userSchema = new Schema<IUser>(
       type: String,
       trim: true,
       default: null
+    },
+    agent_status: {
+      type: String,
+      enum: ['ENABLED', 'DISABLED'],
+      default: 'ENABLED'
+    },
+    work_status: {
+      type: String,
+      enum: ['AVAILABLE', 'BUSY', 'OFFLINE'],
+      default: 'AVAILABLE'
     }
   },
   {

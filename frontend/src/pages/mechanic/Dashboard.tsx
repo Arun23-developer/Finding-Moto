@@ -262,6 +262,7 @@ export default function MechanicDashboard() {
   const completionRate = serviceRequests.length > 0 ? Math.round((completedJobs / serviceRequests.length) * 100) : 0;
   const attentionItems = serviceRequests.filter((r) => r.status === 'pending' || r.status === 'accepted');
   const inProgressJobs = serviceRequests.filter((r) => r.status === 'in_progress').length;
+  const hasWeeklyRevenueData = weeklyStats.some((day) => day.jobs > 0 || day.revenue > 0);
   const formatDate = (date: string) => new Date(date).toLocaleDateString();
   const mechanicName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.firstName || 'Mechanic';
   const workshopLabel = (user as any)?.workshopName || (user as any)?.specialization || 'My Workshop';
@@ -294,34 +295,42 @@ export default function MechanicDashboard() {
           </CardHeader>
           <CardContent className="pt-4">
             <div className="h-[280px] w-full">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                <AreaChart data={weeklyStats} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="mechanicRevenueGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f97316" stopOpacity={0.42} />
-                      <stop offset="95%" stopColor="#f97316" stopOpacity={0.04} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip
-                    contentStyle={{
-                      background: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '12px',
-                      boxShadow: '0 10px 40px rgba(0,0,0,0.12)',
-                      fontSize: '13px',
-                    }}
-                    formatter={(value: number, name: string) => [
-                      name === 'revenue' ? fmt(value) : `${value} jobs`,
-                      name === 'revenue' ? 'Revenue' : 'Jobs',
-                    ]}
-                    labelStyle={{ fontWeight: 700, marginBottom: 4, color: 'hsl(var(--foreground))' }}
-                  />
-                  <Area type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={3} fill="url(#mechanicRevenueGradient)" dot={{ r: 5, fill: '#f97316', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7, fill: '#f97316', strokeWidth: 3, stroke: '#fff' }} />
-                </AreaChart>
-              </ResponsiveContainer>
+              {hasWeeklyRevenueData ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
+                  <AreaChart data={weeklyStats} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="mechanicRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f97316" stopOpacity={0.42} />
+                        <stop offset="95%" stopColor="#f97316" stopOpacity={0.04} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip
+                      contentStyle={{
+                        background: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '12px',
+                        boxShadow: '0 10px 40px rgba(0,0,0,0.12)',
+                        fontSize: '13px',
+                      }}
+                      formatter={(value: number, name: string) => [
+                        name === 'revenue' ? fmt(value) : `${value} jobs`,
+                        name === 'revenue' ? 'Revenue' : 'Jobs',
+                      ]}
+                      labelStyle={{ fontWeight: 700, marginBottom: 4, color: 'hsl(var(--foreground))' }}
+                    />
+                    <Area type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={3} fill="url(#mechanicRevenueGradient)" dot={{ r: 5, fill: '#f97316', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7, fill: '#f97316', strokeWidth: 3, stroke: '#fff' }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center text-center">
+                  <BarChart3 className="mb-3 h-10 w-10 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No weekly revenue yet</p>
+                  <p className="text-xs text-muted-foreground">Revenue will appear here after service orders come in.</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -333,28 +342,36 @@ export default function MechanicDashboard() {
           </CardHeader>
           <CardContent className="pt-2">
             <div className="h-[200px] w-full">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                <PieChart>
-                  <Pie
-                    data={requestStatusData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={4}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {requestStatusData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '10px', fontSize: '13px' }}
-                    formatter={(value: number, name: string) => [`${value} requests`, name]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              {requestStatusData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
+                  <PieChart>
+                    <Pie
+                      data={requestStatusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={85}
+                      paddingAngle={4}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {requestStatusData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '10px', fontSize: '13px' }}
+                      formatter={(value: number, name: string) => [`${value} requests`, name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center text-center">
+                  <RefreshCw className="mb-3 h-10 w-10 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No request status data yet</p>
+                  <p className="text-xs text-muted-foreground">Request analytics will appear once orders are created.</p>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2 mt-2">

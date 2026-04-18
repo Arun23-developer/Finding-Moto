@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema, Model } from 'mongoose';
 
 export type ProductStatus = 'active' | 'inactive' | 'out_of_stock';
+export type ProductVisibilityStatus = 'ENABLED' | 'DISABLED';
 export type ProductType = 'product' | 'service';
 
 export interface IProduct extends Document {
@@ -15,6 +16,7 @@ export interface IProduct extends Document {
   stock: number;
   images: string[];
   status: ProductStatus;
+  productStatus: ProductVisibilityStatus;
   views: number;
   sales: number;
   sku?: string;
@@ -78,6 +80,11 @@ const productSchema = new Schema<IProduct>(
       type: String,
       enum: ['active', 'inactive', 'out_of_stock'],
       default: 'active',
+    },
+    productStatus: {
+      type: String,
+      enum: ['ENABLED', 'DISABLED'],
+      default: 'ENABLED',
     },
     views: {
       type: Number,

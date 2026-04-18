@@ -88,7 +88,21 @@ export const getProducts = async (req: AuthRequest, res: Response): Promise<void
 export const createProduct = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const sellerId = req.user!._id;
-    const { name, description, category, brand, price, originalPrice, stock, images, image, sku, type } = req.body;
+    const {
+      name,
+      description,
+      category,
+      brand,
+      price,
+      originalPrice,
+      stock,
+      images,
+      image,
+      sku,
+      type,
+      status,
+      productStatus,
+    } = req.body;
     const normalizedImages = normalizeImagesInput(images ?? image).slice(0, 5);
 
     if (normalizeImagesInput(images ?? image).length > 5) {
@@ -108,6 +122,8 @@ export const createProduct = async (req: AuthRequest, res: Response): Promise<vo
       images: normalizedImages,
       sku,
       type: type || 'product',
+      status,
+      productStatus,
     });
 
     await refreshProductEmbedding(product);
@@ -146,7 +162,7 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
 
     const allowedFields = [
       'name', 'description', 'category', 'brand', 'price', 'originalPrice',
-      'stock', 'images', 'status', 'sku', 'type',
+      'stock', 'images', 'status', 'productStatus', 'sku', 'type',
     ];
 
     allowedFields.forEach((field) => {

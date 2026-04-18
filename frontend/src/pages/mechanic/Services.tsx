@@ -28,7 +28,7 @@ import { resolveMediaUrl } from "@/lib/imageUrl";
 import { ProductsToolbar } from "../seller/components/ProductsToolbar";
 import { StatusFilterBar } from "../seller/components/StatusFilterBar";
 
-type ServiceStatus = "active" | "inactive";
+type ServiceStatus = "ENABLED" | "DISABLED";
 
 interface MechanicService {
   _id: string;
@@ -36,6 +36,7 @@ interface MechanicService {
   price?: number;
   originalPrice?: number;
   active?: boolean;
+  productStatus?: ServiceStatus;
   description?: string;
   duration?: string;
   category?: string;
@@ -66,14 +67,16 @@ interface AddServiceSectionProps {
 interface ServicesTableProps {
   services: MechanicService[];
   onEdit: (service: MechanicService) => void;
+  onToggleVisibility: (service: MechanicService) => void;
   onDelete: (service: MechanicService) => void;
+  togglingServiceId: string | null;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 const SERVICE_STATUS_OPTIONS = [
   { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
+  { value: "ENABLED", label: "Enabled" },
+  { value: "DISABLED", label: "Disabled" },
 ];
 const CATEGORY_OPTIONS = [
   "engine_system",
@@ -103,13 +106,13 @@ const DEFAULT_SERVICE_FORM_VALUES: ServiceFormValues = {
   actualPrice: "",
   discountPrice: "",
   category: CATEGORY_OPTIONS[0],
-  status: "active",
+  status: "ENABLED",
   description: "",
   images: [],
 };
 
 function getServiceStatus(service: Partial<MechanicService>): ServiceStatus {
-  return service.active === false ? "inactive" : "active";
+  return service.productStatus === "DISABLED" ? "DISABLED" : "ENABLED";
 }
 
 function formatCurrency(value?: number) {
@@ -347,15 +350,15 @@ function AddServiceSection({
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="service-status">Status</Label>
+            <Label htmlFor="service-status">Buyer Visibility</Label>
             <select
               id="service-status"
               value={form.status}
               onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as ServiceStatus }))}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
+              <option value="ENABLED">Enabled</option>
+              <option value="DISABLED">Disabled</option>
             </select>
           </div>
           <div className="space-y-2 sm:col-span-2">
@@ -384,7 +387,7 @@ function AddServiceSection({
   );
 }
 
-function ServicesTable({ services, onEdit, onDelete }: ServicesTableProps) {
+function ServicesTable({ services, onEdit, onToggleVisibility, onDelete, togglingServiceId }: ServicesTableProps) {
   return (
     <div className="rounded-lg border border-border">
       <Table>
@@ -392,7 +395,7 @@ function ServicesTable({ services, onEdit, onDelete }: ServicesTableProps) {
           <TableRow>
             <TableHead>Service Name</TableHead>
             <TableHead>Actual Price</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead>Buyer Visibility</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -416,12 +419,21 @@ function ServicesTable({ services, onEdit, onDelete }: ServicesTableProps) {
               </TableCell>
               <TableCell>{formatCurrency(service.price)}</TableCell>
               <TableCell>
-                <Badge variant="outline">{getServiceStatus(service) === "active" ? "Active" : "Inactive"}</Badge>
+                <Badge variant="outline">{getServiceStatus(service) === "ENABLED" ? "Enabled" : "Disabled"}</Badge>
               </TableCell>
               <TableCell>
                 <div className="flex items-center justify-end gap-2">
                   <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(service)}>
                     Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={togglingServiceId === service._id}
+                    onClick={() => onToggleVisibility(service)}
+                  >
+                    {getServiceStatus(service) === "DISABLED" ? "Enable" : "Disable"}
                   </Button>
                   <Button type="button" variant="outline" size="icon" onClick={() => onDelete(service)} aria-label="Delete service" title="Delete">
                     <Trash2 className="h-4 w-4" />
@@ -443,6 +455,7 @@ export default function MechanicServices() {
   const [error, setError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [togglingServiceId, setTogglingServiceId] = useState<string | null>(null);
   const [editingService, setEditingService] = useState<MechanicService | null>(null);
   const [deleteService, setDeleteService] = useState<MechanicService | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -490,8 +503,8 @@ export default function MechanicServices() {
   const counts = useMemo(
     () => ({
       all: services.length,
-      active: services.filter((service) => getServiceStatus(service) === "active").length,
-      inactive: services.filter((service) => getServiceStatus(service) === "inactive").length,
+      ENABLED: services.filter((service) => getServiceStatus(service) === "ENABLED").length,
+      DISABLED: services.filter((service) => getServiceStatus(service) === "DISABLED").length,
     }),
     [services],
   );
@@ -541,7 +554,8 @@ export default function MechanicServices() {
       name: values.name.trim(),
       price: Number(values.actualPrice),
       originalPrice: values.discountPrice.trim() ? Number(values.discountPrice) : undefined,
-      active: values.status === "active",
+      active: values.status === "ENABLED",
+      productStatus: values.status,
       category: values.category,
       description: values.description.trim(),
       images: values.images ?? [],
@@ -591,6 +605,39 @@ export default function MechanicServices() {
     } catch {
       setError("Unable to delete service.");
       setDeleteService(null);
+    }
+  };
+
+  const handleToggleVisibility = async (service: MechanicService) => {
+    if (!service._id) return;
+
+    setError("");
+    setTogglingServiceId(service._id);
+
+    try {
+      const nextStatus = getServiceStatus(service) === "DISABLED" ? "ENABLED" : "DISABLED";
+      await api.put(`/mechanic/services/${service._id}`, {
+        productStatus: nextStatus,
+        active: nextStatus === "ENABLED",
+      });
+      setServices((current) =>
+        current.map((item) =>
+          item._id === service._id
+            ? { ...item, productStatus: nextStatus, active: nextStatus === "ENABLED" }
+            : item,
+        ),
+      );
+      if (editingService?._id === service._id) {
+        setEditingService((current) =>
+          current
+            ? { ...current, productStatus: nextStatus, active: nextStatus === "ENABLED" }
+            : current,
+        );
+      }
+    } catch {
+      setError("Unable to update service visibility.");
+    } finally {
+      setTogglingServiceId(null);
     }
   };
 
@@ -668,7 +715,13 @@ export default function MechanicServices() {
 
       {!loading && !error && pageMeta.total > 0 ? (
         <div className="space-y-4">
-          <ServicesTable services={paginatedServices} onEdit={setEditingService} onDelete={setDeleteService} />
+          <ServicesTable
+            services={paginatedServices}
+            onEdit={setEditingService}
+            onToggleVisibility={handleToggleVisibility}
+            onDelete={setDeleteService}
+            togglingServiceId={togglingServiceId}
+          />
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
               Showing {(pageMeta.page - 1) * pageMeta.limit + 1}-{Math.min(pageMeta.page * pageMeta.limit, pageMeta.total)} of {pageMeta.total} services
