@@ -2,7 +2,11 @@ import { motion } from "framer-motion";
 import { Brain, Search, MapPin, CalendarCheck, Shield } from "lucide-react";
 
 const features = [
-  { icon: Brain, title: "AI Bike Recommendation", desc: "Get personalized bike suggestions based on your riding style." },
+  {
+    icon: Brain,
+    title: "AI Bike Recommendation",
+    desc: "Get personalized bike suggestions based on your riding style.",
+  },
   { icon: Search, title: "Smart Parts Finder", desc: "Find the right spare parts using our intelligent search." },
   { icon: MapPin, title: "Verified Mechanics", desc: "Locate trusted mechanics near you with verified reviews." },
   { icon: CalendarCheck, title: "Service Booking", desc: "Book bike servicing online with real-time slot availability." },

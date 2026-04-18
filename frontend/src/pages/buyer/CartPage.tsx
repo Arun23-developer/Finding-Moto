@@ -1,20 +1,71 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Loader2, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { resolveMediaUrl } from "@/lib/imageUrl";
+import api from "@/services/api";
+import { useNavigate } from "react-router-dom";
 
 const formatCurrency = (value: number) => `LKR ${value.toLocaleString()}`;
 
 export default function CartPage() {
-  const { items, subtotal, cartCount, loading, updateCartItemQuantity, removeCartItem } = useCart();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { items, subtotal, cartCount, loading, refreshCart, updateCartItemQuantity, removeCartItem } = useCart();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
+  const [placingOrder, setPlacingOrder] = useState(false);
+  const [shippingAddress, setShippingAddress] = useState("");
 
   const hasItems = items.length > 0;
   const availableItems = useMemo(() => items.filter((item) => item.isAvailable), [items]);
+
+  useEffect(() => {
+    setShippingAddress(user?.address || "");
+  }, [user?.address]);
+
+  const handleCheckout = async () => {
+    if (!availableItems.length) return;
+
+    const normalizedAddress = shippingAddress.trim();
+    if (!normalizedAddress) {
+      setError("Please add a shipping address to place your order.");
+      return;
+    }
+
+    try {
+      setPlacingOrder(true);
+      setError("");
+      setMessage("");
+
+      for (const item of availableItems) {
+        await api.post("/orders", {
+          productId: item.productId,
+          qty: item.quantity,
+          shippingAddress: normalizedAddress,
+          paymentMethod: "Cash on Delivery",
+        });
+      }
+
+      // Remove purchased items from cart
+      for (const item of availableItems) {
+        await api.delete(`/cart/${item._id}`);
+      }
+
+      await refreshCart();
+      setMessage("Order placed successfully.");
+      navigate("/my-orders");
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to place order. Please try again.");
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
 
   const handleQuantityChange = async (cartItemId: string, quantity: number) => {
     try {
@@ -200,7 +251,30 @@ export default function CartPage() {
               <span>Total Amount</span>
               <span>{formatCurrency(subtotal)}</span>
             </div>
-            <Button type="button" className="w-full" disabled={!availableItems.length}>
+            <div className="space-y-2">
+              <Label htmlFor="shipping-address" className="text-sm">
+                Shipping Address
+              </Label>
+              <Textarea
+                id="shipping-address"
+                value={shippingAddress}
+                onChange={(event) => setShippingAddress(event.target.value)}
+                placeholder="Enter your full delivery address"
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">
+                {user?.address
+                  ? "You can edit this address here before checkout."
+                  : "Tip: Add an address in your profile for faster checkout."}
+              </p>
+            </div>
+            <Button
+              type="button"
+              className="w-full"
+              disabled={!availableItems.length || placingOrder}
+              onClick={handleCheckout}
+            >
+              {placingOrder ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Proceed to Checkout
             </Button>
             {!availableItems.length && hasItems ? (

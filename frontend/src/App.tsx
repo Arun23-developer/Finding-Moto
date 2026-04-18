@@ -7,6 +7,7 @@ import type { UserRole } from './context/AuthContext';
 import { OrderWorkflowNotificationsProvider } from './context/OrderWorkflowNotificationsContext';
 import { canUseGoogleAuth, getGoogleClientId } from './lib/googleAuth';
 import { getDefaultRouteForRole } from './lib/roleRoutes';
+import { Toaster } from '@/components/ui/toaster';
 
 const Home = lazy(() => import('./pages/Home'));
 const About = lazy(() => import('./pages/About'));
@@ -509,6 +510,7 @@ const AppContent = (): JSX.Element => {
               <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
+              <Toaster />
             </div>
           </Router>
         </OrderWorkflowNotificationsProvider>

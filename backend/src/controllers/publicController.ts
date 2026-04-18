@@ -351,6 +351,23 @@ export const getPublicMechanics = async (req: Request, res: Response): Promise<v
       .sort({ createdAt: -1 })
       .lean();
 
+    // Get review stats for mechanics
+    const mechanicIdsForReviews = mechanics.map((m) => m._id);
+    const mechanicReviewStats = await Review.aggregate([
+      { $match: { mechanicId: { $in: mechanicIdsForReviews } } },
+      {
+        $group: {
+          _id: '$mechanicId',
+          avgRating: { $avg: '$rating' },
+          reviewCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const mechanicReviewMap = new Map(
+      mechanicReviewStats.map((r) => [r._id.toString(), { avgRating: r.avgRating, reviewCount: r.reviewCount }])
+    );
+
     // Fetch real services for each mechanic from the Service collection
     const mechanicIds = mechanics.map((m) => m._id);
     const allServices = await Service.find({ mechanic: { $in: mechanicIds }, ...ENABLED_SERVICE_STATUS_FILTER })
@@ -368,6 +385,7 @@ export const getPublicMechanics = async (req: Request, res: Response): Promise<v
     // Map mechanics to a garage-like shape for frontend
     const garages = mechanics.map((m) => {
       const mechServices = serviceLookup[m._id.toString()] || [];
+      const mechStats = mechanicReviewMap.get(m._id.toString());
       return {
         _id: m._id,
         name: m.workshopName || `${m.firstName} ${m.lastName}'s Workshop`,
@@ -377,6 +395,8 @@ export const getPublicMechanics = async (req: Request, res: Response): Promise<v
         specialization: m.specialization || 'General Service',
         experienceYears: m.experienceYears || 0,
         avatar: m.avatar || null,
+        rating: mechStats ? Math.round((mechStats.avgRating || 0) * 10) / 10 : 0,
+        reviewCount: mechStats ? mechStats.reviewCount || 0 : 0,
         services: mechServices.length > 0
           ? mechServices.map((s) => s.name)
           : (m.specialization

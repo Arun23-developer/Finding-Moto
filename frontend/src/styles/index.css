@@ -295,6 +295,26 @@
     box-shadow: 0 0 20px rgba(255, 26, 26, 0.2);
   }
 
+  .glass {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+  }
+
+  .section-padding {
+    @apply py-20 px-4 md:px-8 lg:px-16;
+  }
+
+  .neon-glow {
+    box-shadow: 0 0 20px hsl(var(--info) / 0.22), 0 0 40px hsl(var(--info) / 0.08);
+  }
+
+  .neon-glow-orange {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.22), 0 0 40px hsl(var(--primary) / 0.08);
+  }
+
+  .group:hover .group-hover\:neon-glow-orange {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.22), 0 0 40px hsl(var(--primary) / 0.08);
+  }
+
   .sidebar-gradient {
     background: linear-gradient(180deg, #FAFAFA 0%, #F0F0F0 100%);
   }

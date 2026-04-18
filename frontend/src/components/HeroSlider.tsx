@@ -12,53 +12,53 @@ const heroImages = [heroBike1, heroBike2, heroBike3, heroBike4, heroBike5];
 
 const HeroSlider = () => {
   const [current, setCurrent] = useState(0);
+  const [direction, setDirection] = useState<1 | -1>(1);
 
   const next = useCallback(() => {
+    setDirection(1);
     setCurrent((prev) => (prev + 1) % heroImages.length);
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(next, 3000);
+    const interval = setInterval(next, 6000);
     return () => clearInterval(interval);
   }, [next]);
 
   return (
-    <section className="relative h-screen w-full overflow-hidden">
+    <section className="relative h-screen h-[100svh] w-full overflow-hidden">
       {/* Background images */}
       <AnimatePresence mode="wait">
         <motion.div
           key={current}
-          initial={{ opacity: 0, scale: 1.1 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.8 }}
-          className="absolute inset-0"
+          initial={{ opacity: 0, x: direction * 48, scale: 1.02 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: -direction * 48, scale: 1.01 }}
+          transition={{ duration: 1.1, ease: "easeInOut" }}
+          className="absolute inset-0 will-change-transform"
         >
           <img
             src={heroImages[current]}
             alt="Hero motorcycle"
-            className="w-full h-full object-cover"
+            className="h-full w-full select-none object-cover object-center"
+            draggable={false}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background/80 to-transparent" />
         </motion.div>
       </AnimatePresence>
 
       {/* Content */}
-      <div className="relative z-10 container mx-auto h-full flex flex-col justify-center px-4">
+      <div className="relative z-10 container mx-auto h-full flex flex-col justify-center px-4 pt-16 md:pt-20">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.8 }}
-          className="max-w-2xl"
+          className="max-w-2xl drop-shadow-lg"
         >
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-primary text-sm font-medium mb-6">
             <span className="h-2 w-2 rounded-full bg-primary animate-pulse-glow" />
             AI-Powered Platform
           </div>
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-heading font-black leading-tight mb-6">
-            Powering the{" "}
-            <span className="text-gradient">Future</span> of Riding
+            Powering the <span className="text-gradient">Future</span> of Riding
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-lg mb-8">
             Discover bikes, parts, trusted mechanics, and smart AI recommendations in one platform.

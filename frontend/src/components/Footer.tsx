@@ -17,7 +17,11 @@ const Footer = () => (
           </p>
           <div className="flex gap-3">
             {[Facebook, Twitter, Instagram, Youtube].map((Icon, i) => (
-              <a key={i} href="#" className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+              <a
+                key={i}
+                href="#"
+                className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+              >
                 <Icon className="h-4 w-4" />
               </a>
             ))}
@@ -28,7 +32,11 @@ const Footer = () => (
           <h4 className="font-heading font-semibold mb-4">Quick Links</h4>
           <div className="flex flex-col gap-2">
             {["Home", "Products", "Services", "About", "Contact"].map((l) => (
-              <Link key={l} to={l === "Home" ? "/" : `/${l.toLowerCase()}`} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              <Link
+                key={l}
+                to={l === "Home" ? "/" : `/${l.toLowerCase()}`}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
                 {l}
               </Link>
             ))}
