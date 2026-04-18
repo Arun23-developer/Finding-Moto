@@ -5,6 +5,43 @@ import Product from '../models/Product';
 import mongoose from 'mongoose';
 import { refreshProductEmbedding } from '../utils/embeddings';
 
+const normalizeImagesInput = (input: unknown): string[] => {
+  const toCleanList = (values: string[]): string[] => {
+    const cleaned = values
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+    return Array.from(new Set(cleaned));
+  };
+
+  if (Array.isArray(input)) {
+    return toCleanList(input.filter((item): item is string => typeof item === 'string'));
+  }
+
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (!trimmed) return [];
+
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (Array.isArray(parsed)) {
+          return toCleanList(parsed.filter((item): item is string => typeof item === 'string'));
+        }
+      } catch {
+        // Fall through to comma-separated parsing.
+      }
+    }
+
+    if (trimmed.includes(',')) {
+      return toCleanList(trimmed.split(','));
+    }
+
+    return [trimmed];
+  }
+
+  return [];
+};
+
 // @desc    Get seller's products (paginated, filterable)
 // @route   GET /api/products/seller
 // @access  Private/Seller
@@ -51,10 +88,10 @@ export const getProducts = async (req: AuthRequest, res: Response): Promise<void
 export const createProduct = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const sellerId = req.user!._id;
-    const { name, description, category, brand, price, originalPrice, stock, images, sku, type } = req.body;
-    const normalizedImages = Array.isArray(images) ? images.slice(0, 5) : [];
+    const { name, description, category, brand, price, originalPrice, stock, images, image, sku, type } = req.body;
+    const normalizedImages = normalizeImagesInput(images ?? image).slice(0, 5);
 
-    if (Array.isArray(images) && images.length > 5) {
+    if (normalizeImagesInput(images ?? image).length > 5) {
       res.status(400).json({ success: false, message: 'Maximum 5 photos allowed' });
       return;
     }
@@ -114,8 +151,8 @@ export const updateProduct = async (req: AuthRequest, res: Response): Promise<vo
 
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) {
-        if (field === 'images' && Array.isArray(req.body[field])) {
-          (product as unknown as Record<string, unknown>)[field] = req.body[field].slice(0, 5);
+        if (field === 'images') {
+          (product as unknown as Record<string, unknown>)[field] = normalizeImagesInput(req.body[field]);
           return;
         }
         (product as unknown as Record<string, unknown>)[field] = req.body[field];

@@ -3,7 +3,11 @@ import config from '../config';
 
 const connectDB = async (): Promise<void> => {
   try {
-    const conn = await mongoose.connect(config.mongoURI);
+    mongoose.set('bufferCommands', false);
+
+    const conn = await mongoose.connect(config.mongoURI, {
+      serverSelectionTimeoutMS: 5000,
+    });
     console.log(`MongoDB Connected: ${conn.connection.host}`);
 
     // Migrate: drop old unique index on email alone (now compound email+role)
@@ -25,8 +29,7 @@ const connectDB = async (): Promise<void> => {
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`Error: ${errorMessage}`);
-    process.exit(1);
+    console.error(`MongoDB connection failed: ${errorMessage}`);
   }
 };
 

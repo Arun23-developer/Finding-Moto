@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getDefaultRouteForRole } from '../lib/roleRoutes';
 
 const ChangePassword: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -54,10 +55,7 @@ const ChangePassword: React.FC = () => {
   };
 
   const goBack = () => {
-    if (user?.role === 'admin') navigate('/admin');
-    else if (user?.role === 'seller') navigate('/seller/dashboard');
-    else if (user?.role === 'mechanic') navigate('/mechanic/dashboard');
-    else navigate('/dashboard');
+    navigate(getDefaultRouteForRole(user?.role));
   };
 
   return (

@@ -2,12 +2,11 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Bell,
-  Wrench,
-  Star,
-  Package,
-  CheckCircle,
+  AlertTriangle,
+  TrendingDown,
+  FileText,
+  MessageSquare,
   Clock,
-  Settings,
   Trash2,
   Check,
 } from "lucide-react";
@@ -15,31 +14,85 @@ import { cn } from "@/lib/utils";
 
 interface Notification {
   id: number;
-  type: "service" | "review" | "parts" | "system" | "schedule";
+  type: "admin_alert" | "low_stock" | "policy_update" | "customer_report";
   title: string;
   message: string;
   time: string;
   read: boolean;
+  severity?: "critical" | "warning" | "info";
 }
 
-const typeConfig: Record<string, { icon: typeof Bell; color: string; bg: string }> = {
-  service: { icon: Wrench, color: "text-amber-600", bg: "bg-amber-600/10" },
-  review: { icon: Star, color: "text-yellow-600", bg: "bg-yellow-600/10" },
-  parts: { icon: Package, color: "text-blue-600", bg: "bg-blue-600/10" },
-  system: { icon: Settings, color: "text-purple-600", bg: "bg-purple-600/10" },
-  schedule: { icon: Clock, color: "text-emerald-600", bg: "bg-emerald-600/10" },
+const typeConfig: Record<string, { icon: typeof Bell; color: string; bg: string; label: string }> = {
+  admin_alert: { icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-600/10", label: "Admin Alerts" },
+  low_stock: { icon: TrendingDown, color: "text-red-600", bg: "bg-red-600/10", label: "Low Stock" },
+  policy_update: { icon: FileText, color: "text-blue-600", bg: "bg-blue-600/10", label: "Policy Updates" },
+  customer_report: { icon: MessageSquare, color: "text-purple-600", bg: "bg-purple-600/10", label: "Customer Reports" },
 };
 
-type FilterType = "all" | "service" | "review" | "parts" | "system" | "schedule";
+type FilterType = "all" | "admin_alert" | "low_stock" | "policy_update" | "customer_report";
 
 // ─── Notifications Page ─────────────────────────────────────────────────────
 export default function MechanicNotifications() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([
+    {
+      id: 1,
+      type: "admin_alert",
+      title: "Admin Alert",
+      message: "New policy announcement regarding mechanic accounts",
+      time: "5 min ago",
+      read: false,
+      severity: "warning",
+    },
+    {
+      id: 2,
+      type: "low_stock",
+      title: "Low Stock Alert",
+      message: "Socket Set (SKU: SS-001) stock is 5 units - below threshold of 10",
+      time: "12 min ago",
+      read: false,
+      severity: "critical",
+    },
+    {
+      id: 3,
+      type: "low_stock",
+      title: "Low Stock Alert",
+      message: "Wrench Set (SKU: WS-002) stock is 8 units - below threshold of 10",
+      time: "28 min ago",
+      read: false,
+      severity: "critical",
+    },
+    {
+      id: 4,
+      type: "policy_update",
+      title: "Policy Update",
+      message: "New warranty policy effective from April 1st. Please review the updates.",
+      time: "2 hours ago",
+      read: false,
+      severity: "info",
+    },
+    {
+      id: 5,
+      type: "customer_report",
+      title: "Customer Report Alert",
+      message: "New customer complaint reported for service #SVC-2045",
+      time: "3 hours ago",
+      read: true,
+      severity: "warning",
+    },
+  ]);
   const [filter, setFilter] = useState<FilterType>("all");
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const filtered = notifications.filter((n) => filter === "all" || n.type === filter);
+
+  const filterCounts: Record<FilterType, number> = {
+    all: notifications.length,
+    admin_alert: notifications.filter((n) => n.type === "admin_alert").length,
+    low_stock: notifications.filter((n) => n.type === "low_stock").length,
+    policy_update: notifications.filter((n) => n.type === "policy_update").length,
+    customer_report: notifications.filter((n) => n.type === "customer_report").length,
+  };
 
   const markAllRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -59,14 +112,7 @@ export default function MechanicNotifications() {
     setNotifications([]);
   };
 
-  const filterCounts: Record<FilterType, number> = {
-    all: notifications.length,
-    service: notifications.filter((n) => n.type === "service").length,
-    review: notifications.filter((n) => n.type === "review").length,
-    parts: notifications.filter((n) => n.type === "parts").length,
-    system: notifications.filter((n) => n.type === "system").length,
-    schedule: notifications.filter((n) => n.type === "schedule").length,
-  };
+
 
   return (
     <div className="space-y-6">
@@ -98,54 +144,27 @@ export default function MechanicNotifications() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {(["service", "review", "parts", "system", "schedule"] as const).map((type) => {
-          const config = typeConfig[type];
-          const Icon = config.icon;
-          const unread = notifications.filter((n) => n.type === type && !n.read).length;
+      {/* Filter Tabs */}
+      <div className="flex gap-1.5 flex-wrap">
+        {(["all", "admin_alert", "low_stock", "policy_update", "customer_report"] as const).map((f) => {
+          const config = f === "all" ? null : typeConfig[f];
+          const Icon = config?.icon;
           return (
             <button
-              key={type}
-              onClick={() => setFilter(filter === type ? "all" : type)}
+              key={f}
+              onClick={() => setFilter(f)}
               className={cn(
-                "rounded-lg border p-3 text-left transition-all",
-                filter === type ? "ring-2 ring-amber-500 border-amber-500" : "hover:border-amber-300"
+                "px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2",
+                filter === f
+                  ? "bg-amber-600 text-white"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
               )}
             >
-              <div className="flex items-center gap-2 mb-1">
-                <Icon className={cn("h-4 w-4", config.color)} />
-                <span className="text-xs text-muted-foreground capitalize">{type === "parts" ? "Parts" : type + "s"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <p className="text-lg font-bold">{filterCounts[type]}</p>
-                {unread > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-amber-600 text-white text-[10px] font-bold">
-                    {unread}
-                  </span>
-                )}
-              </div>
+              {Icon && <Icon className="h-4 w-4" />}
+              {f === "all" ? "All" : config?.label} ({filterCounts[f]})
             </button>
           );
         })}
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex gap-1.5 flex-wrap">
-        {(["all", "service", "review", "parts", "system", "schedule"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-              filter === f
-                ? "bg-amber-600 text-white"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            )}
-          >
-            {f === "all" ? `All (${filterCounts.all})` : `${f.charAt(0).toUpperCase() + f.slice(1)}${f !== "parts" ? "s" : ""} (${filterCounts[f]})`}
-          </button>
-        ))}
       </div>
 
       {/* Notifications List */}
@@ -166,9 +185,12 @@ export default function MechanicNotifications() {
                   <div
                     key={notification.id}
                     className={cn(
-                      "flex items-start gap-4 px-5 py-4 transition-colors hover:bg-muted/20",
+                      "flex items-start gap-4 px-5 py-4 transition-colors hover:bg-muted/20 border-l-4",
                       idx < filtered.length - 1 && "border-b border-border/50",
-                      !notification.read && "bg-amber-50/50 dark:bg-amber-950/10"
+                      notification.severity === "critical" && "border-l-red-500 bg-red-50/30 dark:bg-red-950/10",
+                      notification.severity === "warning" && "border-l-amber-500 bg-amber-50/30 dark:bg-amber-950/10",
+                      notification.severity === "info" && "border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/10",
+                      !notification.read && "font-semibold"
                     )}
                   >
                     {/* Icon */}
@@ -200,7 +222,7 @@ export default function MechanicNotifications() {
                               className="p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/30 text-amber-600 transition-colors"
                               title="Mark as read"
                             >
-                              <CheckCircle className="h-4 w-4" />
+                              <Check className="h-4 w-4" />
                             </button>
                           )}
                           <button

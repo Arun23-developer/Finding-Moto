@@ -213,6 +213,11 @@ export const sendWelcomeEmail = async (
       message: 'Your mechanic account is pending admin approval. We\'ll send you an email once your workshop profile is reviewed and approved.',
       color: '#D97706',
     },
+    delivery_agent: {
+      emoji: '🚚',
+      message: 'Your delivery agent account is active and ready to use.',
+      color: '#2563EB',
+    },
   };
 
   const rc = roleConfig[role] || { emoji: '🏍️', message: 'Welcome aboard!', color: '#4F46E5' };

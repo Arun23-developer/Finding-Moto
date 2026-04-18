@@ -27,13 +27,6 @@ import {
 const FETCH_LIMIT = 100;
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-const defaultMeta: ProductListMeta = {
-  page: 1,
-  limit: 10,
-  total: 0,
-  pages: 1,
-};
-
 export default function SellerProducts() {
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -423,9 +416,12 @@ export default function SellerProducts() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(deleteProduct)} onOpenChange={(open) => {
-        if (!open) setDeleteProduct(null);
-      }}>
+      <Dialog
+        open={Boolean(deleteProduct)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteProduct(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Product</DialogTitle>

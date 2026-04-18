@@ -1,11 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Package,
   ShoppingCart,
-  DollarSign,
   ArrowUpRight,
-  Store,
   Loader2,
   AlertCircle,
   RefreshCw,
@@ -107,32 +104,8 @@ export default function Dashboard() {
   const { stats, recentOrders, categories, monthlyRevenue } = data;
   const maxRevenue = Math.max(...monthlyRevenue.map((d) => d.revenue), 1);
 
-  const statCards = [
-    { title: "Total Revenue", value: `LKR ${stats.revenue.toLocaleString()}`, icon: DollarSign },
-    { title: "Total Orders", value: stats.totalOrders.toLocaleString(), icon: ShoppingCart },
-    { title: "Active Shops", value: stats.activeSellers.toLocaleString(), icon: Store },
-    { title: "Products Listed", value: stats.totalProducts.toLocaleString(), icon: Package },
-  ];
-
   return (
     <div className="space-y-6">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((stat) => (
-          <Card key={stat.title} className="stat-card-hover glass-card">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <stat.icon className="h-5 w-5 text-primary" />
-                </div>
-              </div>
-              <p className="text-2xl font-bold">{stat.value}</p>
-              <p className="text-xs text-muted-foreground mt-1">{stat.title}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Revenue Chart */}

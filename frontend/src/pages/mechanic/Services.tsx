@@ -692,6 +692,14 @@ export default function MechanicServices() {
         }}
       >
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{editingService ? "Edit Service" : "Add Service"}</DialogTitle>
+            <DialogDescription>
+              {editingService
+                ? "Update the selected mechanic service."
+                : "Create a new mechanic service."}
+            </DialogDescription>
+          </DialogHeader>
           <AddServiceSection service={editingService} submitting={submitting} submitError={submitError} onSubmit={handleSubmit} />
         </DialogContent>
       </Dialog>

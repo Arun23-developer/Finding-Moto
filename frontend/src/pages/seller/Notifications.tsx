@@ -2,13 +2,11 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Bell,
-  ShoppingCart,
-  Star,
-  Package,
   AlertTriangle,
-  CheckCircle,
+  TrendingDown,
+  FileText,
+  MessageSquare,
   Clock,
-  Settings,
   Trash2,
   Check,
 } from "lucide-react";
@@ -17,31 +15,85 @@ import { cn } from "@/lib/utils";
 // ─── Mock Data ──────────────────────────────────────────────────────────────
 interface Notification {
   id: number;
-  type: "order" | "review" | "stock" | "system" | "promotion";
+  type: "admin_alert" | "low_stock" | "policy_update" | "customer_report";
   title: string;
   message: string;
   time: string;
   read: boolean;
+  severity?: "critical" | "warning" | "info";
 }
 
-const typeConfig: Record<string, { icon: typeof Bell; color: string; bg: string }> = {
-  order: { icon: ShoppingCart, color: "text-blue-600", bg: "bg-blue-600/10" },
-  review: { icon: Star, color: "text-amber-600", bg: "bg-amber-600/10" },
-  stock: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-600/10" },
-  system: { icon: Settings, color: "text-purple-600", bg: "bg-purple-600/10" },
-  promotion: { icon: Package, color: "text-emerald-600", bg: "bg-emerald-600/10" },
+const typeConfig: Record<string, { icon: typeof Bell; color: string; bg: string; label: string }> = {
+  admin_alert: { icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-600/10", label: "Admin Alerts" },
+  low_stock: { icon: TrendingDown, color: "text-red-600", bg: "bg-red-600/10", label: "Low Stock" },
+  policy_update: { icon: FileText, color: "text-blue-600", bg: "bg-blue-600/10", label: "Policy Updates" },
+  customer_report: { icon: MessageSquare, color: "text-purple-600", bg: "bg-purple-600/10", label: "Customer Reports" },
 };
 
-type FilterType = "all" | "order" | "review" | "stock" | "system" | "promotion";
+type FilterType = "all" | "admin_alert" | "low_stock" | "policy_update" | "customer_report";
 
 // ─── Notifications Page ─────────────────────────────────────────────────────
 export default function SellerNotifications() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([
+    {
+      id: 1,
+      type: "admin_alert",
+      title: "Admin Alert",
+      message: "New policy announcement regarding seller accounts",
+      time: "5 min ago",
+      read: false,
+      severity: "warning",
+    },
+    {
+      id: 2,
+      type: "low_stock",
+      title: "Low Stock Alert",
+      message: "Brake Pads (SKU: BP-001) stock is 7 units - below threshold of 10",
+      time: "12 min ago",
+      read: false,
+      severity: "critical",
+    },
+    {
+      id: 3,
+      type: "low_stock",
+      title: "Low Stock Alert",
+      message: "Oil Filter (SKU: OF-002) stock is 9 units - below threshold of 10",
+      time: "28 min ago",
+      read: false,
+      severity: "critical",
+    },
+    {
+      id: 4,
+      type: "policy_update",
+      title: "Policy Update",
+      message: "New refund policy effective from April 1st. Please review the updates.",
+      time: "2 hours ago",
+      read: false,
+      severity: "info",
+    },
+    {
+      id: 5,
+      type: "customer_report",
+      title: "Customer Report Alert",
+      message: "New customer complaint reported for order #FM-2045 - Quality issue",
+      time: "3 hours ago",
+      read: true,
+      severity: "warning",
+    },
+  ]);
   const [filter, setFilter] = useState<FilterType>("all");
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const filtered = notifications.filter((n) => filter === "all" || n.type === filter);
+
+  const filterCounts: Record<FilterType, number> = {
+    all: notifications.length,
+    admin_alert: notifications.filter((n) => n.type === "admin_alert").length,
+    low_stock: notifications.filter((n) => n.type === "low_stock").length,
+    policy_update: notifications.filter((n) => n.type === "policy_update").length,
+    customer_report: notifications.filter((n) => n.type === "customer_report").length,
+  };
 
   const markAllRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -61,14 +113,7 @@ export default function SellerNotifications() {
     setNotifications([]);
   };
 
-  const filterCounts: Record<FilterType, number> = {
-    all: notifications.length,
-    order: notifications.filter((n) => n.type === "order").length,
-    review: notifications.filter((n) => n.type === "review").length,
-    stock: notifications.filter((n) => n.type === "stock").length,
-    system: notifications.filter((n) => n.type === "system").length,
-    promotion: notifications.filter((n) => n.type === "promotion").length,
-  };
+
 
   return (
     <div className="space-y-6">
@@ -100,54 +145,27 @@ export default function SellerNotifications() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {(["order", "review", "stock", "system", "promotion"] as const).map((type) => {
-          const config = typeConfig[type];
-          const Icon = config.icon;
-          const unread = notifications.filter((n) => n.type === type && !n.read).length;
+      {/* Filter Tabs */}
+      <div className="flex gap-1.5 flex-wrap">
+        {(["all", "admin_alert", "low_stock", "policy_update", "customer_report"] as const).map((f) => {
+          const config = f === "all" ? null : typeConfig[f];
+          const Icon = config?.icon;
           return (
             <button
-              key={type}
-              onClick={() => setFilter(filter === type ? "all" : type)}
+              key={f}
+              onClick={() => setFilter(f)}
               className={cn(
-                "rounded-lg border p-3 text-left transition-all",
-                filter === type ? "ring-2 ring-blue-500 border-blue-500" : "hover:border-blue-300"
+                "px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2",
+                filter === f
+                  ? "bg-blue-600 text-white"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
               )}
             >
-              <div className="flex items-center gap-2 mb-1">
-                <Icon className={cn("h-4 w-4", config.color)} />
-                <span className="text-xs text-muted-foreground capitalize">{type}s</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <p className="text-lg font-bold">{filterCounts[type]}</p>
-                {unread > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold">
-                    {unread}
-                  </span>
-                )}
-              </div>
+              {Icon && <Icon className="h-4 w-4" />}
+              {f === "all" ? "All" : config?.label} ({filterCounts[f]})
             </button>
           );
         })}
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex gap-1.5 flex-wrap">
-        {(["all", "order", "review", "stock", "system", "promotion"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-              filter === f
-                ? "bg-blue-600 text-white"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            )}
-          >
-            {f === "all" ? `All (${filterCounts.all})` : `${f.charAt(0).toUpperCase() + f.slice(1)}s (${filterCounts[f]})`}
-          </button>
-        ))}
       </div>
 
       {/* Notifications List */}
@@ -168,9 +186,12 @@ export default function SellerNotifications() {
                   <div
                     key={notification.id}
                     className={cn(
-                      "flex items-start gap-4 px-5 py-4 transition-colors hover:bg-muted/20",
+                      "flex items-start gap-4 px-5 py-4 transition-colors hover:bg-muted/20 border-l-4",
                       idx < filtered.length - 1 && "border-b border-border/50",
-                      !notification.read && "bg-blue-50/50 dark:bg-blue-950/10"
+                      notification.severity === "critical" && "border-l-red-500 bg-red-50/30 dark:bg-red-950/10",
+                      notification.severity === "warning" && "border-l-amber-500 bg-amber-50/30 dark:bg-amber-950/10",
+                      notification.severity === "info" && "border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/10",
+                      !notification.read && "font-semibold"
                     )}
                   >
                     {/* Icon */}
@@ -202,7 +223,7 @@ export default function SellerNotifications() {
                               className="p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-950/30 text-blue-600 transition-colors"
                               title="Mark as read"
                             >
-                              <CheckCircle className="h-4 w-4" />
+                              <Check className="h-4 w-4" />
                             </button>
                           )}
                           <button

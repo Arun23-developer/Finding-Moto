@@ -13,6 +13,15 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import api from "@/services/api";
 import { BuyerDetailsModal } from "./orders/BuyerDetailsModal";
@@ -44,12 +53,17 @@ const mockOrders: Order[] = [
 ];
 
 export default function OrdersPage() {
+  const [agents, setAgents] = useState<{ _id: string; fullName: string; email: string }[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [assignOrder, setAssignOrder] = useState<Order | null>(null);
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
   const [stats, setStats] = useState<OrderStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
@@ -83,6 +97,42 @@ export default function OrdersPage() {
     fetchOrders();
     fetchStats();
   }, [fetchOrders, fetchStats]);
+
+  const openAssignDelivery = useCallback(async (order: Order) => {
+    setAssignOrder(order);
+    setSelectedAgentId("");
+    setAssignError(null);
+    try {
+      const res = await api.get("/deliveries/agents");
+      setAgents(Array.isArray(res.data.data) ? res.data.data : []);
+    } catch (err: any) {
+      setAgents([]);
+      setAssignError(err?.response?.data?.message || "Failed to load delivery agents");
+    }
+  }, []);
+
+  const handleAssignDelivery = useCallback(async () => {
+    if (!assignOrder || !selectedAgentId) {
+      setAssignError("Please select a delivery agent");
+      return;
+    }
+
+    setAssignLoading(true);
+    setAssignError(null);
+    try {
+      await api.post("/deliveries/assign", {
+        orderId: assignOrder._id,
+        agentId: selectedAgentId,
+      });
+      setAssignOrder(null);
+      setSelectedAgentId("");
+      await fetchOrders();
+    } catch (err: any) {
+      setAssignError(err?.response?.data?.message || "Failed to assign delivery");
+    } finally {
+      setAssignLoading(false);
+    }
+  }, [assignOrder, fetchOrders, selectedAgentId]);
 
   const filteredOrders = orders.filter((order) => {
     const normalizedSearch = search.toLowerCase();
@@ -307,6 +357,7 @@ export default function OrdersPage() {
               allOrdersCount={orders.length}
               error={error}
               onBuyerDetails={setSelectedOrder}
+              onAssignDelivery={openAssignDelivery}
             />
           </CardContent>
         </Card>
@@ -319,6 +370,49 @@ export default function OrdersPage() {
           if (!open) setSelectedOrder(null);
         }}
       />
+
+      <Dialog open={Boolean(assignOrder)} onOpenChange={(open) => !open && setAssignOrder(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Delivery Agent</DialogTitle>
+            <DialogDescription>
+              Select a delivery agent for order #{assignOrder?._id.slice(-6).toUpperCase()}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <label htmlFor="delivery-agent" className="text-sm font-medium">Delivery Agent</label>
+              <select
+                id="delivery-agent"
+                value={selectedAgentId}
+                onChange={(event) => setSelectedAgentId(event.target.value)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                disabled={assignLoading}
+              >
+                <option value="">Select an agent</option>
+                {agents.map((agent) => (
+                  <option key={agent._id} value={agent._id}>
+                    {agent.fullName} {agent.email ? `(${agent.email})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {assignError && (
+              <p className="text-sm text-destructive">{assignError}</p>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setAssignOrder(null)} disabled={assignLoading}>
+              Cancel
+            </Button>
+            <Button onClick={handleAssignDelivery} disabled={assignLoading}>
+              {assignLoading ? "Assigning..." : "Assign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

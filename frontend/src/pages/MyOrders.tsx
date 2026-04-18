@@ -31,7 +31,21 @@ interface Order {
   _id: string;
   items: OrderItem[];
   totalAmount: number;
-  status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled";
+  status:
+    | "pending"
+    | "awaiting_seller_confirmation"
+    | "confirmed"
+    | "rejected"
+    | "processing"
+    | "ready_for_dispatch"
+    | "pickup_assigned"
+    | "picked_up"
+    | "out_for_delivery"
+    | "delivered"
+    | "completed"
+    | "cancelled"
+    | "refunded"
+    | "shipped";
   shippingAddress: string;
   paymentMethod: string;
   notes?: string;
@@ -41,13 +55,44 @@ interface Order {
 
 const statusConfig: Record<string, { icon: React.ReactNode; label: string; color: string; bg: string }> = {
   pending: { icon: <Clock className="h-4 w-4" />, label: "Pending", color: "text-yellow-600 dark:text-yellow-400", bg: "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800" },
+  awaiting_seller_confirmation: { icon: <Clock className="h-4 w-4" />, label: "Awaiting Seller Confirmation", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800" },
   confirmed: { icon: <CheckCircle2 className="h-4 w-4" />, label: "Confirmed", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800" },
-  shipped: { icon: <Truck className="h-4 w-4" />, label: "Shipped", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" },
+  rejected: { icon: <XCircle className="h-4 w-4" />, label: "Rejected", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" },
+  processing: { icon: <ShoppingBag className="h-4 w-4" />, label: "Processing", color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800" },
+  ready_for_dispatch: { icon: <ShoppingBag className="h-4 w-4" />, label: "Ready for Dispatch", color: "text-sky-600 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800" },
+  pickup_assigned: { icon: <Truck className="h-4 w-4" />, label: "Pickup Assigned", color: "text-cyan-600 dark:text-cyan-400", bg: "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800" },
+  picked_up: { icon: <Truck className="h-4 w-4" />, label: "Picked Up", color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800" },
+  out_for_delivery: { icon: <Truck className="h-4 w-4" />, label: "Out for Delivery", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" },
   delivered: { icon: <CheckCircle2 className="h-4 w-4" />, label: "Delivered", color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" },
+  completed: { icon: <CheckCircle2 className="h-4 w-4" />, label: "Completed", color: "text-emerald-700 dark:text-emerald-300", bg: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800" },
   cancelled: { icon: <XCircle className="h-4 w-4" />, label: "Cancelled", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" },
+  refunded: { icon: <XCircle className="h-4 w-4" />, label: "Refunded", color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800" },
+  shipped: { icon: <Truck className="h-4 w-4" />, label: "Out for Delivery", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" },
 };
 
-const statusFilters = ["all", "pending", "confirmed", "shipped", "delivered", "cancelled"] as const;
+const statusFilters = [
+  "all",
+  "pending",
+  "awaiting_seller_confirmation",
+  "confirmed",
+  "processing",
+  "ready_for_dispatch",
+  "pickup_assigned",
+  "picked_up",
+  "out_for_delivery",
+  "delivered",
+  "completed",
+  "cancelled",
+  "refunded",
+] as const;
+
+const formatStatusLabel = (status: string) => {
+  if (status === "all") return "All Orders";
+  return status
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+};
 
 const orderDateFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
@@ -128,6 +173,18 @@ const MyOrders: React.FC = () => {
     }
   };
 
+  const handleConfirmReceipt = async (orderId: string) => {
+    try {
+      setCancellingId(orderId);
+      await api.patch(`/orders/my/${orderId}/confirm-received`);
+      await fetchOrders();
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to confirm receipt");
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   const getImageUrl = (img?: string): string => {
     return resolveMediaUrl(img, "https://placehold.co/80x80?text=Item");
   };
@@ -163,7 +220,7 @@ const MyOrders: React.FC = () => {
                     : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
                 }`}
               >
-                {s === "all" ? "All Orders" : s.charAt(0).toUpperCase() + s.slice(1)}
+                {formatStatusLabel(s)}
               </button>
             ))}
           </div>
@@ -191,7 +248,7 @@ const MyOrders: React.FC = () => {
               <h3 className="text-xl font-semibold text-foreground mb-2">No orders yet</h3>
               <p className="text-muted-foreground mb-6">
                 {statusFilter !== "all"
-                  ? `No ${statusFilter} orders found.`
+                  ? `No ${formatStatusLabel(statusFilter).toLowerCase()} orders found.`
                   : "Start shopping to see your orders here!"}
               </p>
               <Button onClick={() => navigate("/products")}>
@@ -301,6 +358,22 @@ const MyOrders: React.FC = () => {
                               <XCircle className="h-3 w-3 mr-1" />
                             )}
                             Cancel
+                          </Button>
+                        )}
+                        {order.status === "delivered" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-green-600 border-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 shrink-0"
+                            onClick={() => handleConfirmReceipt(order._id)}
+                            disabled={cancellingId === order._id}
+                          >
+                            {cancellingId === order._id ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            ) : (
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                            )}
+                            Confirm Receipt
                           </Button>
                         )}
                       </div>

@@ -294,7 +294,7 @@ export default function MechanicDashboard() {
           </CardHeader>
           <CardContent className="pt-4">
             <div className="h-[280px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <AreaChart data={weeklyStats} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="mechanicRevenueGradient" x1="0" y1="0" x2="0" y2="1">
@@ -333,7 +333,7 @@ export default function MechanicDashboard() {
           </CardHeader>
           <CardContent className="pt-2">
             <div className="h-[200px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <PieChart>
                   <Pie
                     data={requestStatusData}
@@ -412,7 +412,7 @@ export default function MechanicDashboard() {
           <CardContent className="pt-4">
             {serviceCategoryData.length > 0 ? (
               <div className="h-[280px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart data={serviceCategoryData} margin={{ top: 5, right: 10, left: -10, bottom: 40 }} barGap={4}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
                     <XAxis dataKey="category" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} angle={-25} textAnchor="end" interval={0} />

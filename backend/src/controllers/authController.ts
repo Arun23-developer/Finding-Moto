@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import mongoose from 'mongoose';
-import User, { IUser, UserRole } from '../models/User';
+import User, { IUser, UserRole, USER_ROLES } from '../models/User';
 import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 import dns from 'dns';
 import { promisify } from 'util';
@@ -22,7 +22,7 @@ interface RegisterRequestBody {
   email: string;
   password: string;
   phone?: string;
-  role: UserRole;
+  role?: UserRole;
   // Seller fields
   shopName?: string;
   shopDescription?: string;
@@ -53,6 +53,7 @@ interface UserResponse {
   fullName: string;
   email: string;
   phone?: string;
+  address?: string;
   avatar?: string | null;
   role: UserRole;
   approvalStatus: string;
@@ -66,6 +67,11 @@ interface UserResponse {
   experienceYears?: number;
   workshopLocation?: string;
   workshopName?: string;
+  vehicleType?: string;
+  vehicleNumber?: string;
+  licenseNumber?: string;
+  payoutMethod?: string;
+  payoutAccountName?: string;
 }
 
 interface AuthResponse {
@@ -119,6 +125,7 @@ const formatUser = (user: IUser): UserResponse => ({
   fullName: user.fullName,
   email: user.email,
   phone: user.phone,
+  address: user.address,
   avatar: user.avatar,
   role: user.role,
   approvalStatus: user.approvalStatus,
@@ -131,7 +138,12 @@ const formatUser = (user: IUser): UserResponse => ({
   specialization: user.specialization,
   experienceYears: user.experienceYears,
   workshopLocation: user.workshopLocation,
-  workshopName: user.workshopName
+  workshopName: user.workshopName,
+  vehicleType: user.vehicleType,
+  vehicleNumber: user.vehicleNumber,
+  licenseNumber: user.licenseNumber,
+  payoutMethod: user.payoutMethod,
+  payoutAccountName: user.payoutAccountName
 });
 
 // @desc    Register new user (buyer, seller, or mechanic)
@@ -154,10 +166,10 @@ export const register = async (
     }
 
     // Validate role
-    const validRoles: UserRole[] = ['buyer', 'seller', 'mechanic'];
+    const validRoles: UserRole[] = [...USER_ROLES];
     const userRole = role || 'buyer';
     if (!validRoles.includes(userRole)) {
-      res.status(400).json({ message: 'Invalid role. Must be buyer, seller, or mechanic' });
+      res.status(400).json({ message: 'Invalid role' });
       return;
     }
 
@@ -632,12 +644,13 @@ export const updateProfile = async (
     }
 
     // Fields that can be updated by the user
-    const { firstName, lastName, phone, address, avatar } = req.body;
+    const { firstName, lastName, phone, address, avatar, email } = req.body;
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
     if (phone !== undefined) user.phone = phone;
     if (address !== undefined) user.address = address;
     if (avatar !== undefined) user.avatar = avatar;
+    if (email !== undefined) user.email = email;
 
     // Role-specific fields
     if (user.role === 'seller') {
@@ -650,11 +663,22 @@ export const updateProfile = async (
     }
 
     if (user.role === 'mechanic') {
-      const { specialization, experienceYears, workshopLocation, workshopName } = req.body;
+      const { specialization, experienceYears, workshopLocation, workshopName, servicesOffered, mechanicBrands } = req.body;
       if (specialization) user.specialization = specialization;
       if (experienceYears !== undefined) user.experienceYears = experienceYears;
       if (workshopLocation !== undefined) user.workshopLocation = workshopLocation;
       if (workshopName !== undefined) user.workshopName = workshopName;
+      if (servicesOffered !== undefined) user.servicesOffered = Array.isArray(servicesOffered) ? servicesOffered : [];
+      if (mechanicBrands !== undefined) user.mechanicBrands = Array.isArray(mechanicBrands) ? mechanicBrands : [];
+    }
+
+    if (user.role === 'delivery_agent') {
+      const { vehicleType, vehicleNumber, licenseNumber, payoutMethod, payoutAccountName } = req.body;
+      if (vehicleType !== undefined) user.vehicleType = vehicleType;
+      if (vehicleNumber !== undefined) user.vehicleNumber = vehicleNumber;
+      if (licenseNumber !== undefined) user.licenseNumber = licenseNumber;
+      if (payoutMethod !== undefined) user.payoutMethod = payoutMethod;
+      if (payoutAccountName !== undefined) user.payoutAccountName = payoutAccountName;
     }
 
     await user.save();
@@ -819,9 +843,9 @@ export const addRole = async (
     } = req.body;
 
     // Validate role
-    const validRoles: UserRole[] = ['buyer', 'seller', 'mechanic'];
+    const validRoles: UserRole[] = ['buyer', 'seller', 'mechanic', 'delivery_agent'];
     if (!role || !validRoles.includes(role)) {
-      res.status(400).json({ message: 'Invalid role. Must be buyer, seller, or mechanic' });
+      res.status(400).json({ message: 'Invalid role' });
       return;
     }
 

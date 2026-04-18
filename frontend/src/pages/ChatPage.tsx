@@ -22,12 +22,24 @@ import {
   ChatConversation,
   ChatMessage,
 } from '@/services/chatService';
+import { resolveMediaUrl } from '@/lib/imageUrl';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function getSocketUrl() {
-  // Strip /api from the URL to get the socket server base
-  return API_URL.replace(/\/api\/?$/, '') || 'http://localhost:5000';
+  if (API_URL.startsWith('http://') || API_URL.startsWith('https://')) {
+    return API_URL.replace(/\/api\/?$/, '');
+  }
+
+  if (import.meta.env.DEV) {
+    return 'http://localhost:5000';
+  }
+
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+
+  return 'http://localhost:5000';
 }
 
 function formatTime(dateStr: string) {
@@ -342,7 +354,7 @@ export default function ChatPage() {
               <div className="chat-avatar-wrap">
                 <div className="chat-avatar">
                   {convo.user?.avatar ? (
-                    <img src={convo.user.avatar} alt="" />
+                    <img src={resolveMediaUrl(convo.user.avatar)} alt="" />
                   ) : (
                     <span>{getInitials(convo.user)}</span>
                   )}
@@ -389,7 +401,7 @@ export default function ChatPage() {
                   <div className="chat-avatar-wrap">
                     <div className="chat-avatar">
                       {u.avatar ? (
-                        <img src={u.avatar} alt="" />
+                        <img src={resolveMediaUrl(u.avatar)} alt="" />
                       ) : (
                         <span>{getInitials(u)}</span>
                       )}
@@ -441,7 +453,7 @@ export default function ChatPage() {
               <div className="chat-avatar-wrap">
                 <div className="chat-avatar chat-avatar-sm">
                   {activeRecipient.avatar ? (
-                    <img src={activeRecipient.avatar} alt="" />
+                    <img src={resolveMediaUrl(activeRecipient.avatar)} alt="" />
                   ) : (
                     <span>{getInitials(activeRecipient)}</span>
                   )}
@@ -490,7 +502,7 @@ export default function ChatPage() {
                       {!isOwn && (
                         <div className="chat-avatar chat-avatar-xs">
                           {activeRecipient.avatar ? (
-                            <img src={activeRecipient.avatar} alt="" />
+                            <img src={resolveMediaUrl(activeRecipient.avatar)} alt="" />
                           ) : (
                             <span style={{ fontSize: '10px' }}>{getInitials(activeRecipient)}</span>
                           )}

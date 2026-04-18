@@ -4,6 +4,28 @@ import { AuthRequest } from '../middleware/auth';
 import Order, { OrderStatus } from '../models/Order';
 import Product from '../models/Product';
 import mongoose from 'mongoose';
+import {
+  ORDER_STATUS_FLOW,
+  getOrderStatusLabel,
+  normalizeOrderStatus,
+} from '../utils/orderStatus';
+
+const SELLER_PENDING_STATUSES: OrderStatus[] = [
+  'awaiting_seller_confirmation',
+  'confirmed',
+  'processing',
+  'ready_for_dispatch',
+  'pickup_assigned',
+];
+
+const SHIPPED_STATUSES: OrderStatus[] = ['picked_up', 'out_for_delivery', 'delivered', 'completed'];
+const CANCELLABLE_STATUSES: OrderStatus[] = [
+  'pending',
+  'awaiting_seller_confirmation',
+  'confirmed',
+  'processing',
+  'ready_for_dispatch',
+];
 
 // ─── Buyer endpoints ────────────────────────────────────────────────────────
 
@@ -54,7 +76,15 @@ export const createOrder = async (req: AuthRequest, res: Response): Promise<void
       shippingAddress,
       paymentMethod: paymentMethod || 'Cash on Delivery',
       notes: notes || '',
-      statusHistory: [{ status: 'pending', changedAt: new Date(), note: 'Order placed' }],
+      status: 'awaiting_seller_confirmation',
+      statusHistory: [
+        { status: 'pending', changedAt: new Date(), note: 'Order placed by buyer' },
+        {
+          status: 'awaiting_seller_confirmation',
+          changedAt: new Date(),
+          note: 'Waiting for seller approval',
+        },
+      ],
     });
 
     // Decrease product stock (not for services)
@@ -119,8 +149,8 @@ export const cancelBuyerOrder = async (req: AuthRequest, res: Response): Promise
       return;
     }
 
-    if (order.status !== 'pending') {
-      res.status(400).json({ success: false, message: 'Only pending orders can be cancelled' });
+    if (!CANCELLABLE_STATUSES.includes(normalizeOrderStatus(order.status))) {
+      res.status(400).json({ success: false, message: 'This order can no longer be cancelled' });
       return;
     }
 
@@ -166,11 +196,11 @@ export const getOrderStats = async (req: AuthRequest, res: Response): Promise<vo
             totalOrders: { $sum: 1 },
             totalRevenue: {
               $sum: {
-                $cond: [{ $ne: ['$status', 'cancelled'] }, '$totalAmount', 0],
+                $cond: [{ $eq: ['$status', 'completed'] }, '$totalAmount', 0],
               },
             },
             deliveredOrders: {
-              $sum: { $cond: [{ $eq: ['$status', 'delivered'] }, 1, 0] },
+              $sum: { $cond: [{ $in: ['$status', ['picked_up', 'out_for_delivery', 'delivered', 'completed']] }, 1, 0] },
             },
             cancelledOrders: {
               $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] },
@@ -196,7 +226,7 @@ export const getOrderStats = async (req: AuthRequest, res: Response): Promise<vo
             ordersThisMonth: { $sum: 1 },
             revenueThisMonth: {
               $sum: {
-                $cond: [{ $ne: ['$status', 'cancelled'] }, '$totalAmount', 0],
+                $cond: [{ $eq: ['$status', 'completed'] }, '$totalAmount', 0],
               },
             },
           },
@@ -216,7 +246,7 @@ export const getOrderStats = async (req: AuthRequest, res: Response): Promise<vo
             ordersLastMonth: { $sum: 1 },
             revenueLastMonth: {
               $sum: {
-                $cond: [{ $ne: ['$status', 'cancelled'] }, '$totalAmount', 0],
+                $cond: [{ $eq: ['$status', 'completed'] }, '$totalAmount', 0],
               },
             },
           },
@@ -225,7 +255,7 @@ export const getOrderStats = async (req: AuthRequest, res: Response): Promise<vo
       // Recent 5 orders needing action (pending / confirmed)
       Order.find({
         seller: sellerId,
-        status: { $in: ['pending', 'confirmed'] },
+        status: { $in: ['pending', 'awaiting_seller_confirmation', 'confirmed', 'processing', 'ready_for_dispatch'] },
       })
         .sort({ createdAt: -1 })
         .limit(5)
@@ -330,13 +360,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
     const { id } = req.params;
     const { status, note } = req.body as { status: OrderStatus; note?: string };
 
-    const validTransitions: Record<OrderStatus, OrderStatus[]> = {
-      pending: ['confirmed', 'cancelled'],
-      confirmed: ['shipped', 'cancelled'],
-      shipped: ['delivered'],
-      delivered: [],
-      cancelled: [],
-    };
+    const targetStatus = normalizeOrderStatus(status);
 
     const order = await Order.findOne({ _id: id, seller: sellerId });
     if (!order) {
@@ -344,21 +368,63 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
-    if (!validTransitions[order.status].includes(status)) {
+    const currentStatus = normalizeOrderStatus(order.status);
+    const allowedTransitions = ORDER_STATUS_FLOW[currentStatus] || [];
+
+    if (!allowedTransitions.includes(targetStatus)) {
       res.status(400).json({
         success: false,
-        message: `Cannot transition from ${order.status} to ${status}`,
+        message: `Cannot transition from ${getOrderStatusLabel(currentStatus)} to ${getOrderStatusLabel(targetStatus)}`,
       });
       return;
     }
 
-    order.statusHistory.push({ status: order.status, changedAt: new Date(), note });
-    order.status = status;
+    order.statusHistory.push({
+      status: order.status,
+      changedAt: new Date(),
+      note: note || `Status changed to ${getOrderStatusLabel(targetStatus)}`,
+    });
+    order.status = targetStatus;
     await order.save();
 
     res.json({ success: true, data: order });
   } catch (err) {
     console.error('updateOrderStatus error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Buyer confirms the order was received
+// @route   PATCH /api/orders/my/:id/confirm-received
+// @access  Private/Buyer
+export const confirmOrderReceived = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const buyerId = req.user!._id;
+    const { id } = req.params;
+
+    const order = await Order.findOne({ _id: id, buyer: buyerId });
+    if (!order) {
+      res.status(404).json({ success: false, message: 'Order not found' });
+      return;
+    }
+
+    const currentStatus = normalizeOrderStatus(order.status);
+    if (currentStatus !== 'delivered') {
+      res.status(400).json({ success: false, message: 'Only delivered orders can be confirmed' });
+      return;
+    }
+
+    order.statusHistory.push({
+      status: order.status,
+      changedAt: new Date(),
+      note: 'Buyer confirmed receipt',
+    });
+    order.status = 'completed';
+    await order.save();
+
+    res.json({ success: true, data: order });
+  } catch (err) {
+    console.error('confirmOrderReceived error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

@@ -17,6 +17,7 @@ import {
   Search,
   Store,
   Shield,
+  Truck,
   User,
   Wrench,
   CheckCircle,
@@ -32,7 +33,7 @@ import {
 import api from "@/services/api";
 
 // ─── Types ─────────────────────────────────────────────────────────
-type UserRole = "buyer" | "seller" | "mechanic" | "admin";
+type UserRole = "buyer" | "seller" | "mechanic" | "admin" | "delivery_agent";
 type ApprovalStatus = "pending" | "approved" | "rejected";
 
 interface AdminUser {
@@ -70,6 +71,7 @@ const roleIcon = (role: UserRole) => {
     case "seller": return <Store className={cls} />;
     case "mechanic": return <Wrench className={cls} />;
     case "admin": return <Shield className={cls} />;
+    case "delivery_agent": return <Truck className={cls} />;
     default: return <User className={cls} />;
   }
 };
@@ -79,6 +81,7 @@ const roleLabel: Record<UserRole, string> = {
   seller: "Seller",
   mechanic: "Mechanic",
   admin: "Admin",
+  delivery_agent: "Delivery Agent",
 };
 
 const roleBadgeClass: Record<UserRole, string> = {
@@ -86,6 +89,7 @@ const roleBadgeClass: Record<UserRole, string> = {
   seller: "bg-purple-500/15 text-purple-600 border-purple-500/20",
   mechanic: "bg-orange-500/15 text-orange-600 border-orange-500/20",
   admin: "bg-primary/15 text-primary border-primary/20",
+  delivery_agent: "bg-sky-500/15 text-sky-600 border-sky-500/20",
 };
 
 const approvalBadgeClass: Record<ApprovalStatus, string> = {

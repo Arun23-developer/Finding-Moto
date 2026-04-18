@@ -26,6 +26,7 @@ import { resolveMediaUrl } from "@/lib/imageUrl";
 
 // ─── Profile Page ───────────────────────────────────────────────────────────
 export default function SellerProfile() {
+  const allBrands = ["Bajaj", "TVS", "Hero", "Honda", "Yamaha", "Suzuki", "KTM", "Kawasaki", "BMW", "Royal Enfield"];
   const defaultSpecializations: string[] = [];
   const defaultBrands = ["Yamaha", "Honda", "Suzuki", "Kawasaki", "KTM", "Bajaj", "TVS", "Royal Enfield"];
 
@@ -39,8 +40,10 @@ export default function SellerProfile() {
   const [stats, setStats] = useState({ totalProducts: 0, totalOrders: 0, totalViews: 0 });
   const [sellerSpecializations, setSellerSpecializations] = useState<string[]>(defaultSpecializations);
   const [sellerBrands, setSellerBrands] = useState<string[]>(defaultBrands);
-  const [specializationInput, setSpecializationInput] = useState("");
   const [brandInput, setBrandInput] = useState("");
+  const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
+  const [editingBrands, setEditingBrands] = useState(false);
+  const [savingBrands, setSavingBrands] = useState(false);
   const [form, setForm] = useState({
     shopName: "",
     shopDescription: "",
@@ -73,6 +76,8 @@ export default function SellerProfile() {
             ? p.sellerBrands
             : defaultBrands
         );
+        setBrandInput("");
+        setEditingBrands(false);
         setForm({
           shopName: p.shopName || "",
           shopDescription: p.shopDescription || "",
@@ -111,7 +116,6 @@ export default function SellerProfile() {
         shopDescription: form.shopDescription,
         shopLocation: form.shopLocation,
         sellerSpecializations,
-        sellerBrands,
       });
       setEditing(false);
     } catch (err: any) {
@@ -125,24 +129,55 @@ export default function SellerProfile() {
     fileInputRef.current?.click();
   };
 
-  const addTag = (
-    value: string,
-    current: string[],
-    setter: (items: string[]) => void,
-    clearInput: () => void
-  ) => {
-    const cleaned = value.trim();
-    if (!cleaned) return;
-    if (current.some((i) => i.toLowerCase() === cleaned.toLowerCase())) {
-      clearInput();
-      return;
+  const addBrandTag = () => {
+    const trimmed = brandInput.trim();
+    if (trimmed && !sellerBrands.includes(trimmed)) {
+      setSellerBrands([...sellerBrands, trimmed]);
+      setBrandInput("");
+      setBrandSuggestions([]);
     }
-    setter([...current, cleaned]);
-    clearInput();
   };
 
-  const removeTag = (item: string, current: string[], setter: (items: string[]) => void) => {
-    setter(current.filter((v) => v !== item));
+  const selectBrandSuggestion = (brand: string) => {
+    if (!sellerBrands.includes(brand)) {
+      setSellerBrands([...sellerBrands, brand]);
+    }
+    setBrandInput("");
+    setBrandSuggestions([]);
+  };
+
+  const handleBrandInputChange = (value: string) => {
+    setBrandInput(value);
+    if (value.trim()) {
+      const filtered = allBrands.filter(
+        (brand) =>
+          brand.toLowerCase().includes(value.toLowerCase()) &&
+          !sellerBrands.includes(brand)
+      );
+      setBrandSuggestions(filtered);
+    } else {
+      setBrandSuggestions([]);
+    }
+  };
+
+  const removeBrandTag = (brand: string) => {
+    setSellerBrands(sellerBrands.filter((b) => b !== brand));
+  };
+
+  const saveBrands = async () => {
+    setSavingBrands(true);
+    try {
+      await updateProfile({
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        sellerBrands: sellerBrands,
+      });
+      setEditingBrands(false);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to save brands");
+    } finally {
+      setSavingBrands(false);
+    }
   };
 
   const handleAvatarUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -339,101 +374,92 @@ export default function SellerProfile() {
             </CardContent>
           </Card>
 
-          {/* Services Offered */}
-          <Card className="glass-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Services Offered</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {editing && (
-                <div className="flex gap-2 mb-3">
-                  <input
-                    type="text"
-                    value={specializationInput}
-                    onChange={(e) => setSpecializationInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addTag(specializationInput, sellerSpecializations, setSellerSpecializations, () => setSpecializationInput(""));
-                      }
-                    }}
-                    placeholder="Add service offered"
-                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => addTag(specializationInput, sellerSpecializations, setSellerSpecializations, () => setSpecializationInput(""))}
-                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm"
-                  >
-                    <Plus className="h-4 w-4" /> Add
-                  </button>
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-2">
-                {sellerSpecializations.map((spec) => (
-                  <span key={spec} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-blue-600/10 text-blue-600 text-xs font-medium">
-                    {spec}
-                    {editing && (
-                      <button type="button" onClick={() => removeTag(spec, sellerSpecializations, setSellerSpecializations)} className="hover:text-blue-800">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </span>
-                ))}
-                {!editing && sellerSpecializations.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No services added yet.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Brands */}
           <Card className="glass-card">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Brands We Stock</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold">Brands We Stock</CardTitle>
+                {!editingBrands && (
+                  <button onClick={() => setEditingBrands(true)} className="text-blue-600 hover:text-blue-700 text-sm font-medium">Edit</button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              {editing && (
-                <div className="flex gap-2 mb-3">
-                  <input
-                    type="text"
-                    value={brandInput}
-                    onChange={(e) => setBrandInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addTag(brandInput, sellerBrands, setSellerBrands, () => setBrandInput(""));
-                      }
-                    }}
-                    placeholder="Add bike brand"
-                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => addTag(brandInput, sellerBrands, setSellerBrands, () => setBrandInput(""))}
-                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm"
-                  >
-                    <Plus className="h-4 w-4" /> Add
-                  </button>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {sellerBrands.map((brand) => (
-                  <div
-                    key={brand}
-                    className="flex items-center justify-center p-3 rounded-lg border border-border bg-muted/30 text-sm font-medium hover:bg-muted/50 transition-colors gap-2"
-                  >
-                    {brand}
-                    {editing && (
-                      <button type="button" onClick={() => removeTag(brand, sellerBrands, setSellerBrands)} className="text-muted-foreground hover:text-foreground">
-                        <X className="h-3.5 w-3.5" />
+              {editingBrands ? (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={brandInput}
+                        onChange={(e) => handleBrandInputChange(e.target.value)}
+                        onKeyPress={(e) => e.key === "Enter" && addBrandTag()}
+                        placeholder="Enter brand name (e.g., Yamaha)"
+                        className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                      <button
+                        onClick={addBrandTag}
+                        className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium flex items-center gap-1 transition-colors"
+                      >
+                        <Plus className="h-4 w-4" /> Add
                       </button>
+                    </div>
+                    {brandSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-12 mt-1 bg-background border border-input rounded-lg shadow-lg z-10">
+                        {brandSuggestions.map((brand) => (
+                          <button
+                            key={brand}
+                            type="button"
+                            onClick={() => selectBrandSuggestion(brand)}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-colors border-b border-input last:border-b-0"
+                          >
+                            {brand}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
-                ))}
-              </div>
+                  <div className="flex flex-wrap gap-2">
+                    {sellerBrands.map((brand) => (
+                      <span
+                        key={brand}
+                        className="px-3 py-1.5 rounded-full bg-blue-600/10 text-blue-600 text-xs font-medium flex items-center gap-2"
+                      >
+                        {brand}
+                        <button
+                          onClick={() => removeBrandTag(brand)}
+                          className="hover:text-blue-700"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={saveBrands}
+                      disabled={savingBrands}
+                      className="flex-1 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      {savingBrands ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      onClick={() => setEditingBrands(false)}
+                      className="flex-1 px-3 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-medium transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {sellerBrands.map((brand) => (
+                    <span key={brand} className="px-3 py-1.5 rounded-full bg-blue-600/10 text-blue-600 text-xs font-medium">
+                      {brand}
+                    </span>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
