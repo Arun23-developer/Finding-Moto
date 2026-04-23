@@ -1,6 +1,7 @@
 import express from 'express';
 import { protect, authorize } from '../middleware/auth';
 import {
+  getMechanicDashboard,
   getProfile,
   updateProfile,
   getOverview,
@@ -18,6 +19,7 @@ router.use(protect);
 router.use(authorize('mechanic'));
 
 // Overview
+router.get('/dashboard', getMechanicDashboard);
 router.get('/overview', getOverview);
 router.get('/reviews', getMechanicReviews);
 

@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { Loader2, Store, Star, Package, MapPin, Phone, ArrowLeft } from "lucide-react";
 import api from "../services/api";
 import { resolveProductImage, resolveMediaUrl } from "@/lib/imageUrl";
+import { ReportDialog } from "@/components/ReportDialog";
 
 interface Seller {
   _id: string;
@@ -164,6 +165,15 @@ const PublicSellerProfile: React.FC = () => {
                   <p className="font-bold text-foreground">{profile.stats.productCount}</p>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <ReportDialog
+                category="ACCOUNT"
+                targetId={profile.seller._id}
+                title="Report Seller Account"
+                triggerLabel="Report Account"
+              />
             </div>
 
             {profile.seller.shopDescription && (

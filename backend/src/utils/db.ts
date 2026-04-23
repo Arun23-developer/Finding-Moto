@@ -1,9 +1,30 @@
 import mongoose from 'mongoose';
 import config from '../config';
 
+let connecting = false;
+let retryTimer: NodeJS.Timeout | null = null;
+
+const scheduleRetry = () => {
+  if (retryTimer) return;
+
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    void connectDB();
+  }, 5000);
+};
+
 const connectDB = async (): Promise<void> => {
+  if (connecting) return;
+  connecting = true;
+
   try {
     mongoose.set('bufferCommands', false);
+
+    mongoose.connection.removeAllListeners('disconnected');
+    mongoose.connection.on('disconnected', () => {
+      console.warn('MongoDB disconnected. Retrying connection...');
+      scheduleRetry();
+    });
 
     const conn = await mongoose.connect(config.mongoURI, {
       serverSelectionTimeoutMS: 5000,
@@ -30,6 +51,9 @@ const connectDB = async (): Promise<void> => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`MongoDB connection failed: ${errorMessage}`);
+    scheduleRetry();
+  } finally {
+    connecting = false;
   }
 };
 

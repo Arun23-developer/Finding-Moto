@@ -2,13 +2,15 @@ import mongoose, { Document, Schema, Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 export const USER_ROLES = ['buyer', 'seller', 'mechanic', 'admin', 'delivery_agent'] as const;
-export const APPROVAL_REQUIRED_ROLES = ['seller', 'mechanic'] as const;
+export const APPROVAL_REQUIRED_ROLES = ['seller', 'mechanic', 'delivery_agent'] as const;
 
 // Role types
 export type UserRole = (typeof USER_ROLES)[number];
 
 // Approval status types (for seller and mechanic)
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export type ActiveStatus = 'ENABLED' | 'DISABLED';
 
 // Interface for User document
 export interface IUser extends Document {
@@ -26,6 +28,7 @@ export interface IUser extends Document {
   approvalNotes?: string;
   approvedAt?: Date;
   isActive: boolean;
+  active_status?: ActiveStatus;
   isEmailVerified: boolean;
   otp?: string | null;
   otpExpires?: Date | null;
@@ -121,6 +124,11 @@ const userSchema = new Schema<IUser>(
     isActive: {
       type: Boolean,
       default: true
+    },
+    active_status: {
+      type: String,
+      enum: ['ENABLED', 'DISABLED'],
+      default: 'ENABLED',
     },
     isEmailVerified: {
       type: Boolean,
@@ -254,7 +262,10 @@ userSchema.pre('save', async function (next) {
       this.approvalStatus = 'approved';
     } else if (APPROVAL_REQUIRED_ROLES.includes(this.role as (typeof APPROVAL_REQUIRED_ROLES)[number])) {
       this.approvalStatus = 'pending';
-    } else if (this.role === 'admin' || this.role === 'delivery_agent') {
+      if (this.role === 'delivery_agent') {
+        this.agent_status = 'DISABLED';
+      }
+    } else if (this.role === 'admin') {
       this.approvalStatus = 'approved';
     }
   }
@@ -273,19 +284,30 @@ userSchema.methods.matchPassword = async function (
 
 // Check if user can login based on approval status
 userSchema.methods.canLogin = function (this: IUser): boolean {
+  if (this.active_status === 'DISABLED') return false;
   if (!this.isActive) return false;
   // Buyers and admins can always login
-  if (this.role === 'buyer' || this.role === 'admin' || this.role === 'delivery_agent') return true;
+  if (this.role === 'buyer' || this.role === 'admin') return true;
+  // Delivery agents must be approved AND enabled
+  if (this.role === 'delivery_agent') {
+    return this.approvalStatus === 'approved' && this.agent_status === 'ENABLED';
+  }
   // Sellers and mechanics need approval
   return this.approvalStatus === 'approved';
 };
 
 // Get approval message
 userSchema.methods.getApprovalMessage = function (this: IUser): string {
+  if (this.active_status === 'DISABLED' || !this.isActive) {
+    return 'Your account is disabled. Please contact support.';
+  }
   if (this.role === 'buyer') {
     return 'Welcome! Your account is ready to use.';
   }
   if (this.role === 'delivery_agent') {
+    if (this.approvalStatus === 'pending') return 'Your account is pending Admin approval.';
+    if (this.approvalStatus === 'rejected') return 'Your account has been rejected by Admin.';
+    if (this.agent_status !== 'ENABLED') return 'Your account is disabled. Please contact Admin.';
     return 'Welcome! Your delivery agent account is ready to use.';
   }
   if (this.approvalStatus === 'pending') {

@@ -13,6 +13,7 @@ export interface IOrder extends Document {
   _id: mongoose.Types.ObjectId;
   buyer: mongoose.Types.ObjectId;
   seller: mongoose.Types.ObjectId;
+  order_type: 'product' | 'service';
   items: IOrderItem[];
   totalAmount: number;
   status: OrderStatus;
@@ -39,6 +40,11 @@ const orderSchema = new Schema<IOrder>(
   {
     buyer: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     seller: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    order_type: {
+      type: String,
+      enum: ['product', 'service'],
+      default: 'product',
+    },
     items: [orderItemSchema],
     totalAmount: { type: Number, required: true, min: 0 },
     status: {

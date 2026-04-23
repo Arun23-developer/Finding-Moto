@@ -9,6 +9,7 @@ import { resolveProductImage } from "@/lib/imageUrl";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { ReportDialog } from "@/components/ReportDialog";
 
 const tabs = ["Description", "Specifications", "Reviews", "Shipping"];
 
@@ -250,6 +251,15 @@ const ProductDetail = () => {
                 >
                   <Zap className="h-4 w-4" /> Buy Now
                 </button>
+              </div>
+
+              <div className="flex justify-end mb-6">
+                <ReportDialog
+                  category="PRODUCT"
+                  targetId={product._id}
+                  title="Report Product"
+                  triggerLabel="Report Product"
+                />
               </div>
 
               <div className="border-b border-border flex gap-1 mb-6">

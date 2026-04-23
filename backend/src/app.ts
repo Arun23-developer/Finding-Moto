@@ -13,6 +13,7 @@ import sellerRoutes from './routes/sellerRoutes';
 import mechanicRoutes from './routes/mechanicRoutes';
 import productRoutes from './routes/productRoutes';
 import orderRoutes from './routes/orderRoutes';
+import serviceOrderRoutes from './routes/serviceOrderRoutes';
 import adminRoutes from './routes/adminRoutes';
 import reviewRoutes from './routes/reviewRoutes';
 import publicRoutes from './routes/publicRoutes';
@@ -21,6 +22,7 @@ import aiRoutes from './routes/aiRoutes';
 import deliveryRoutes from './routes/deliveryRoutes';
 import cartRoutes from './routes/cartRoutes';
 import returnRoutes from './routes/returnRoutes';
+import reportRoutes from './routes/reportRoutes';
 
 const app: Application = express();
 
@@ -76,6 +78,7 @@ app.use('/api/seller', sellerRoutes);      // Thulax â€” Seller Dashboard
 app.use('/api/mechanic', mechanicRoutes);  // Thulax â€” Mechanic Dashboard
 app.use('/api/products', productRoutes);   // Arun   â€” Product Management
 app.use('/api/orders', orderRoutes);       // Saran  â€” Order Management
+app.use('/api/service-orders', serviceOrderRoutes); // New service order lifecycle
 app.use('/api/admin', adminRoutes);        // Sujani â€” Admin Dashboard
 app.use('/api/reviews', reviewRoutes);     // Sivaganga â€” Rating & Review
 app.use('/api/chat', chatRoutes);          // Chat â€” Real-time messaging
@@ -83,6 +86,7 @@ app.use('/api/ai', aiRoutes);              // AI assistant â€” Gemini-power
 app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/returns', returnRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Error handler
 app.use(errorHandler);

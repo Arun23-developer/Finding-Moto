@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Header } from "../components/layout/Header";
-import { Footer } from "../components/layout/Footer";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import {
@@ -93,7 +93,7 @@ const Services: React.FC = () => {
 
   return (
     <div className="page-shell">
-      <Header />
+      <Navbar />
       <main className="page-main">
         {/* Hero Section */}
         <section className="page-hero-compact">
@@ -281,7 +281,7 @@ const Services: React.FC = () => {
                         className="flex-1"
                         onClick={() => {
                           if (!user) { navigate('/login'); return; }
-                          navigate(`/chat?user=${garage._id}`);
+                          navigate(`/mechanic/${garage._id}`);
                         }}
                       >
                         <Calendar className="h-4 w-4 mr-2" />

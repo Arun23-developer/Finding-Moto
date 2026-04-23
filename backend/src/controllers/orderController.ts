@@ -69,6 +69,7 @@ export const createOrder = async (req: AuthRequest, res: Response): Promise<void
     const order = await Order.create({
       buyer: buyerId,
       seller: product.seller._id || product.seller,
+      order_type: product.type === 'service' ? 'service' : 'product',
       items: [
         {
           product: product._id,
@@ -398,13 +399,41 @@ export const getOrders = async (req: AuthRequest, res: Response): Promise<void> 
         .skip((page - 1) * limit)
         .limit(limit)
         .populate('buyer', 'firstName lastName email phone address city postCode')
+        .populate('items.product', 'type')
         .lean(),
       Order.countDocuments(query),
     ]);
 
+    const ordersWithType = (orders || []).map((order: any) => {
+      const firstItem = Array.isArray(order.items) ? order.items[0] : undefined;
+      const productDoc = firstItem?.product;
+      const inferredType =
+        productDoc && typeof productDoc === 'object' && productDoc.type
+          ? String(productDoc.type) === 'service'
+            ? 'service'
+            : 'product'
+          : undefined;
+
+      const normalizedItems = Array.isArray(order.items)
+        ? order.items.map((item: any) => ({
+            ...item,
+            product:
+              item.product && typeof item.product === 'object' && item.product._id
+                ? String(item.product._id)
+                : item.product,
+          }))
+        : [];
+
+      return {
+        ...order,
+        items: normalizedItems,
+        order_type: order.order_type || inferredType || 'product',
+      };
+    });
+
     res.json({
       success: true,
-      data: orders,
+      data: ordersWithType,
       meta: { page, limit, total, pages: Math.ceil(total / limit) },
     });
   } catch (err) {

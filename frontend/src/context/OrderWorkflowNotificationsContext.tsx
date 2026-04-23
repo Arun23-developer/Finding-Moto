@@ -33,6 +33,7 @@ const OrderWorkflowNotificationsContext =
 
 const toWorkflowAudience = (role?: string | null): WorkflowAudience | null => {
   if (role === "buyer" || role === "seller" || role === "delivery_agent") return role;
+  if (role === "mechanic") return "seller";
   return null;
 };
 

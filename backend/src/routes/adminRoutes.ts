@@ -12,6 +12,12 @@ import {
   getAdminOrders,
   getAdminServices,
 } from '../controllers/adminController';
+import {
+  adminBlockReportedAccount,
+  adminGetReport,
+  adminListReports,
+  adminUpdateReportStatus,
+} from '../controllers/reportController';
 
 const router = express.Router();
 
@@ -33,5 +39,11 @@ router.put('/approve/:userId', approveUser);
 router.get('/users', getAllUsers);
 router.get('/users/:userId', getUserById);
 router.put('/toggle-active/:userId', toggleUserActive);
+
+// Reports
+router.get('/reports', adminListReports);
+router.get('/reports/:reportId', adminGetReport);
+router.put('/reports/:reportId/status', adminUpdateReportStatus);
+router.put('/reports/:reportId/block', adminBlockReportedAccount);
 
 export default router;

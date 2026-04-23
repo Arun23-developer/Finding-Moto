@@ -30,6 +30,9 @@ export const getDeliveryAgents = async (_req: AuthRequest, res: Response): Promi
   try {
     const agents = await User.find({
       role: 'delivery_agent',
+      approvalStatus: 'approved',
+      agent_status: 'ENABLED',
+      active_status: { $ne: 'DISABLED' },
       isActive: true,
       isEmailVerified: true,
     })
@@ -70,7 +73,7 @@ export const assignDelivery = async (req: AuthRequest, res: Response): Promise<v
 
     const [order, agent, existingDelivery] = await Promise.all([
       Order.findById(requestedOrderId),
-      User.findById(agentId).select('firstName lastName role isActive isEmailVerified'),
+      User.findById(agentId).select('firstName lastName role approvalStatus agent_status active_status isActive isEmailVerified'),
       Delivery.findOne({ orderId: requestedOrderId }),
     ]);
 
@@ -84,7 +87,15 @@ export const assignDelivery = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    if (!agent || agent.role !== 'delivery_agent' || !agent.isActive || !agent.isEmailVerified) {
+    if (
+      !agent ||
+      agent.role !== 'delivery_agent' ||
+      agent.approvalStatus !== 'approved' ||
+      agent.agent_status !== 'ENABLED' ||
+      agent.active_status === 'DISABLED' ||
+      !agent.isActive ||
+      !agent.isEmailVerified
+    ) {
       res.status(400).json({ success: false, message: 'Invalid delivery agent' });
       return;
     }
@@ -168,6 +179,41 @@ export const assignDelivery = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
     console.error('assignDelivery error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const getDeliveryByOrderId = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { orderId } = req.params as { orderId?: string };
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      res.status(400).json({ success: false, message: 'Invalid order id' });
+      return;
+    }
+
+    const order = await Order.findById(orderId).select('seller');
+    if (!order) {
+      res.status(404).json({ success: false, message: 'Order not found' });
+      return;
+    }
+
+    if (req.user!.role !== 'admin' && order.seller.toString() !== req.user!._id.toString()) {
+      res.status(403).json({ success: false, message: 'Not authorized to view this delivery' });
+      return;
+    }
+
+    const delivery = await Delivery.findOne({ orderId })
+      .populate('agentId', 'firstName lastName email phone role')
+      .lean();
+
+    if (!delivery) {
+      res.status(404).json({ success: false, message: 'Delivery not found' });
+      return;
+    }
+
+    res.json({ success: true, data: formatDelivery(delivery) });
+  } catch (error) {
+    console.error('getDeliveryByOrderId error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

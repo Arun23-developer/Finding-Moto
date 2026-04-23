@@ -284,6 +284,8 @@ export const getAvailableDeliveryAgents = async (req: AuthRequest, res: Response
   try {
     const agents = await User.find({
       role: 'delivery_agent',
+      approvalStatus: 'approved',
+      active_status: { $ne: 'DISABLED' },
       isActive: true,
       isEmailVerified: true,
       agent_status: 'ENABLED',
@@ -330,7 +332,7 @@ export const assignReturnDeliveryAgent = async (req: AuthRequest, res: Response)
     const [returnRequest, agent] = await Promise.all([
       ReturnRequest.findOne({ _id: id, seller: req.user!._id }),
       User.findById(agentId).select(
-        'firstName lastName role isActive isEmailVerified agent_status work_status vehicleType vehicleNumber'
+        'firstName lastName role approvalStatus active_status isActive isEmailVerified agent_status work_status vehicleType vehicleNumber'
       ),
     ]);
 
@@ -350,6 +352,8 @@ export const assignReturnDeliveryAgent = async (req: AuthRequest, res: Response)
     if (
       !agent ||
       agent.role !== 'delivery_agent' ||
+      agent.approvalStatus !== 'approved' ||
+      agent.active_status === 'DISABLED' ||
       !agent.isActive ||
       !agent.isEmailVerified ||
       agent.agent_status !== 'ENABLED' ||

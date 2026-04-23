@@ -15,15 +15,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Search,
-  Store,
-  Shield,
-  Truck,
+  Users,
   User,
-  Wrench,
   CheckCircle,
   XCircle,
   Clock,
-  Users,
   RefreshCw,
   ToggleLeft,
   ToggleRight,
@@ -55,41 +51,22 @@ interface AdminUser {
   experienceYears?: number;
 }
 
-type TabKey = "all" | "pending" | "seller" | "mechanic" | "buyer";
+type TabKey = "all" | "pending" | "seller" | "mechanic" | "delivery_agent" | "buyer";
 
 const tabFromQuery = (value: string | null): TabKey => {
-  if (value === "seller" || value === "mechanic" || value === "pending" || value === "buyer") {
+  if (value === "seller" || value === "mechanic" || value === "delivery_agent" || value === "pending" || value === "buyer") {
     return value;
   }
   return "all";
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────
-const roleIcon = (role: UserRole) => {
-  const cls = "h-3.5 w-3.5 flex-shrink-0";
-  switch (role) {
-    case "seller": return <Store className={cls} />;
-    case "mechanic": return <Wrench className={cls} />;
-    case "admin": return <Shield className={cls} />;
-    case "delivery_agent": return <Truck className={cls} />;
-    default: return <User className={cls} />;
-  }
-};
-
 const roleLabel: Record<UserRole, string> = {
   buyer: "Buyer",
   seller: "Seller",
   mechanic: "Mechanic",
   admin: "Admin",
   delivery_agent: "Delivery Agent",
-};
-
-const roleBadgeClass: Record<UserRole, string> = {
-  buyer: "bg-blue-500/15 text-blue-600 border-blue-500/20",
-  seller: "bg-purple-500/15 text-purple-600 border-purple-500/20",
-  mechanic: "bg-orange-500/15 text-orange-600 border-orange-500/20",
-  admin: "bg-primary/15 text-primary border-primary/20",
-  delivery_agent: "bg-sky-500/15 text-sky-600 border-sky-500/20",
 };
 
 const approvalBadgeClass: Record<ApprovalStatus, string> = {
@@ -112,7 +89,6 @@ export default function UsersManagement() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>(() => tabFromQuery(searchParams.get("tab")));
-  const [pendingCount, setPendingCount] = useState(0);
 
   // Approve / Reject modal state
   const [modalUser, setModalUser] = useState<AdminUser | null>(null);
@@ -138,24 +114,18 @@ export default function UsersManagement() {
       if (activeTab === "pending") {
         const res = await api.get("/admin/pending");
         setUsers(res.data.users);
-        setPendingCount(res.data.count);
         setLoading(false);
         return;
       }
       if (activeTab === "seller") params.role = "seller";
       if (activeTab === "mechanic") params.role = "mechanic";
+      if (activeTab === "delivery_agent") params.role = "delivery_agent";
       if (activeTab === "buyer") params.role = "buyer";
       if (search.trim()) params.search = search.trim();
 
       const res = await api.get("/admin/users", { params });
       const allUsers: AdminUser[] = res.data.users;
       setUsers(allUsers);
-
-      // Update pending badge count from all users
-      const pc = allUsers.filter(
-        (u) => (u.role === "seller" || u.role === "mechanic") && u.approvalStatus === "pending"
-      ).length;
-      if (activeTab === "all") setPendingCount(pc);
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to load users");
     } finally {
@@ -193,13 +163,14 @@ export default function UsersManagement() {
     }, { replace: true });
   }, [activeTab, setSearchParams]);
 
-  // ── Stats ────────────────────────────────────────────────────────
-  const stats = {
-    total: users.length,
-    sellers: users.filter((u) => u.role === "seller").length,
-    mechanics: users.filter((u) => u.role === "mechanic").length,
-    pending: activeTab === "pending" ? users.length : pendingCount,
-  };
+  const pageTitle = (() => {
+    if (activeTab === "seller") return "Sellers";
+    if (activeTab === "mechanic") return "Mechanics";
+    if (activeTab === "delivery_agent") return "Delivery Agents";
+    if (activeTab === "buyer") return "Buyers";
+    if (activeTab === "pending") return "Pending Approvals";
+    return "User Management";
+  })();
 
   // ── Approve / Reject ─────────────────────────────────────────────
   const openApproval = (user: AdminUser, action: "approve" | "reject") => {
@@ -259,23 +230,14 @@ export default function UsersManagement() {
     }
   };
 
-  // ── Tabs ─────────────────────────────────────────────────────────
-  const tabs: { key: TabKey; label: string; icon: JSX.Element }[] = [
-    { key: "all", label: "All Users", icon: <Users className="h-4 w-4" /> },
-    { key: "pending", label: "Pending Approval", icon: <Clock className="h-4 w-4" /> },
-    { key: "seller", label: "Sellers", icon: <Store className="h-4 w-4" /> },
-    { key: "mechanic", label: "Mechanics", icon: <Wrench className="h-4 w-4" /> },
-    { key: "buyer", label: "Buyers", icon: <User className="h-4 w-4" /> },
-  ];
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold">User Management</h1>
+          <h1 className="font-display text-2xl font-bold">{pageTitle}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Approve sellers & mechanics, manage all platform users
+            Search, review, and approve accounts
           </p>
         </div>
         <Button variant="outline" size="sm" className="gap-2" onClick={fetchUsers} disabled={loading}>
@@ -284,56 +246,13 @@ export default function UsersManagement() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: "Total Users", value: stats.total, icon: <Users className="h-5 w-5 text-primary" />, color: "bg-primary/10" },
-          { label: "Sellers", value: stats.sellers, icon: <Store className="h-5 w-5 text-purple-500" />, color: "bg-purple-500/10" },
-          { label: "Mechanics", value: stats.mechanics, icon: <Wrench className="h-5 w-5 text-orange-500" />, color: "bg-orange-500/10" },
-          { label: "Awaiting Approval", value: stats.pending, icon: <Clock className="h-5 w-5 text-yellow-500" />, color: "bg-yellow-500/10" },
-        ].map((s) => (
-          <Card key={s.label} className="glass-card">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className={`p-2.5 rounded-lg ${s.color}`}>{s.icon}</div>
-              <div>
-                <p className="text-2xl font-bold">{s.value}</p>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg w-fit flex-wrap">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all relative ${
-              activeTab === tab.key
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-            {tab.key === "pending" && pendingCount > 0 && (
-              <span className="ml-1 bg-yellow-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                {pendingCount > 9 ? "9+" : pendingCount}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
       {/* Table Card */}
       <Card className="glass-card">
         <CardHeader className="pb-3">
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name or email..."
+              placeholder="Search by email..."
               className="pl-9"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -373,124 +292,110 @@ export default function UsersManagement() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm table-fixed min-w-[920px]">
+                <colgroup>
+                  <col className="w-[44%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[16%]" />
+                </colgroup>
                 <thead>
                   <tr className="text-muted-foreground text-xs border-b border-border">
-                    <th className="text-left py-3 font-medium">User</th>
-                    <th className="text-left py-3 font-medium">Role</th>
-                    <th className="text-left py-3 font-medium">Approval</th>
-                    <th className="text-left py-3 font-medium">Active</th>
-                    <th className="text-left py-3 font-medium hidden md:table-cell">Details</th>
-                    <th className="text-left py-3 font-medium hidden lg:table-cell">Joined</th>
-                    <th className="text-right py-3 font-medium">Actions</th>
+                    <th className="text-left py-3 px-3 font-medium">User</th>
+                    <th className="text-center py-3 px-3 font-medium">Approval</th>
+                    <th className="text-center py-3 px-3 font-medium">Active</th>
+                    <th className="text-center py-3 px-3 font-medium">Details</th>
+                    <th className="text-right py-3 px-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((u) => {
-                    const needsApproval = (u.role === "seller" || u.role === "mechanic") && u.approvalStatus === "pending";
+                    const needsApproval = (u.role === "seller" || u.role === "mechanic" || u.role === "delivery_agent") && u.approvalStatus === "pending";
+                    const isApprovalRole = (u.role === "seller" || u.role === "mechanic" || u.role === "delivery_agent");
                     return (
                       <tr
                         key={u._id}
-                        className={`border-b border-border/50 last:border-0 transition-colors ${
+                        className={`h-14 border-b border-border/50 last:border-0 transition-colors ${
                           needsApproval ? "bg-yellow-500/5 hover:bg-yellow-500/10" : "hover:bg-muted/30"
                         }`}
                       >
                         {/* User */}
-                        <td className="py-3 pr-3">
-                          <div className="flex items-center gap-3">
+                        <td className="py-3 px-3 text-left">
+                          <div className="flex items-center gap-3 min-w-0">
                             <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
                               <span className="text-xs font-bold text-primary">
                                 {(u.firstName || u.fullName || "?").charAt(0)}{(u.lastName || "").charAt(0)}
                               </span>
                             </div>
-                            <div>
-                              <p className="font-medium leading-tight">{u.fullName}</p>
-                              <p className="text-xs text-muted-foreground">{u.email}</p>
+                            <div className="min-w-0">
+                              <p className="font-medium leading-tight truncate">{u.fullName}</p>
+                              <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                             </div>
                           </div>
                         </td>
 
                         {/* Role */}
-                        <td className="py-3 pr-3">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${roleBadgeClass[u.role]}`}>
-                            {roleIcon(u.role)}
-                            {roleLabel[u.role]}
-                          </span>
-                        </td>
-
                         {/* Approval Status */}
-                        <td className="py-3 pr-3">
-                          {(u.role === "seller" || u.role === "mechanic") ? (
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${approvalBadgeClass[u.approvalStatus]}`}>
-                              {approvalIcon[u.approvalStatus]}
-                              {u.approvalStatus.charAt(0).toUpperCase() + u.approvalStatus.slice(1)}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">N/A</span>
-                          )}
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center">
+                            {isApprovalRole ? (
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${approvalBadgeClass[u.approvalStatus]}`}>
+                                {approvalIcon[u.approvalStatus]}
+                                {u.approvalStatus.charAt(0).toUpperCase() + u.approvalStatus.slice(1)}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Active Toggle */}
-                        <td className="py-3 pr-3">
-                          <button
-                            onClick={() => setToggleUser(u)}
-                            title={u.isActive ? "Click to deactivate" : "Click to activate"}
-                            className="flex items-center gap-1.5 text-xs font-medium transition-colors"
-                          >
-                            {u.isActive ? (
-                              <>
-                                <ToggleRight className="h-5 w-5 text-green-500" />
-                                <span className="text-green-600 hidden sm:inline">Active</span>
-                              </>
-                            ) : (
-                              <>
-                                <ToggleLeft className="h-5 w-5 text-muted-foreground" />
-                                <span className="text-muted-foreground hidden sm:inline">Inactive</span>
-                              </>
-                            )}
-                          </button>
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center">
+                            <button
+                              onClick={() => setToggleUser(u)}
+                              title={u.isActive ? "Click to disable" : "Click to enable"}
+                              className={`inline-flex items-center justify-center gap-1.5 text-xs font-medium transition-colors px-2.5 py-0.5 rounded-full border ${
+                                u.isActive
+                                  ? "bg-green-500/15 text-green-600 border-green-500/20"
+                                  : "bg-red-500/15 text-red-600 border-red-500/20"
+                              }`}
+                            >
+                              {u.isActive ? (
+                                <ToggleRight className="h-4 w-4" />
+                              ) : (
+                                <ToggleLeft className="h-4 w-4" />
+                              )}
+                              {u.isActive ? "Enabled" : "Disabled"}
+                            </button>
+                          </div>
                         </td>
 
                         {/* Details */}
-                        <td className="py-3 pr-3 hidden md:table-cell">
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            {u.role === "seller" && (u.shopName || u.shopLocation) && (
-                              <>{u.shopName}{u.shopLocation ? ` · ${u.shopLocation}` : ""}</>
-                            )}
-                            {u.role === "mechanic" && (u.workshopName || u.specialization) && (
-                              <>{u.workshopName || u.specialization}{u.experienceYears ? ` · ${u.experienceYears}y exp` : ""}</>
-                            )}
-                            {(u.role === "buyer" || u.role === "admin") && (u.phone || "—")}
-                          </p>
-                        </td>
-
-                        {/* Joined */}
-                        <td className="py-3 pr-3 text-muted-foreground text-xs hidden lg:table-cell">
-                          {new Date(u.createdAt).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center">
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 px-2 text-xs"
+                              className="h-7 w-9 px-0"
                               onClick={() => openUserDetail(u._id)}
                               title="View details"
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
-                            {needsApproval ? (
+                          </div>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3 px-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {isApprovalRole ? (
                               <>
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="h-7 px-2.5 text-xs border-green-500/40 text-green-600 hover:bg-green-500/10 hover:border-green-500"
+                                  className="h-7 px-3 text-xs border-green-500/40 text-green-600 hover:bg-green-500/10 hover:border-green-500"
                                   onClick={() => openApproval(u, "approve")}
                                 >
                                   <CheckCircle className="h-3.5 w-3.5 mr-1" />
@@ -499,36 +404,16 @@ export default function UsersManagement() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="h-7 px-2.5 text-xs border-red-500/40 text-red-600 hover:bg-red-500/10 hover:border-red-500"
+                                  className="h-7 px-3 text-xs border-red-500/40 text-red-600 hover:bg-red-500/10 hover:border-red-500"
                                   onClick={() => openApproval(u, "reject")}
                                 >
                                   <XCircle className="h-3.5 w-3.5 mr-1" />
                                   Reject
                                 </Button>
                               </>
-                            ) : (u.role === "seller" || u.role === "mechanic") ? (
-                              u.approvalStatus === "approved" ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 px-2.5 text-xs border-red-500/40 text-red-600 hover:bg-red-500/10 hover:border-red-500"
-                                  onClick={() => openApproval(u, "reject")}
-                                >
-                                  <XCircle className="h-3.5 w-3.5 mr-1" />
-                                  Revoke
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 px-2.5 text-xs border-green-500/40 text-green-600 hover:bg-green-500/10 hover:border-green-500"
-                                  onClick={() => openApproval(u, "approve")}
-                                >
-                                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                                  Re-approve
-                                </Button>
-                              )
-                            ) : null}
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -570,10 +455,7 @@ export default function UsersManagement() {
                 <div>
                   <p className="font-semibold text-sm">{modalUser.fullName}</p>
                   <p className="text-xs text-muted-foreground">{modalUser.email}</p>
-                  <span className={`inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${roleBadgeClass[modalUser.role]}`}>
-                    {roleIcon(modalUser.role)}
-                    {roleLabel[modalUser.role]}
-                  </span>
+                  <p className="text-xs text-muted-foreground mt-0.5">Role: {roleLabel[modalUser.role]}</p>
                 </div>
               </div>
 
@@ -724,8 +606,7 @@ export default function UsersManagement() {
                   <p className="font-semibold text-sm">{detailUser.fullName}</p>
                   <p className="text-xs text-muted-foreground truncate">{detailUser.email}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${roleBadgeClass[detailUser.role as UserRole]}`}>
-                      {roleIcon(detailUser.role)}
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-muted/50 text-muted-foreground border-border">
                       {roleLabel[detailUser.role as UserRole]}
                     </span>
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${detailUser.isActive ? 'bg-green-500/15 text-green-600 border-green-500/20' : 'bg-red-500/15 text-red-600 border-red-500/20'}`}>

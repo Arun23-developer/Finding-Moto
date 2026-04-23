@@ -1,540 +1,711 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  Wrench,
-  ArrowUpRight,
-  Clock,
-  CheckCircle,
-  Activity,
-  AlertTriangle,
-  BarChart3,
-  Package,
+  AlertCircle,
+  Box,
+  Eye,
+  PackageSearch,
   RefreshCw,
-  Search,
-  ImageIcon,
-  Edit3,
-  Trash2,
+  Star,
+  Wrench,
 } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import { cn } from "@/lib/utils";
-import { resolveMediaUrl } from "@/lib/imageUrl";
-import { useEffect, useMemo, useState } from "react";
-import api from "@/services/api";
 import {
-  AreaChart,
-  Area,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  Legend,
 } from "recharts";
+import api from "@/services/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/context/AuthContext";
 
-interface ServiceRequest {
-  id: string;
-  customer: string;
-  vehicle: string;
-  issue: string;
-  status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
-  date: string;
-  amount: number;
+type DashboardTab = "product" | "service";
+
+interface DashboardKpis {
+  totalRevenue: number;
+  ordersThisMonth: number;
+  ordersThisMonthAmount: number;
+  pendingOrders: number;
+  avgOrderValue: number;
+  completionRate: number;
+  revenueGrowth: number;
 }
 
-const fmt = (n: number) => `LKR ${n.toLocaleString()}`;
-
-interface WeeklyServiceStat {
-  day: string;
-  jobs: number;
-  revenue: number;
+interface DashboardRow {
+  orderId?: string;
+  reviewId?: string;
+  customerName: string;
+  itemName: string;
+  orderAmount?: number;
+  orderDate?: string;
+  orderStatus?: string;
+  rating?: number;
+  review?: string;
+  reviewDate?: string;
+  reason?: string;
+  actionDate?: string;
+  amount?: number;
 }
 
-const statusColors: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700",
-  accepted: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700",
-  in_progress: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700",
-  completed: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700",
-  cancelled: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700",
-};
-
-const statusLabels: Record<string, string> = {
-  pending: 'Pending', accepted: 'Accepted', in_progress: 'In Progress',
-  completed: 'Completed', cancelled: 'Cancelled',
-};
-
-const statusIcons: Record<string, React.ReactNode> = {
-  pending: <Clock className="h-3 w-3" />,
-  accepted: <CheckCircle className="h-3 w-3" />,
-  in_progress: <Activity className="h-3 w-3" />,
-  completed: <CheckCircle className="h-3 w-3" />,
-  cancelled: <span className="h-3 w-3">✕</span>,
-};
-
-interface DashboardService {
-  _id: string;
-  name: string;
-  price: number;
-  category: string;
-  active: boolean;
+interface LowStockAlert {
+  itemName: string;
+  currentQuantity: number;
+  minimumRequiredQuantity: number;
 }
 
-interface Product {
-  _id: string;
-  name: string;
-  category: string;
-  brand: string;
-  price: number;
-  originalPrice?: number;
-  stock: number;
-  images: string[];
-  status: "active" | "inactive" | "out_of_stock";
-  views: number;
-  sales: number;
-  sku: string;
-  createdAt: string;
+interface TopSellingItem {
+  itemId: string;
+  itemName: string;
+  unitsSold: number;
+  revenueGenerated: number;
 }
 
-interface ServiceCategoryData {
-  category: string;
-  services: number;
-  avgPrice: number;
+interface MechanicDashboardData {
+  type: DashboardTab;
+  hasData: boolean;
+  emptyMessage: string;
+  kpis: DashboardKpis;
+  revenueSeries: Array<{ date: string; revenue: number }>;
+  ordersThisMonth: DashboardRow[];
+  pendingOrders: DashboardRow[];
+  returnOrders: DashboardRow[];
+  monthlyReviews: DashboardRow[];
+  lowStockAlerts: LowStockAlert[];
+  topSellingItems: TopSellingItem[];
 }
 
-const productStatusConfig: Record<string, { label: string; color: string }> = {
-  active: { label: "Active", color: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800" },
-  inactive: { label: "Inactive", color: "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700" },
-  out_of_stock: { label: "Out of Stock", color: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800" },
+interface DashboardTableProps {
+  title: string;
+  description: string;
+  columns: string[];
+  rows: ReactNode[][];
+  emptyTitle: string;
+  emptyDescription: string;
+}
+
+const currencyFormatter = new Intl.NumberFormat("en-LK", {
+  style: "currency",
+  currency: "LKR",
+  maximumFractionDigits: 0,
+});
+
+const percentFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 1,
+});
+
+const dateFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+});
+
+const shortDateFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+});
+
+const platinum = {
+  background: "#F5F6F7",
+  card: "#F5F6F7",
+  muted: "#7B7F85",
+  primary: "#2B2E33",
+  border: "#A7ABB0",
 };
 
-const categoryIcons: Record<string, string> = {
-  General: '🔧',
-  Engine: '⚙️',
-  Brakes: '🛑',
-  Electrical: '⚡',
-  Tyres: '🛞',
-  Transmission: '🔗',
-  Suspension: '🏍️',
+const emptyKpis: DashboardKpis = {
+  totalRevenue: 0,
+  ordersThisMonth: 0,
+  ordersThisMonthAmount: 0,
+  pendingOrders: 0,
+  avgOrderValue: 0,
+  completionRate: 0,
+  revenueGrowth: 0,
 };
 
-const statusDonutColors: Record<ServiceRequest['status'], string> = {
-  pending: '#f59e0b',
-  accepted: '#3b82f6',
-  in_progress: '#8b5cf6',
-  completed: '#10b981',
-  cancelled: '#ef4444',
-};
+const emptyDashboardData = (type: DashboardTab): MechanicDashboardData => ({
+  type,
+  hasData: false,
+  emptyMessage: type === "product" ? "No product data available" : "No service data available",
+  kpis: emptyKpis,
+  revenueSeries: [],
+  ordersThisMonth: [],
+  pendingOrders: [],
+  returnOrders: [],
+  monthlyReviews: [],
+  lowStockAlerts: [],
+  topSellingItems: [],
+});
 
-// ─── Dashboard Overview ─────────────────────────────────────────────────────
-const productCategories = ["All", "Bikes", "Brakes", "Lubricants", "Engine Parts", "Drive", "Filters", "Cables", "Electrical", "Accessories"];
+const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
+const formatPercent = (value: number) => `${percentFormatter.format(value || 0)}%`;
+const formatDate = (value?: string) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : dateFormatter.format(date);
+};
+const formatShortDate = (value?: string) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : shortDateFormatter.format(date);
+};
+const getOrderLabel = (orderId?: string) => (orderId ? `#${orderId.slice(-6).toUpperCase()}` : "-");
+
+function DashboardTable({
+  title,
+  description,
+  columns,
+  rows,
+  emptyTitle,
+  emptyDescription,
+}: DashboardTableProps) {
+  return (
+    <Card
+      className="border shadow-sm"
+      style={{ backgroundColor: platinum.card, borderColor: platinum.border, color: platinum.primary }}
+    >
+      <CardHeader className="border-b pb-4" style={{ borderColor: platinum.border }}>
+        <CardTitle className="text-base font-semibold">{title}</CardTitle>
+        <p className="mt-1 text-sm" style={{ color: platinum.muted }}>{description}</p>
+      </CardHeader>
+      <CardContent className="p-0">
+        {rows.length === 0 ? (
+          <div className="px-6 py-14 text-center">
+            <AlertCircle className="mx-auto mb-3 h-8 w-8" style={{ color: platinum.muted, opacity: 0.5 }} />
+            <p className="text-sm font-medium" style={{ color: platinum.primary }}>{emptyTitle}</p>
+            <p className="mt-1.5 text-xs" style={{ color: platinum.muted }}>{emptyDescription}</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr style={{ backgroundColor: "#D8DBDE" }}>
+                  {columns.map((column) => (
+                    <th
+                      key={column}
+                      className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wide"
+                      style={{ color: platinum.muted }}
+                    >
+                      {column}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => (
+                  <tr key={index} className="border-t align-top" style={{ borderColor: platinum.border }}>
+                    {row.map((cell, cellIndex) => (
+                      <td key={cellIndex} className="px-4 py-3">{cell}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function MechanicDashboard() {
   const { user } = useAuth();
-  const [dashServices, setDashServices] = useState<DashboardService[]>([]);
-  const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("product");
+  const [dashboardByTab, setDashboardByTab] = useState<Record<DashboardTab, MechanicDashboardData | null>>({
+    product: null,
+    service: null,
+  });
+  const [loadingByTab, setLoadingByTab] = useState<Record<DashboardTab, boolean>>({
+    product: false,
+    service: false,
+  });
+  const [errorByTab, setErrorByTab] = useState<Record<DashboardTab, string>>({
+    product: "",
+    service: "",
+  });
+
+  const fetchDashboard = useCallback(async (tab: DashboardTab, force = false) => {
+    if (loadingByTab[tab]) return;
+    if (!force && dashboardByTab[tab]) return;
+
+    setLoadingByTab((prev) => ({ ...prev, [tab]: true }));
+    setErrorByTab((prev) => ({ ...prev, [tab]: "" }));
+
+    try {
+      const { data } = await api.get("/mechanic/dashboard", { params: { type: tab } });
+
+      if (data?.success) {
+        setDashboardByTab((prev) => ({
+          ...prev,
+          [tab]: {
+            ...emptyDashboardData(tab),
+            ...data.data,
+            revenueSeries: Array.isArray(data.data?.revenueSeries) ? data.data.revenueSeries : [],
+            ordersThisMonth: Array.isArray(data.data?.ordersThisMonth) ? data.data.ordersThisMonth : [],
+            pendingOrders: Array.isArray(data.data?.pendingOrders) ? data.data.pendingOrders : [],
+            returnOrders: Array.isArray(data.data?.returnOrders) ? data.data.returnOrders : [],
+            monthlyReviews: Array.isArray(data.data?.monthlyReviews) ? data.data.monthlyReviews : [],
+            lowStockAlerts: Array.isArray(data.data?.lowStockAlerts) ? data.data.lowStockAlerts : [],
+            topSellingItems: Array.isArray(data.data?.topSellingItems) ? data.data.topSellingItems : [],
+            kpis: { ...emptyKpis, ...(data.data?.kpis || {}) },
+          },
+        }));
+      } else {
+        setErrorByTab((prev) => ({ ...prev, [tab]: "Failed to load data" }));
+      }
+    } catch {
+      setErrorByTab((prev) => ({ ...prev, [tab]: "Failed to load data" }));
+    } finally {
+      setLoadingByTab((prev) => ({ ...prev, [tab]: false }));
+    }
+  }, [dashboardByTab, loadingByTab]);
 
   useEffect(() => {
-    Promise.all([api.get('/mechanic/services'), api.get('/orders'), api.get('/products')])
-      .then(([servicesRes, ordersRes, productsRes]) => {
-        if (servicesRes.data.success) {
-          setDashServices(servicesRes.data.data.filter((s: DashboardService) => s.active).slice(0, 6));
-        }
+    void fetchDashboard("product");
+  }, [fetchDashboard]);
 
-        const rawOrders = ordersRes.data?.data || [];
-        const mappedRequests: ServiceRequest[] = rawOrders.map((order: any) => {
-          const buyer = typeof order.buyer === 'string'
-            ? order.buyer
-            : (order.buyer?.name || `${order.buyer?.firstName || ''} ${order.buyer?.lastName || ''}`.trim() || 'Customer');
+  useEffect(() => {
+    void fetchDashboard(activeTab);
+  }, [activeTab, fetchDashboard]);
 
-          const backendStatus = String(order.status || '').toLowerCase();
-          const statusMap: Record<string, ServiceRequest['status']> = {
-            pending: 'pending',
-            confirmed: 'accepted',
-            shipped: 'in_progress',
-            delivered: 'completed',
-            cancelled: 'cancelled',
-          };
-
-          return {
-            id: order._id,
-            customer: buyer,
-            vehicle: 'Service Request',
-            issue: order.items?.[0]?.name || 'General service',
-            status: statusMap[backendStatus] || 'pending',
-            date: order.createdAt || new Date().toISOString(),
-            amount: Number(order.totalAmount || 0),
-          };
-        });
-
-        setServiceRequests(mappedRequests);
-
-        if (productsRes.data.success) {
-          setProducts(productsRes.data.data || []);
-        }
-      })
-      .catch(() => {
-        setDashServices([]);
-        setServiceRequests([]);
-        setProducts([]);
-      });
-  }, []);
-
-  const completedJobs = serviceRequests.filter((r) => r.status === 'completed').length;
-
-  const weeklyStats = useMemo(() => {
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const days: { key: string; day: string; jobs: number; revenue: number }[] = [];
-
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().split('T')[0];
-      days.push({ key, day: dayNames[d.getDay()], jobs: 0, revenue: 0 });
-    }
-
-    for (const req of serviceRequests) {
-      const dayKey = new Date(req.date).toISOString().split('T')[0];
-      const target = days.find((d) => d.key === dayKey);
-      if (target) {
-        target.jobs += 1;
-        target.revenue += req.amount;
-      }
-    }
-
-    return days.map((d): WeeklyServiceStat => ({ day: d.day, jobs: d.jobs, revenue: d.revenue }));
-  }, [serviceRequests]);
-
-  const requestStatusData = useMemo(
-    () => {
-      const counts: Record<ServiceRequest['status'], number> = {
-        pending: 0,
-        accepted: 0,
-        in_progress: 0,
-        completed: 0,
-        cancelled: 0,
-      };
-
-      for (const req of serviceRequests) {
-        counts[req.status] += 1;
-      }
-
-      return (Object.keys(counts) as ServiceRequest['status'][])
-        .map((status) => ({
-          name: statusLabels[status],
-          value: counts[status],
-          color: statusDonutColors[status],
-        }))
-        .filter((d) => d.value > 0);
-    },
-    [serviceRequests]
+  const dashboard = dashboardByTab[activeTab] || emptyDashboardData(activeTab);
+  const loading = loadingByTab[activeTab];
+  const error = errorByTab[activeTab];
+  const topSellingChartData = useMemo(
+    () =>
+      dashboard.topSellingItems.slice(0, 10).map((item) => ({
+        name: item.itemName.length > 18 ? `${item.itemName.slice(0, 18)}...` : item.itemName,
+        units: item.unitsSold || 0,
+        revenue: Math.round(item.revenueGenerated || 0),
+      })),
+    [dashboard.topSellingItems]
   );
 
-  const serviceCategoryData = useMemo(() => {
-    const map = new Map<string, { total: number; priceSum: number }>();
-    for (const svc of dashServices) {
-      const prev = map.get(svc.category) || { total: 0, priceSum: 0 };
-      map.set(svc.category, {
-        total: prev.total + 1,
-        priceSum: prev.priceSum + svc.price,
-      });
-    }
-
-    return Array.from(map.entries())
-      .map(([category, data]): ServiceCategoryData => ({
-        category: category.length > 14 ? `${category.slice(0, 14)}…` : category,
-        services: data.total,
-        avgPrice: Math.round(data.priceSum / data.total),
-      }))
-      .slice(0, 6);
-  }, [dashServices]);
-
-  const totalWeeklyRevenue = weeklyStats.reduce((sum, day) => sum + day.revenue, 0);
-  const totalRequestsForPie = requestStatusData.reduce((sum, d) => sum + d.value, 0);
-  const completionRate = serviceRequests.length > 0 ? Math.round((completedJobs / serviceRequests.length) * 100) : 0;
-  const attentionItems = serviceRequests.filter((r) => r.status === 'pending' || r.status === 'accepted');
-  const inProgressJobs = serviceRequests.filter((r) => r.status === 'in_progress').length;
-  const hasWeeklyRevenueData = weeklyStats.some((day) => day.jobs > 0 || day.revenue > 0);
-  const formatDate = (date: string) => new Date(date).toLocaleDateString();
-  const mechanicName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.firstName || 'Mechanic';
-  const workshopLabel = (user as any)?.workshopName || (user as any)?.specialization || 'My Workshop';
+  const workshopLabel =
+    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+    (user as { workshopName?: string } | null)?.workshopName ||
+    "Mechanic Dashboard";
+  const sectionItemLabel = activeTab === "product" ? "Product" : "Service";
 
   return (
-    <div className="space-y-6">
-      <div className="px-1">
-        <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-          {workshopLabel}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Welcome back, {mechanicName}.
-        </p>
-      </div>
+    <div className="space-y-6 rounded-[28px] p-4 md:p-6" style={{ backgroundColor: platinum.background }}>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold" style={{ color: platinum.primary }}>{workshopLabel}</h1>
+          <p className="mt-1 text-sm" style={{ color: platinum.muted }}>
+            Seller-style dashboard for products and services with isolated mechanic data
+          </p>
+        </div>
 
-      {/* Analytics Row: Weekly Revenue + Request Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="glass-card lg:col-span-2">
-          <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold">Weekly Revenue</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Estimated revenue from service jobs</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-extrabold text-foreground">{fmt(totalWeeklyRevenue)}</p>
-                <p className="text-[11px] font-semibold text-emerald-600">This week</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="h-[280px] w-full">
-              {hasWeeklyRevenueData ? (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
-                  <AreaChart data={weeklyStats} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="mechanicRevenueGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f97316" stopOpacity={0.42} />
-                        <stop offset="95%" stopColor="#f97316" stopOpacity={0.04} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                    <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip
-                      contentStyle={{
-                        background: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 40px rgba(0,0,0,0.12)',
-                        fontSize: '13px',
-                      }}
-                      formatter={(value: number, name: string) => [
-                        name === 'revenue' ? fmt(value) : `${value} jobs`,
-                        name === 'revenue' ? 'Revenue' : 'Jobs',
-                      ]}
-                      labelStyle={{ fontWeight: 700, marginBottom: 4, color: 'hsl(var(--foreground))' }}
-                    />
-                    <Area type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={3} fill="url(#mechanicRevenueGradient)" dot={{ r: 5, fill: '#f97316', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7, fill: '#f97316', strokeWidth: 3, stroke: '#fff' }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center text-center">
-                  <BarChart3 className="mb-3 h-10 w-10 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">No weekly revenue yet</p>
-                  <p className="text-xs text-muted-foreground">Revenue will appear here after service orders come in.</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardHeader className="pb-0">
-            <CardTitle className="text-lg font-bold">Request Status</CardTitle>
-            <p className="text-xs text-muted-foreground">Distribution of {totalRequestsForPie} requests</p>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="h-[200px] w-full">
-              {requestStatusData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
-                  <PieChart>
-                    <Pie
-                      data={requestStatusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={85}
-                      paddingAngle={4}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {requestStatusData.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '10px', fontSize: '13px' }}
-                      formatter={(value: number, name: string) => [`${value} requests`, name]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center text-center">
-                  <RefreshCw className="mb-3 h-10 w-10 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">No request status data yet</p>
-                  <p className="text-xs text-muted-foreground">Request analytics will appear once orders are created.</p>
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              {requestStatusData.map((item) => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: item.color }} />
-                  <span className="text-xs text-muted-foreground">{item.name}</span>
-                  <span className="text-xs font-bold ml-auto">{item.value}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 p-3 rounded-xl bg-muted/30 border border-border">
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-xs font-semibold text-muted-foreground">Completion Rate</p>
-                <p className={cn("text-sm font-extrabold", completionRate >= 50 ? 'text-emerald-600' : completionRate > 0 ? 'text-amber-600' : 'text-muted-foreground')}>
-                  {completionRate}%
-                </p>
-              </div>
-              <div className="w-full h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all duration-1000",
-                    completionRate >= 50
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                      : completionRate > 0
-                        ? 'bg-gradient-to-r from-amber-500 to-amber-400'
-                        : ''
-                  )}
-                  style={{ width: `${completionRate}%` }}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Analytics Row 2: Services + Recent Requests */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="glass-card">
-          <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-amber-500" />
-                  Service Categories
-                </CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Service count vs average price</p>
-              </div>
-              <Link to="/mechanic/services" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
-                Manage <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            {serviceCategoryData.length > 0 ? (
-              <div className="h-[280px] w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <BarChart data={serviceCategoryData} margin={{ top: 5, right: 10, left: -10, bottom: 40 }} barGap={4}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                    <XAxis dataKey="category" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} angle={-25} textAnchor="end" interval={0} />
-                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                    <Tooltip
-                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px', boxShadow: '0 10px 40px rgba(0,0,0,0.12)', fontSize: '13px' }}
-                      formatter={(value: number, name: string) => [
-                        name === 'services' ? `${value} services` : fmt(value),
-                        name === 'services' ? 'Services' : 'Avg Price',
-                      ]}
-                      labelStyle={{ fontWeight: 700, color: 'hsl(var(--foreground))' }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
-                    <Bar dataKey="services" name="Services" fill="#f97316" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="avgPrice" name="Avg Price" fill="#fbbf24" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Wrench className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">No services yet</p>
-                <Link to="/mechanic/services" className="text-xs text-amber-600 mt-2 hover:underline font-semibold">Add your first service</Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold">Recent Requests</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Latest customer service requests</p>
-              </div>
-              <Link to="/mechanic/orders" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
-                View All <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="space-y-1">
-              {serviceRequests.slice(0, 5).map((req) => (
-                <div key={req.id} className="flex items-center gap-3 py-3 border-b border-border/40 last:border-0 group hover:bg-muted/20 rounded-lg px-2 -mx-2 transition-colors">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                    <span className="text-sm font-bold text-white">{req.customer.charAt(0)}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{req.customer}</p>
-                    <p className="text-xs text-muted-foreground truncate">{req.vehicle} · {req.issue}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold">{fmt(req.amount)}</p>
-                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border", statusColors[req.status])}>
-                      {statusIcons[req.status]} {statusLabels[req.status]}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Needs Attention */}
-      {attentionItems.length > 0 && (
-        <Card className="glass-card border-l-4 border-l-amber-500">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-500" />
-                <CardTitle className="text-lg font-bold">Needs Attention</CardTitle>
-                <span className="inline-flex items-center justify-center h-6 min-w-[24px] px-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold shadow-md">
-                  {attentionItems.length}
-                </span>
-              </div>
-              <Link to="/mechanic/orders" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
-                View All <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {attentionItems.slice(0, 3).map((item) => (
-              <Link
-                key={item.id}
-                to="/mechanic/orders"
-                className="flex items-center gap-4 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors group"
+        <div className="flex flex-wrap items-center gap-3">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DashboardTab)}>
+            <TabsList className="h-auto rounded-xl border p-1.5" style={{ backgroundColor: platinum.card, borderColor: platinum.border }}>
+              <TabsTrigger
+                value="product"
+                className="rounded-lg px-4 py-2 text-sm data-[state=active]:shadow-none"
+                style={{ color: activeTab === "product" ? "#FFFFFF" : platinum.primary, backgroundColor: activeTab === "product" ? platinum.primary : "transparent" }}
               >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-md">
-                  <span className="text-sm font-bold text-white">{item.customer.charAt(0).toUpperCase()}</span>
+                Products
+              </TabsTrigger>
+              <TabsTrigger
+                value="service"
+                className="rounded-lg px-4 py-2 text-sm data-[state=active]:shadow-none"
+                style={{ color: activeTab === "service" ? "#FFFFFF" : platinum.primary, backgroundColor: activeTab === "service" ? platinum.primary : "transparent" }}
+              >
+                Services
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <Button
+            onClick={() => void fetchDashboard(activeTab, true)}
+            disabled={loading}
+            variant="outline"
+            className="gap-2"
+            style={{ borderColor: platinum.border, color: platinum.primary, backgroundColor: platinum.card }}
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="flex min-h-[40vh] flex-col items-center justify-center rounded-3xl border text-center" style={{ backgroundColor: platinum.card, borderColor: platinum.border }}>
+          <div className="mb-4 rounded-full p-3" style={{ backgroundColor: "rgba(220, 38, 38, 0.12)" }}>
+            <AlertCircle className="h-8 w-8 text-red-600" />
+          </div>
+          <p className="text-lg font-semibold" style={{ color: platinum.primary }}>Failed to load data</p>
+          <p className="mt-1 text-sm" style={{ color: platinum.muted }}>Please try again.</p>
+          <Button
+            onClick={() => void fetchDashboard(activeTab, true)}
+            className="mt-6"
+            style={{ backgroundColor: platinum.primary, color: "#FFFFFF" }}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Try Again
+          </Button>
+        </div>
+      ) : (
+        <>
+          {!dashboard.hasData && !loading && (
+            <Card className="border shadow-sm" style={{ backgroundColor: platinum.card, borderColor: platinum.border }}>
+              <CardContent className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                {activeTab === "product" ? (
+                  <PackageSearch className="mb-3 h-10 w-10" style={{ color: platinum.muted, opacity: 0.6 }} />
+                ) : (
+                  <Wrench className="mb-3 h-10 w-10" style={{ color: platinum.muted, opacity: 0.6 }} />
+                )}
+                <p className="text-base font-semibold" style={{ color: platinum.primary }}>{dashboard.emptyMessage}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.8fr_1fr]">
+            <Card className="border shadow-sm" style={{ backgroundColor: platinum.card, borderColor: platinum.border }}>
+              <CardHeader className="border-b pb-4" style={{ borderColor: platinum.border }}>
+                <div className="flex flex-col gap-2">
+                  <CardTitle className="text-lg font-semibold" style={{ color: platinum.primary }}>Monthly Revenue Trend</CardTitle>
+                  <p className="text-sm" style={{ color: platinum.muted }}>
+                    Daily {sectionItemLabel.toLowerCase()} revenue for the current month with zero-filled missing days
+                  </p>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold">{item.customer}</p>
-                  <p className="text-xs text-muted-foreground">{item.issue} - {fmt(item.amount)}</p>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="mb-4 rounded-lg border px-4 py-3" style={{ borderColor: "#9DB8AB", backgroundColor: "rgba(34,197,94,0.08)" }}>
+                  <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">Total Revenue</p>
+                  <p className="mt-1.5 text-3xl font-bold text-emerald-700">{formatCurrency(dashboard.kpis.totalRevenue)}</p>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-xs text-muted-foreground">{formatDate(item.date)}</p>
-                  <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border mt-1", statusColors[item.status])}>
-                    {statusIcons[item.status]} {statusLabels[item.status]}
-                  </span>
+                <div className="h-[340px] w-full">
+                  {loading && !dashboardByTab[activeTab] ? (
+                    <div className="h-full animate-pulse rounded-xl" style={{ backgroundColor: "#D8DBDE" }} />
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={dashboard.revenueSeries.length > 0 ? dashboard.revenueSeries : [{ date: new Date().toISOString(), revenue: 0 }]}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(123,127,133,0.25)" vertical={false} />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={formatShortDate}
+                          tick={{ fontSize: 12, fill: platinum.muted }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`}
+                          tick={{ fontSize: 12, fill: platinum.muted }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          formatter={(value: number) => [formatCurrency(value), "Revenue"]}
+                          labelFormatter={(label) => formatDate(String(label))}
+                          contentStyle={{
+                            backgroundColor: platinum.primary,
+                            border: `1px solid ${platinum.border}`,
+                            borderRadius: "8px",
+                            color: "#FFFFFF",
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke={platinum.primary}
+                          strokeWidth={3}
+                          dot={{ r: 4, strokeWidth: 2, fill: "#fff", stroke: platinum.primary }}
+                          activeDot={{ r: 6, fill: platinum.primary }}
+                          connectNulls
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-6">
+              <Card className="border shadow-sm" style={{ backgroundColor: platinum.card, borderColor: platinum.border }}>
+                <CardHeader className="border-b pb-4" style={{ borderColor: platinum.border }}>
+                  <CardTitle className="text-base font-semibold" style={{ color: platinum.primary }}>Performance Metrics</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-6">
+                  <div className="rounded-lg border p-4" style={{ borderColor: platinum.border, backgroundColor: "rgba(255,255,255,0.18)" }}>
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-sm font-medium" style={{ color: platinum.primary }}>Operational Success</span>
+                      <span className="font-semibold text-cyan-700">{formatPercent(dashboard.kpis.completionRate)}</span>
+                    </div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-700 transition-all duration-500"
+                        style={{ width: `${Math.min(dashboard.kpis.completionRate || 0, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border p-4" style={{ borderColor: platinum.border, backgroundColor: "rgba(255,255,255,0.18)" }}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide" style={{ color: platinum.muted }}>Avg Order Value</p>
+                        <p className="mt-2 text-2xl font-bold text-violet-700">{formatCurrency(dashboard.kpis.avgOrderValue)}</p>
+                      </div>
+                      <div className="text-right text-xs" style={{ color: platinum.muted }}>
+                        <p>{activeTab === "product" ? "Orders this month" : "Bookings this month"}</p>
+                        <p className="mt-1 font-medium" style={{ color: platinum.primary }}>{dashboard.kpis.ordersThisMonth}</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border shadow-sm" style={{ backgroundColor: platinum.card, borderColor: platinum.border }}>
+                <CardHeader className="border-b pb-4" style={{ borderColor: platinum.border }}>
+                  <CardTitle className="text-base font-semibold" style={{ color: platinum.primary }}>
+                    {activeTab === "product" ? "Top Selling Products" : "Top Providing Services"}
+                  </CardTitle>
+                  <p className="mt-1 text-sm" style={{ color: platinum.muted }}>
+                    Top 10 {activeTab === "product" ? "products" : "services"} by completed volume
+                  </p>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  {topSellingChartData.length === 0 ? (
+                    <div className="rounded-lg border px-4 py-12 text-center" style={{ borderColor: platinum.border, backgroundColor: "rgba(255,255,255,0.12)" }}>
+                      {activeTab === "product" ? (
+                        <PackageSearch className="mx-auto mb-3 h-8 w-8" style={{ color: platinum.muted, opacity: 0.5 }} />
+                      ) : (
+                        <Wrench className="mx-auto mb-3 h-8 w-8" style={{ color: platinum.muted, opacity: 0.5 }} />
+                      )}
+                      <p className="text-sm" style={{ color: platinum.muted }}>
+                        {dashboard.hasData ? "No data available" : dashboard.emptyMessage}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="h-[280px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={topSellingChartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(123,127,133,0.25)" vertical={false} />
+                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: platinum.muted }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 12, fill: platinum.muted }} axisLine={false} tickLine={false} />
+                          <Tooltip
+                            formatter={(_value: number, _name: string, item: { payload?: { units: number; revenue: number } }) => {
+                              if (!item?.payload) return null;
+                              return [
+                                <div className="space-y-1 py-1">
+                                  <p className="text-xs text-slate-200">Units: {item.payload.units}</p>
+                                  <p className="text-xs text-slate-200">Revenue: {formatCurrency(item.payload.revenue)}</p>
+                                </div>,
+                                "",
+                              ];
+                            }}
+                            labelFormatter={() => ""}
+                            contentStyle={{
+                              backgroundColor: platinum.primary,
+                              border: `1px solid ${platinum.border}`,
+                              borderRadius: "8px",
+                            }}
+                          />
+                          <Bar dataKey="units" fill={activeTab === "product" ? "#0F766E" : "#2563EB"} radius={[8, 8, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <DashboardTable
+            title="Orders This Month"
+            description={activeTab === "product" ? "Product orders placed this month" : "Service bookings created this month"}
+            columns={["Order ID", "Customer", activeTab === "product" ? "Product" : "Service", "Amount", "Date", "Status"]}
+            rows={dashboard.ordersThisMonth.map((order) => [
+              <span className="font-mono font-semibold text-blue-700">{getOrderLabel(order.orderId)}</span>,
+              <span className="text-sm font-medium" style={{ color: platinum.primary }}>{order.customerName}</span>,
+              <span className="text-sm" style={{ color: platinum.primary }}>{order.itemName}</span>,
+              <span className="font-semibold" style={{ color: platinum.primary }}>{formatCurrency(order.orderAmount || 0)}</span>,
+              <span className="text-sm" style={{ color: platinum.muted }}>{formatDate(order.orderDate)}</span>,
+              <span className="inline-flex rounded-full border px-3 py-1.5 text-xs font-medium" style={{ borderColor: platinum.border, color: platinum.primary }}>
+                {order.orderStatus}
+              </span>,
+            ])}
+            emptyTitle={`No ${activeTab === "product" ? "product orders" : "service bookings"}`}
+            emptyDescription={dashboard.emptyMessage || "New activity will appear here"}
+          />
+
+          <DashboardTable
+            title="Pending Orders"
+            description={activeTab === "product"
+              ? "Product orders awaiting fulfillment"
+              : "Service bookings still pending arrival or work start"}
+            columns={["Order ID", "Customer", activeTab === "product" ? "Product" : "Service", "Amount", "Date", "Status"]}
+            rows={dashboard.pendingOrders.map((order) => [
+              <span className="font-mono font-semibold text-amber-700">{getOrderLabel(order.orderId)}</span>,
+              <span className="text-sm font-medium" style={{ color: platinum.primary }}>{order.customerName}</span>,
+              <span className="text-sm" style={{ color: platinum.primary }}>{order.itemName}</span>,
+              <span className="font-semibold" style={{ color: platinum.primary }}>{formatCurrency(order.orderAmount || 0)}</span>,
+              <span className="text-sm" style={{ color: platinum.muted }}>{formatDate(order.orderDate)}</span>,
+              <span className="inline-flex rounded-full border px-3 py-1.5 text-xs font-medium" style={{ borderColor: platinum.border, color: platinum.primary }}>
+                {order.orderStatus}
+              </span>,
+            ])}
+            emptyTitle={activeTab === "product" ? "All caught up" : "No pending service bookings"}
+            emptyDescription={activeTab === "product" ? "No pending product orders waiting for action" : "No pre-service bookings waiting for action"}
+          />
+
+          <div className={`grid grid-cols-1 gap-6 ${activeTab === "product" ? "xl:grid-cols-2" : "xl:grid-cols-1"}`}>
+            {activeTab === "product" && (
+              <DashboardTable
+                title="Return Orders (This Month)"
+                description="Product return and refund activity for the current month"
+                columns={["Order ID", "Product", "Customer", "Reason", "Refund", "Date"]}
+                rows={dashboard.returnOrders.map((order) => [
+                  <span className="font-mono font-semibold text-red-700">{getOrderLabel(order.orderId)}</span>,
+                  <span className="text-sm font-medium" style={{ color: platinum.primary }}>{order.itemName}</span>,
+                  <span className="text-sm" style={{ color: platinum.primary }}>{order.customerName}</span>,
+                  <span className="max-w-[200px] truncate text-xs" style={{ color: platinum.muted }}>{order.reason || "-"}</span>,
+                  <span className="font-semibold text-red-700">{formatCurrency(order.amount || 0)}</span>,
+                  <span className="text-sm" style={{ color: platinum.muted }}>{formatDate(order.actionDate)}</span>,
+                ])}
+                emptyTitle="No returns"
+                emptyDescription="Product return orders will appear here"
+              />
+            )}
+
+            <DashboardTable
+              title="Customer Reviews"
+              description={activeTab === "product" ? "Product reviews from this month" : "Service reviews from this month"}
+              columns={["Customer", activeTab === "product" ? "Product" : "Service", "Rating", "Review", "Date"]}
+              rows={dashboard.monthlyReviews.map((review) => [
+                <span className="text-sm font-medium" style={{ color: platinum.primary }}>{review.customerName}</span>,
+                <span className="text-sm" style={{ color: platinum.primary }}>{review.itemName}</span>,
+                <span className="flex items-center gap-1.5">
+                  {[...Array(5)].map((_, index) => (
+                    <Star
+                      key={index}
+                      className={`h-3.5 w-3.5 ${index < (review.rating || 0) ? "fill-amber-400 text-amber-400" : ""}`}
+                      style={index < (review.rating || 0) ? undefined : { color: "rgba(123,127,133,0.35)" }}
+                    />
+                  ))}
+                  <span className="ml-1 text-sm font-semibold text-amber-600">{review.rating || 0}</span>
+                </span>,
+                <span className="max-w-[250px] truncate text-xs" style={{ color: platinum.muted }}>{review.review || "-"}</span>,
+                <span className="text-sm" style={{ color: platinum.muted }}>{formatDate(review.reviewDate)}</span>,
+              ])}
+              emptyTitle="No reviews"
+              emptyDescription={activeTab === "product" ? "Product reviews will appear here" : "Service reviews will appear here"}
+            />
+          </div>
+
+          {activeTab === "product" && (
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+              <Card className="border shadow-sm" style={{ backgroundColor: platinum.card, borderColor: platinum.border }}>
+                <CardHeader className="border-b pb-4" style={{ borderColor: platinum.border }}>
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: "rgba(220,38,38,0.12)" }}>
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-semibold" style={{ color: platinum.primary }}>Low Stock Alert</CardTitle>
+                      <p className="mt-0.5 text-xs" style={{ color: platinum.muted }}>Products below minimum threshold</p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 pt-4">
+                  {dashboard.lowStockAlerts.length === 0 ? (
+                    <div className="rounded-lg border px-4 py-8 text-center" style={{ borderColor: "#9DB8AB", backgroundColor: "rgba(34,197,94,0.08)" }}>
+                      <div className="mb-2 flex justify-center">
+                        <Box className="h-5 w-5 text-emerald-600" />
+                      </div>
+                      <p className="text-sm font-medium text-emerald-700">All products in stock</p>
+                    </div>
+                  ) : (
+                    dashboard.lowStockAlerts.map((product, index) => (
+                      <div
+                        key={`${product.itemName}-${index}`}
+                        className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3"
+                        style={{ borderColor: "rgba(220,38,38,0.2)", backgroundColor: "rgba(220,38,38,0.08)" }}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium" style={{ color: platinum.primary }}>{product.itemName}</p>
+                          <p className="mt-0.5 text-xs" style={{ color: platinum.muted }}>Min: {product.minimumRequiredQuantity}</p>
+                        </div>
+                        <span className="rounded-lg px-3 py-1 text-sm font-bold text-red-600" style={{ backgroundColor: "rgba(220,38,38,0.12)" }}>
+                          {product.currentQuantity}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+              <DashboardTable
+                title="Top Selling Products"
+                description="Best-performing products ranked by units sold"
+                columns={["Product", "Units Sold", "Revenue"]}
+                rows={dashboard.topSellingItems.map((item) => [
+                  <span className="text-sm font-medium" style={{ color: platinum.primary }}>{item.itemName}</span>,
+                  <span className="text-center font-semibold" style={{ color: platinum.primary }}>{item.unitsSold}</span>,
+                  <span className="font-semibold text-emerald-700">{formatCurrency(item.revenueGenerated)}</span>,
+                ])}
+                emptyTitle="No sales data"
+                emptyDescription="Top products will appear as orders are completed"
+              />
+            </div>
+          )}
+
+          {activeTab === "service" && (
+            <DashboardTable
+              title="Top Providing Services"
+              description="Best-performing services ranked by bookings and revenue"
+              columns={["Service", "Bookings", "Revenue"]}
+              rows={dashboard.topSellingItems.map((item) => [
+                <span className="text-sm font-medium" style={{ color: platinum.primary }}>{item.itemName}</span>,
+                <span className="font-semibold" style={{ color: platinum.primary }}>{item.unitsSold}</span>,
+                <span className="font-semibold text-emerald-700">{formatCurrency(item.revenueGenerated)}</span>,
+              ])}
+              emptyTitle="No service data"
+              emptyDescription="Completed service performance will appear here"
+            />
+          )}
+
+          <Card className="border shadow-sm" style={{ backgroundColor: platinum.card, borderColor: platinum.border }}>
+            <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-xl text-white" style={{ backgroundColor: platinum.primary }}>
+                  <Eye className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-lg font-semibold" style={{ color: platinum.primary }}>Performance Overview</p>
+                  <p className="mt-0.5 text-sm" style={{ color: platinum.muted }}>
+                    Dashboard updated with isolated {activeTab === "product" ? "product" : "service"} analytics
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="rounded-lg border px-4 py-3" style={{ borderColor: platinum.border, backgroundColor: "rgba(255,255,255,0.35)" }}>
+                  <p className="text-xs font-medium" style={{ color: platinum.muted }}>Revenue</p>
+                  <p className="mt-1.5 font-bold text-emerald-700">{formatCurrency(dashboard.kpis.totalRevenue)}</p>
+                </div>
+                <div className="rounded-lg border px-4 py-3" style={{ borderColor: platinum.border, backgroundColor: "rgba(255,255,255,0.35)" }}>
+                  <p className="text-xs font-medium" style={{ color: platinum.muted }}>{activeTab === "product" ? "Orders" : "Bookings"}</p>
+                  <p className="mt-1.5 font-bold text-blue-700">{dashboard.kpis.ordersThisMonth}</p>
+                </div>
+                <div className="rounded-lg border px-4 py-3" style={{ borderColor: platinum.border, backgroundColor: "rgba(255,255,255,0.35)" }}>
+                  <p className="text-xs font-medium" style={{ color: platinum.muted }}>Pending</p>
+                  <p className="mt-1.5 font-bold text-amber-700">{dashboard.kpis.pendingOrders}</p>
+                </div>
+                <div className="rounded-lg border px-4 py-3" style={{ borderColor: platinum.border, backgroundColor: "rgba(255,255,255,0.35)" }}>
+                  <p className="text-xs font-medium" style={{ color: platinum.muted }}>Growth</p>
+                  <p className={`mt-1.5 font-bold ${dashboard.kpis.revenueGrowth >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                    {formatPercent(dashboard.kpis.revenueGrowth)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );

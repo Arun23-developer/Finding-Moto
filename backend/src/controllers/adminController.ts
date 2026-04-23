@@ -42,10 +42,10 @@ export const getPendingApprovals = async (
     const roleFilter = req.query.role as string;
     
     const filter: any = { approvalStatus: 'pending' };
-    if (roleFilter && ['seller', 'mechanic'].includes(roleFilter)) {
+    if (roleFilter && ['seller', 'mechanic', 'delivery_agent'].includes(roleFilter)) {
       filter.role = roleFilter;
     } else {
-      filter.role = { $in: ['seller', 'mechanic'] };
+      filter.role = { $in: ['seller', 'mechanic', 'delivery_agent'] };
     }
 
     const users = await User.find(filter).sort({ createdAt: 1 });
@@ -82,8 +82,8 @@ export const approveUser = async (
       return;
     }
 
-    if (!['seller', 'mechanic'].includes(user.role)) {
-      res.status(400).json({ message: 'Only seller and mechanic accounts can be approved/rejected' });
+    if (!['seller', 'mechanic', 'delivery_agent'].includes(user.role)) {
+      res.status(400).json({ message: 'Only seller, mechanic, and delivery agent accounts can be approved/rejected' });
       return;
     }
 
@@ -91,9 +91,15 @@ export const approveUser = async (
       user.approvalStatus = 'approved';
       user.approvalNotes = notes || 'Approved by admin';
       user.approvedAt = new Date();
+      if (user.role === 'delivery_agent') {
+        user.agent_status = 'ENABLED';
+      }
     } else {
       user.approvalStatus = 'rejected';
       user.approvalNotes = notes || 'Rejected by admin';
+      if (user.role === 'delivery_agent') {
+        user.agent_status = 'DISABLED';
+      }
     }
 
     await user.save();

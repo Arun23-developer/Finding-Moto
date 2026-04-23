@@ -1,5 +1,6 @@
 import {
   Bell,
+  Flag,
   LayoutDashboard,
   Mail,
   Settings,
@@ -30,6 +31,12 @@ const navItems = [
     path: "/admin/users?tab=delivery_agent",
     isActive: (pathname, search) =>
       pathname === "/admin/users" && new URLSearchParams(search).get("tab") === "delivery_agent",
+  },
+  {
+    title: "Reports",
+    icon: Flag,
+    path: "/admin/reports?tab=seller",
+    isActive: (pathname) => pathname === "/admin/reports",
   },
   { title: "Notifications", icon: Bell, path: "/admin/notifications" },
   { title: "Contacts", icon: Mail, path: "/admin/contacts" },
