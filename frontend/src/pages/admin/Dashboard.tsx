@@ -6,6 +6,9 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Package,
+  TrendingUp,
+  Users,
 } from "lucide-react";
 import api from "@/services/api";
 
@@ -106,6 +109,96 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <div>
+        <h1 className="font-display text-2xl font-bold">Dashboard</h1>
+        <p className="text-sm text-muted-foreground mt-1">System overview and key metrics</p>
+      </div>
+
+      {/* Key Metrics - Top Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="glass-card border border-green-100/50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Total Revenue</p>
+                <p className="text-2xl font-bold mt-1">LKR {(stats.revenue / 1000).toFixed(1)}k</p>
+                <p className="text-xs text-green-600 mt-1">From completed orders</p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border border-blue-100/50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Total Orders</p>
+                <p className="text-2xl font-bold mt-1">{stats.totalOrders.toLocaleString()}</p>
+                <p className="text-xs text-blue-600 mt-1">{stats.deliveredOrders} delivered</p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <ShoppingCart className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border border-purple-100/50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Products</p>
+                <p className="text-2xl font-bold mt-1">{stats.totalProducts.toLocaleString()}</p>
+                <p className="text-xs text-purple-600 mt-1">{stats.activeProducts} active</p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <Package className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border border-orange-100/50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Active Sellers</p>
+                <p className="text-2xl font-bold mt-1">{stats.activeSellers.toLocaleString()}</p>
+                <p className="text-xs text-orange-600 mt-1">Approved vendors</p>
+              </div>
+              <div className="p-3 bg-orange-100 rounded-lg">
+                <Users className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Order Status Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="glass-card">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Pending Orders</p>
+            <p className="text-3xl font-bold mt-2 text-yellow-600">{stats.pendingOrders}</p>
+          </CardContent>
+        </Card>
+        <Card className="glass-card">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Processing Orders</p>
+            <p className="text-3xl font-bold mt-2 text-blue-600">{stats.processingOrders}</p>
+          </CardContent>
+        </Card>
+        <Card className="glass-card">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Out of Stock Items</p>
+            <p className="text-3xl font-bold mt-2 text-red-600">{stats.outOfStockProducts}</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Revenue Chart */}

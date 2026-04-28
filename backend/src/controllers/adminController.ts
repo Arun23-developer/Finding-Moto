@@ -8,6 +8,7 @@ import User from '../models/User';
 import Product from '../models/Product';
 import Order from '../models/Order';
 import Service from '../models/Service';
+import Review from '../models/Review';
 import { sendApprovalEmail } from '../utils/email';
 
 // Helper: format user for responses
@@ -422,6 +423,140 @@ export const getAdminServices = async (
     res.json({ success: true, data: services, count: services.length });
   } catch (err) {
     console.error('getAdminServices error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ─── Admin — All Reviews ───────────────────────────────────────────────────
+
+export const getAdminReviews = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { search, rating } = req.query;
+    const filter: Record<string, unknown> = {};
+
+    if (rating) {
+      filter.rating = Number(rating);
+    }
+
+    // Get all reviews
+    const reviews = await Review.find(filter)
+      .sort({ createdAt: -1 })
+      .populate('buyer', 'firstName lastName email')
+      .populate('productId', 'name')
+      .populate('sellerId', 'firstName lastName shopName')
+      .populate('mechanicId', 'firstName lastName workshopName')
+      .lean();
+
+    // Filter by search if provided
+    let filteredReviews = reviews;
+    if (search) {
+      const s = (search as string).toLowerCase();
+      filteredReviews = reviews.filter((r: any) => {
+        const buyerName = `${r.buyer?.firstName || ''} ${r.buyer?.lastName || ''}`.toLowerCase();
+        const comment = (r.comment || '').toLowerCase();
+        const productName = (r.productId?.name || '').toLowerCase();
+        return buyerName.includes(s) || comment.includes(s) || productName.includes(s);
+      });
+    }
+
+    // Calculate statistics
+    const totalReviews = reviews.length;
+    const averageRating = totalReviews > 0
+      ? reviews.reduce((sum, r: any) => sum + r.rating, 0) / totalReviews
+      : 0;
+
+    const ratingDistribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    reviews.forEach((r: any) => {
+      ratingDistribution[r.rating]++;
+    });
+
+    // Top rated products
+    const productRatings = await Review.aggregate([
+      { $match: { productId: { $exists: true, $ne: null } } },
+      {
+        $group: {
+          _id: '$productId',
+          avgRating: { $avg: '$rating' },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { avgRating: -1, count: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'product',
+        },
+      },
+    ]);
+
+    const topRatedProducts = productRatings
+      .map((p: any) => ({
+        name: p.product?.[0]?.name || 'Unknown',
+        rating: Math.round(p.avgRating * 10) / 10,
+        count: p.count,
+      }));
+
+    // Top rated sellers
+    const sellerRatings = await Review.aggregate([
+      { $match: { sellerId: { $exists: true, $ne: null } } },
+      {
+        $group: {
+          _id: '$sellerId',
+          avgRating: { $avg: '$rating' },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { avgRating: -1, count: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'seller',
+        },
+      },
+    ]);
+
+    const topRatedSellers = sellerRatings
+      .map((s: any) => ({
+        name: s.seller?.[0]?.shopName || `${s.seller?.[0]?.firstName} ${s.seller?.[0]?.lastName}` || 'Unknown',
+        rating: Math.round(s.avgRating * 10) / 10,
+        count: s.count,
+      }));
+
+    // Format recent reviews
+    const recentReviews = filteredReviews.slice(0, 20).map((r: any) => ({
+      _id: r._id,
+      rating: r.rating,
+      comment: r.comment,
+      buyer: r.buyer,
+      productName: r.productId?.name,
+      sellerName: r.sellerId?.shopName || `${r.sellerId?.firstName} ${r.sellerId?.lastName}`,
+      mechanicName: r.mechanicId?.workshopName || `${r.mechanicId?.firstName} ${r.mechanicId?.lastName}`,
+      createdAt: r.createdAt,
+    }));
+
+    res.json({
+      success: true,
+      stats: {
+        totalReviews,
+        averageRating: Math.round(averageRating * 10) / 10,
+        ratingDistribution,
+        topRatedProducts,
+        topRatedSellers,
+      },
+      reviews: recentReviews,
+      count: filteredReviews.length,
+    });
+  } catch (err) {
+    console.error('getAdminReviews error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

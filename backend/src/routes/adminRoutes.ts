@@ -11,6 +11,7 @@ import {
   getAdminProducts,
   getAdminOrders,
   getAdminServices,
+  getAdminReviews,
 } from '../controllers/adminController';
 import {
   adminBlockReportedAccount,
@@ -32,6 +33,7 @@ router.get('/overview', getAdminOverview);
 router.get('/products', getAdminProducts);
 router.get('/orders', getAdminOrders);
 router.get('/services', getAdminServices);
+router.get('/reviews', getAdminReviews);
 
 // User management
 router.get('/pending', getPendingApprovals);

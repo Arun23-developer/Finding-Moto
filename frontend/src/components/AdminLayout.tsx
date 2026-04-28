@@ -8,11 +8,24 @@ import {
   Store,
   Truck,
   Wrench,
+  ShoppingCart,
+  Package,
+  Star,
+  BarChart3,
 } from "lucide-react";
 import { DashboardShell } from "./DashboardShell";
 
 const navItems = [
+  // Analytics Section
   { title: "Dashboard", icon: LayoutDashboard, path: "/admin" },
+  { title: "Analytics", icon: BarChart3, path: "/admin/analytics" },
+  
+  // Management Section
+  { title: "Products", icon: Package, path: "/admin/products" },
+  { title: "Orders", icon: ShoppingCart, path: "/admin/orders" },
+  { title: "Ratings & Reviews", icon: Star, path: "/admin/ratings" },
+  
+  // Users Section
   {
     title: "Sellers",
     icon: Store,
@@ -32,6 +45,8 @@ const navItems = [
     isActive: (pathname, search) =>
       pathname === "/admin/users" && new URLSearchParams(search).get("tab") === "delivery_agent",
   },
+  
+  // Monitoring Section
   {
     title: "Reports",
     icon: Flag,
@@ -39,6 +54,8 @@ const navItems = [
     isActive: (pathname) => pathname === "/admin/reports",
   },
   { title: "Notifications", icon: Bell, path: "/admin/notifications" },
+  
+  // Settings Section
   { title: "Contacts", icon: Mail, path: "/admin/contacts" },
   { title: "Settings", icon: Settings, path: "/admin/settings" },
 ];

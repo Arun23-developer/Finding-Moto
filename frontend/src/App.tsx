@@ -75,6 +75,7 @@ const AdminUsersManagement = lazy(() => import('./pages/admin/UsersManagement'))
 const AdminProductsManagement = lazy(() => import('./pages/admin/ProductsManagement'));
 const AdminServicesManagement = lazy(() => import('./pages/admin/ServicesManagement'));
 const AdminOrdersManagement = lazy(() => import('./pages/admin/OrdersManagement'));
+const AdminRatingsManagement = lazy(() => import('./pages/admin/RatingsManagement'));
 const AdminReports = lazy(() => import('./pages/admin/Reports'));
 const AdminNotifications = lazy(() => import('./pages/admin/Notifications'));
 const AdminContactManagement = lazy(() => import('./pages/admin/ContactManagement'));
@@ -475,6 +476,13 @@ const AppContent = (): JSX.Element => {
                 <RoleRoute roles={['admin']}>
                   <AdminLayout>
                     <AdminOrdersManagement />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/ratings" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminRatingsManagement />
                   </AdminLayout>
                 </RoleRoute>
               } />
