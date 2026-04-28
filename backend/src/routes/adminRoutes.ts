@@ -26,10 +26,10 @@ const router = express.Router();
 router.use(protect);
 router.use(authorize('admin'));
 
-// Dashboard overview
+// Overview
 router.get('/overview', getAdminOverview);
 
-// Products & Orders (admin-level, no seller filter)
+// Management routes
 router.get('/products', getAdminProducts);
 router.get('/orders', getAdminOrders);
 router.get('/services', getAdminServices);

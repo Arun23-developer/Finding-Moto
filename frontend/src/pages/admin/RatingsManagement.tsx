@@ -98,7 +98,10 @@ export default function RatingsManagement() {
         <AlertCircle className="h-8 w-8 mb-3 text-red-500" />
         <p className="font-medium">{error}</p>
         <button
-          onClick={() => setLoading(true) || fetchReviews()}
+          onClick={() => {
+            setLoading(true);
+            fetchReviews();
+          }}
           className="mt-3 inline-flex items-center gap-2 text-sm text-primary hover:underline"
         >
           <RefreshCw className="h-4 w-4" /> Retry
@@ -117,58 +120,66 @@ export default function RatingsManagement() {
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="glass-card">
-            <CardContent className="p-4">
+          <Card className="glass-card border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Reviews</p>
-                  <p className="text-2xl font-bold mt-1">{stats.totalReviews.toLocaleString()}</p>
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Reviews</p>
+                  <p className="text-3xl font-bold mt-2 text-blue-600">{stats.totalReviews.toLocaleString()}</p>
                 </div>
-                <MessageSquare className="h-8 w-8 text-primary/60" />
+                <div className="p-3 bg-blue-100 rounded-xl">
+                  <MessageSquare className="h-6 w-6 text-blue-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
-            <CardContent className="p-4">
+          <Card className="glass-card border-l-4 border-l-yellow-500 hover:shadow-md transition-shadow">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Average Rating</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-2xl font-bold">{stats.averageRating.toFixed(1)}</p>
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Average Rating</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <p className="text-3xl font-bold text-yellow-600">{stats.averageRating.toFixed(1)}</p>
                     <RatingStars rating={Math.round(stats.averageRating)} />
                   </div>
                 </div>
-                <Star className="h-8 w-8 text-yellow-400/60" />
+                <div className="p-3 bg-yellow-100 rounded-xl">
+                  <Star className="h-6 w-6 text-yellow-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
-            <CardContent className="p-4">
+          <Card className="glass-card border-l-4 border-l-green-500 hover:shadow-md transition-shadow">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">5-Star Reviews</p>
-                  <p className="text-2xl font-bold mt-1">{stats.ratingDistribution[5] || 0}</p>
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">5-Star Reviews</p>
+                  <p className="text-3xl font-bold mt-2 text-green-600">{stats.ratingDistribution[5] || 0}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {stats.totalReviews > 0
                       ? `${((((stats.ratingDistribution[5] || 0) / stats.totalReviews) * 100).toFixed(1))}%`
                       : "0%"}
                   </p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-green-500/60" />
+                <div className="p-3 bg-green-100 rounded-xl">
+                  <TrendingUp className="h-6 w-6 text-green-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
-            <CardContent className="p-4">
+          <Card className="glass-card border-l-4 border-l-red-500 hover:shadow-md transition-shadow">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Low Ratings (≤2)</p>
-                  <p className="text-2xl font-bold mt-1">{(stats.ratingDistribution[1] || 0) + (stats.ratingDistribution[2] || 0)}</p>
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Low Ratings (≤2)</p>
+                  <p className="text-3xl font-bold mt-2 text-red-600">{(stats.ratingDistribution[1] || 0) + (stats.ratingDistribution[2] || 0)}</p>
                 </div>
-                <AlertCircle className="h-8 w-8 text-red-500/60" />
+                <div className="p-3 bg-red-100 rounded-xl">
+                  <AlertCircle className="h-6 w-6 text-red-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -178,9 +189,9 @@ export default function RatingsManagement() {
       {/* Rating Distribution */}
       {stats && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card className="glass-card">
+          <Card className="glass-card shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Rating Distribution</CardTitle>
+              <CardTitle className="text-lg font-semibold">Rating Distribution</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -207,9 +218,9 @@ export default function RatingsManagement() {
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
+          <Card className="glass-card shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Top Rated Products</CardTitle>
+              <CardTitle className="text-lg font-semibold">Top Rated Products</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -236,8 +247,8 @@ export default function RatingsManagement() {
       )}
 
       {/* Recent Reviews */}
-      <Card className="glass-card">
-        <CardHeader className="pb-4">
+      <Card className="glass-card shadow-sm">
+        <CardHeader className="pb-4 border-b">
           <div className="flex flex-col gap-4">
             <CardTitle className="text-base">Recent Reviews</CardTitle>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

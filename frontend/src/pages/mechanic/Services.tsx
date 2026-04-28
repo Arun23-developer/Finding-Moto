@@ -1,9 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, RefreshCw, Trash2, Upload, Wrench, X } from "lucide-react";
+import { 
+  AlertCircle, 
+  RefreshCw, 
+  Trash2, 
+  Upload, 
+  Wrench, 
+  X, 
+  Plus, 
+  Search, 
+  Filter, 
+  Image as ImageIcon, 
+  Info,
+  Power,
+  Edit2,
+  Layers,
+  Clock,
+  LayoutGrid
+} from "lucide-react";
 import api from "@/services/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +32,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatLkr } from "@/lib/currency";
 import {
   Table,
   TableBody,
@@ -26,8 +42,9 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { resolveMediaUrl } from "@/lib/imageUrl";
-import { ProductsToolbar } from "../seller/components/ProductsToolbar";
-import { StatusFilterBar } from "../seller/components/StatusFilterBar";
+import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 type ServiceStatus = "ENABLED" | "DISABLED";
 
@@ -65,20 +82,7 @@ interface AddServiceSectionProps {
   onSubmit: (values: ServiceFormValues) => Promise<void>;
 }
 
-interface ServicesTableProps {
-  services: MechanicService[];
-  onEdit: (service: MechanicService) => void;
-  onToggleVisibility: (service: MechanicService) => void;
-  onDelete: (service: MechanicService) => void;
-  togglingServiceId: string | null;
-}
-
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
-const SERVICE_STATUS_OPTIONS = [
-  { value: "all", label: "All" },
-  { value: "ENABLED", label: "Enabled" },
-  { value: "DISABLED", label: "Disabled" },
-];
 const CATEGORY_OPTIONS = [
   "engine_system",
   "fuel_system",
@@ -101,7 +105,9 @@ const CATEGORY_OPTIONS = [
   "safety_system",
   "accessories_system",
 ] as const;
+
 const MAX_SERVICE_IMAGES = 5;
+
 const DEFAULT_SERVICE_FORM_VALUES: ServiceFormValues = {
   name: "",
   actualPrice: "",
@@ -112,12 +118,8 @@ const DEFAULT_SERVICE_FORM_VALUES: ServiceFormValues = {
   images: [],
 };
 
-function getServiceStatus(service: Partial<MechanicService>): ServiceStatus {
-  return service.productStatus === "DISABLED" ? "DISABLED" : "ENABLED";
-}
-
 function formatCurrency(value?: number) {
-  return formatLkr(value);
+  return `LKR ${(value || 0).toLocaleString()}`;
 }
 
 function getFormValues(service: MechanicService | null): ServiceFormValues {
@@ -125,323 +127,11 @@ function getFormValues(service: MechanicService | null): ServiceFormValues {
     name: service?.name ?? "",
     actualPrice: typeof service?.price === "number" ? String(service.price) : "",
     discountPrice: typeof service?.originalPrice === "number" ? String(service.originalPrice) : "",
-    category:
-      service?.category && CATEGORY_OPTIONS.includes(service.category as (typeof CATEGORY_OPTIONS)[number])
-        ? service.category
-        : CATEGORY_OPTIONS[0],
-    status: getServiceStatus(service ?? {}),
+    category: service?.category ?? CATEGORY_OPTIONS[0],
+    status: service?.productStatus === "DISABLED" ? "DISABLED" : "ENABLED",
     description: service?.description ?? "",
     images: service?.images ?? [],
   };
-}
-
-function AddServiceSection({
-  service,
-  submitting,
-  submitError,
-  onSubmit,
-}: AddServiceSectionProps) {
-  const [form, setForm] = useState<ServiceFormValues>(DEFAULT_SERVICE_FORM_VALUES);
-  const [imageError, setImageError] = useState("");
-  const [errors, setErrors] = useState<FormErrors>({});
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setForm(getFormValues(service));
-    setImageError("");
-    setErrors({});
-  }, [service]);
-
-  const validateField = (field: keyof ServiceFormValues, rawValue: string, nextForm: ServiceFormValues): string => {
-    const trimmedValue = rawValue.trim();
-
-    if (field === "name" && trimmedValue && !/[^\d]/.test(trimmedValue)) {
-      return "Name cannot be only numbers";
-    }
-
-    if (field === "actualPrice" && trimmedValue && Number(trimmedValue) < 0) {
-      return "Actual price cannot be negative";
-    }
-
-    if (field === "discountPrice") {
-      if (trimmedValue && Number(trimmedValue) < 0) {
-        return "Discount price cannot be negative";
-      }
-      if (
-        trimmedValue &&
-        nextForm.actualPrice.trim() &&
-        !Number.isNaN(Number(trimmedValue)) &&
-        !Number.isNaN(Number(nextForm.actualPrice)) &&
-        Number(trimmedValue) > Number(nextForm.actualPrice)
-      ) {
-        return "Discount price cannot be greater than actual price";
-      }
-    }
-
-    return "";
-  };
-
-  const handleChange = (field: keyof ServiceFormValues, value: string) => {
-    setForm((current) => {
-      const nextForm = { ...current, [field]: value };
-      setErrors((currentErrors) => {
-        const nextErrors = { ...currentErrors };
-
-        if (field === "actualPrice") {
-          nextErrors.actualPrice = validateField("actualPrice", value, nextForm);
-          nextErrors.discountPrice = validateField("discountPrice", nextForm.discountPrice, nextForm);
-        } else if (field === "discountPrice") {
-          nextErrors.discountPrice = validateField("discountPrice", value, nextForm);
-        } else if (field === "name") {
-          nextErrors.name = validateField("name", value, nextForm);
-        }
-
-        return nextErrors;
-      });
-      return nextForm;
-    });
-  };
-
-  const handleRemoveImage = (index: number) => {
-    setForm((current) => ({
-      ...current,
-      images: current.images.filter((_, imageIndex) => imageIndex !== index),
-    }));
-    setImageError("");
-  };
-
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    if (files.length === 0) return;
-
-    const remainingSlots = MAX_SERVICE_IMAGES - form.images.length;
-    if (remainingSlots <= 0) {
-      setImageError("Maximum 5 photos allowed");
-      if (fileRef.current) fileRef.current.value = "";
-      return;
-    }
-
-    const filesToUpload = files.slice(0, remainingSlots);
-    const shouldWarn = files.length > remainingSlots;
-
-    try {
-      const uploadedUrls: string[] = [];
-      for (const file of filesToUpload) {
-        const formData = new FormData();
-        formData.append("image", file);
-        const { data } = await api.post("/products/upload-image", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        if (data?.success && data?.data?.url) uploadedUrls.push(data.data.url);
-      }
-
-      if (uploadedUrls.length > 0) {
-        setForm((current) => ({
-          ...current,
-          images: [...current.images, ...uploadedUrls].slice(0, MAX_SERVICE_IMAGES),
-        }));
-      }
-
-      setImageError(shouldWarn ? "Maximum 5 photos allowed" : "");
-    } catch {
-      setImageError("Unable to upload photo right now");
-    } finally {
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  };
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const nextErrors: FormErrors = {
-      name: validateField("name", form.name, form),
-      actualPrice: validateField("actualPrice", form.actualPrice, form),
-      discountPrice: validateField("discountPrice", form.discountPrice, form),
-    };
-
-    setErrors(nextErrors);
-
-    if (form.images.length > MAX_SERVICE_IMAGES) {
-      setImageError("Maximum 5 photos allowed");
-      return;
-    }
-
-    if (Object.values(nextErrors).some(Boolean)) return;
-
-    await onSubmit(form);
-    if (!service) setForm(DEFAULT_SERVICE_FORM_VALUES);
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-base font-semibold">{service ? "Edit Service" : "Add Service"}</h2>
-          <p className="text-sm text-muted-foreground">
-            {service ? "Update the selected service and save your changes." : "Create a new service listing using the existing mechanic flow."}
-          </p>
-        </div>
-      </div>
-
-      <form className="space-y-6" onSubmit={handleSubmit}>
-        <div>
-          <Label className="mb-2 block">Service Images</Label>
-          <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
-          {form.images.length > 0 ? (
-            <div className="mb-3 flex flex-wrap gap-2">
-              {form.images.map((img, index) => (
-                <div key={`${img}-${index}`} className="group relative h-20 w-20 overflow-hidden rounded-lg border">
-                  <img src={resolveMediaUrl(img, "https://placehold.co/80x80?text=Item")} alt="" className="h-full w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImage(index)}
-                    className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
-                  >
-                    <X className="h-4 w-4 text-white" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-border px-4 py-8 text-center hover:bg-muted/20"
-          >
-            <Upload className="mb-2 h-6 w-6 text-muted-foreground" />
-            <span className="text-sm font-medium">Upload service images</span>
-            <span className="text-xs text-muted-foreground">PNG, JPG up to 5 images.</span>
-          </button>
-          {imageError ? <p className="mt-2 text-sm text-destructive">{imageError}</p> : null}
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="service-name">Service Name</Label>
-            <Input id="service-name" value={form.name} onChange={(event) => handleChange("name", event.target.value)} placeholder="Enter service name" />
-            {errors.name ? <p className="text-sm text-destructive">{errors.name}</p> : null}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="service-actual-price">Actual Price</Label>
-            <Input id="service-actual-price" type="number" value={form.actualPrice} onChange={(event) => handleChange("actualPrice", event.target.value)} placeholder="0.00" />
-            {errors.actualPrice ? <p className="text-sm text-destructive">{errors.actualPrice}</p> : null}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="service-discount-price">Discount Price</Label>
-            <Input id="service-discount-price" type="number" value={form.discountPrice} onChange={(event) => handleChange("discountPrice", event.target.value)} placeholder="0.00" />
-            {errors.discountPrice ? <p className="text-sm text-destructive">{errors.discountPrice}</p> : null}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="service-category">Category</Label>
-            <select
-              id="service-category"
-              value={form.category}
-              onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              {CATEGORY_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="service-status">Buyer Visibility</Label>
-            <select
-              id="service-status"
-              value={form.status}
-              onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as ServiceStatus }))}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <option value="ENABLED">Enabled</option>
-              <option value="DISABLED">Disabled</option>
-            </select>
-          </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="service-description">Description</Label>
-            <Textarea id="service-description" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Describe the service..." rows={5} />
-          </div>
-        </div>
-
-        {submitError ? <p className="text-sm text-destructive">{submitError}</p> : null}
-
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Wrench className="h-4 w-4" />
-            <span>
-              {service
-                ? "Editing the selected services"
-                : "New service will appear in Manage Products after save"}
-            </span>
-          </div>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Saving..." : service ? "Save Changes" : "Add Service"}
-          </Button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function ServicesTable({ services, onEdit, onToggleVisibility, onDelete, togglingServiceId }: ServicesTableProps) {
-  return (
-    <div className="rounded-lg border border-border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Service Name</TableHead>
-            <TableHead>Actual Price</TableHead>
-            <TableHead>Buyer Visibility</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {services.map((service) => (
-            <TableRow key={service._id}>
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border border-border bg-muted/20">
-                    {service.images?.[0] ? (
-                      <img src={resolveMediaUrl(service.images[0], "https://placehold.co/80x80?text=Item")} alt={service.name ?? "Service"} className="h-full w-full object-cover" />
-                    ) : (
-                      <Wrench className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{service.name || "N/A"}</p>
-                    <p className="truncate text-xs text-muted-foreground">{service.category || "N/A"}</p>
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell>{formatCurrency(service.price)}</TableCell>
-              <TableCell>
-                <Badge variant="outline">{getServiceStatus(service) === "ENABLED" ? "Enabled" : "Disabled"}</Badge>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center justify-end gap-2">
-                  <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(service)}>
-                    Edit
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={togglingServiceId === service._id}
-                    onClick={() => onToggleVisibility(service)}
-                  >
-                    {getServiceStatus(service) === "DISABLED" ? "Enable" : "Disable"}
-                  </Button>
-                  <Button type="button" variant="outline" size="icon" onClick={() => onDelete(service)} aria-label="Delete service" title="Delete">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
 }
 
 export default function MechanicServices() {
@@ -471,299 +161,351 @@ export default function MechanicServices() {
   }, [searchInput]);
 
   useEffect(() => {
-    let ignore = false;
     const fetchServices = async () => {
       try {
         setError("");
         setLoading(true);
         const { data } = await api.get("/mechanic/services");
-        if (ignore) return;
         setServices(Array.isArray(data?.data) ? data.data : []);
       } catch {
-        if (ignore) return;
-        setServices([]);
-        setError("Failed to load services.");
+        setError("Failed to load your service catalog.");
       } finally {
-        if (!ignore) {
-          setLoading(false);
-          setRefreshing(false);
-        }
+        setLoading(false);
+        setRefreshing(false);
       }
     };
     fetchServices();
-    return () => {
-      ignore = true;
-    };
   }, [reloadKey]);
 
-  const counts = useMemo(
-    () => ({
-      all: services.length,
-      ENABLED: services.filter((service) => getServiceStatus(service) === "ENABLED").length,
-      DISABLED: services.filter((service) => getServiceStatus(service) === "DISABLED").length,
-    }),
-    [services],
-  );
-
-  const filteredServices = useMemo(
-    () =>
-      services.filter((service) => {
-        const matchesStatus = statusFilter === "all" || getServiceStatus(service) === statusFilter;
-        const matchesSearch =
-          !searchQuery ||
-          (service.name || "").toLowerCase().includes(searchQuery) ||
-          (service.category || "").toLowerCase().includes(searchQuery);
-        return matchesStatus && matchesSearch;
-      }),
-    [searchQuery, services, statusFilter],
-  );
-
-  useEffect(() => {
-    setPage(1);
-  }, [statusFilter, searchQuery]);
-
-  const pageMeta = useMemo(() => {
-    const total = filteredServices.length;
-    const pages = Math.max(1, Math.ceil(total / pageSize));
-    const safePage = Math.min(page, pages);
-    return { page: safePage, limit: pageSize, total, pages };
-  }, [filteredServices.length, page, pageSize]);
+  const filteredServices = useMemo(() => {
+    return services.filter((service) => {
+      const status = service.productStatus === "DISABLED" ? "DISABLED" : "ENABLED";
+      const matchesStatus = statusFilter === "all" || status === statusFilter;
+      const matchesSearch =
+        !searchQuery ||
+        (service.name || "").toLowerCase().includes(searchQuery) ||
+        (service.category || "").toLowerCase().includes(searchQuery);
+      return matchesStatus && matchesSearch;
+    });
+  }, [searchQuery, services, statusFilter]);
 
   const paginatedServices = useMemo(() => {
-    const start = (pageMeta.page - 1) * pageMeta.limit;
-    return filteredServices.slice(start, start + pageMeta.limit);
-  }, [filteredServices, pageMeta.limit, pageMeta.page]);
+    const start = (page - 1) * pageSize;
+    return filteredServices.slice(start, start + pageSize);
+  }, [filteredServices, page, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredServices.length / pageSize));
 
   const handleRefresh = () => {
     setRefreshing(true);
-    setReloadKey((current) => current + 1);
-  };
-
-  const handleOpenAdd = () => {
-    setSubmitError("");
-    setEditingService(null);
-    setIsAddOpen(true);
-  };
-
-  const handleSubmit = async (values: ServiceFormValues) => {
-    const payload = {
-      name: values.name.trim(),
-      price: Number(values.actualPrice),
-      originalPrice: values.discountPrice.trim() ? Number(values.discountPrice) : undefined,
-      active: values.status === "ENABLED",
-      productStatus: values.status,
-      category: values.category,
-      description: values.description.trim(),
-      images: values.images ?? [],
-      duration: editingService?.duration ?? "General",
-    };
-
-    if (!payload.name || Number.isNaN(payload.price)) {
-      setSubmitError("Service name and price are required.");
-      return;
-    }
-
-    setSubmitError("");
-    setSubmitting(true);
-
-    try {
-      if (editingService?._id) {
-        await api.put(`/mechanic/services/${editingService._id}`, payload);
-      } else {
-        await api.post("/mechanic/services", payload);
-      }
-      setEditingService(null);
-      setIsAddOpen(false);
-      setRefreshing(true);
-      setReloadKey((current) => current + 1);
-    } catch {
-      setSubmitError("Unable to save the service right now.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteService?._id) {
-      setDeleteService(null);
-      return;
-    }
-
-    setError("");
-    try {
-      await api.delete(`/mechanic/services/${deleteService._id}`);
-      setServices((current) => current.filter((item) => item._id !== deleteService._id));
-      if (editingService?._id === deleteService._id) {
-        setEditingService(null);
-        setIsAddOpen(false);
-      }
-      setDeleteService(null);
-    } catch {
-      setError("Unable to delete service.");
-      setDeleteService(null);
-    }
+    setReloadKey((c) => c + 1);
   };
 
   const handleToggleVisibility = async (service: MechanicService) => {
-    if (!service._id) return;
-
-    setError("");
     setTogglingServiceId(service._id);
-
     try {
-      const nextStatus = getServiceStatus(service) === "DISABLED" ? "ENABLED" : "DISABLED";
+      const nextStatus = service.productStatus === "DISABLED" ? "ENABLED" : "DISABLED";
       await api.put(`/mechanic/services/${service._id}`, {
         productStatus: nextStatus,
         active: nextStatus === "ENABLED",
       });
-      setServices((current) =>
-        current.map((item) =>
-          item._id === service._id
-            ? { ...item, productStatus: nextStatus, active: nextStatus === "ENABLED" }
-            : item,
-        ),
-      );
-      if (editingService?._id === service._id) {
-        setEditingService((current) =>
-          current
-            ? { ...current, productStatus: nextStatus, active: nextStatus === "ENABLED" }
-            : current,
-        );
-      }
+      setServices(prev => prev.map(s => s._id === service._id ? { ...s, productStatus: nextStatus, active: nextStatus === "ENABLED" } : s));
     } catch {
-      setError("Unable to update service visibility.");
+      alert("Visibility update failed.");
     } finally {
       setTogglingServiceId(null);
     }
   };
 
-  const renderLoadingState = () => (
-    <Card className="glass-card">
-      <CardContent className="space-y-4 p-6">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </CardContent>
-    </Card>
-  );
+  const handleDelete = async () => {
+    if (!deleteService) return;
+    try {
+      await api.delete(`/mechanic/services/${deleteService._id}`);
+      setServices(prev => prev.filter(s => s._id !== deleteService._id));
+      setDeleteService(null);
+    } catch {
+      alert("Deletion failed.");
+    }
+  };
+
+  const handleFormSubmit = async (values: ServiceFormValues) => {
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      const payload = {
+        ...values,
+        price: Number(values.actualPrice),
+        originalPrice: values.discountPrice ? Number(values.discountPrice) : undefined,
+        active: values.status === "ENABLED",
+        productStatus: values.status,
+      };
+      
+      if (editingService) {
+        await api.put(`/mechanic/services/${editingService._id}`, payload);
+      } else {
+        await api.post("/mechanic/services", payload);
+      }
+      
+      setReloadKey(c => c + 1);
+      setIsAddOpen(false);
+      setEditingService(null);
+    } catch (err: any) {
+      setSubmitError(err?.response?.data?.message || "Service operation failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Services</h1>
-        <p className="text-sm text-muted-foreground">Manage your mechanic service catalog with search, filters, and service details.</p>
-      </div>
-
-      <ProductsToolbar search={searchInput} onSearchChange={setSearchInput} onAddProduct={handleOpenAdd} addLabel="Add Service" searchPlaceholder="Search by service name" />
-
-      <div className="flex flex-col gap-4">
-        <StatusFilterBar activeFilter={statusFilter} counts={counts} onChange={setStatusFilter} options={SERVICE_STATUS_OPTIONS} />
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Total visible services: {pageMeta.total}</span>
-            <span>|</span>
-            <span>Page {pageMeta.page} of {pageMeta.pages}</span>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button type="button" variant="outline" onClick={handleRefresh} disabled={refreshing || loading}>
-              <RefreshCw className={refreshing ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
-              Refresh
-            </Button>
-            <select
-              value={String(pageSize)}
-              onChange={(event) => setPageSize(Number(event.target.value))}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-[140px]"
-            >
-              {PAGE_SIZE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option} / page
-                </option>
-              ))}
-            </select>
-          </div>
+    <div className="space-y-6 pb-12 animate-in fade-in duration-500">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight flex items-center gap-3">
+             <Wrench size={32} className="text-blue-600" />
+             Service Catalog
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 font-medium italic">Manage the professional services listed in your workshop.</p>
+        </div>
+        <div className="flex items-center gap-2">
+           <Button variant="outline" onClick={handleRefresh} className="h-11 rounded-xl gap-2 font-black text-[10px] uppercase tracking-widest border-border/60">
+              <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+              <span>Refresh</span>
+           </Button>
+           <Button onClick={() => { setEditingService(null); setIsAddOpen(true); }} className="h-11 rounded-xl gap-2 font-black text-[10px] uppercase tracking-widest bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20">
+              <Plus size={16} />
+              <span>New Service</span>
+           </Button>
         </div>
       </div>
 
-      {loading ? renderLoadingState() : null}
-
-      {!loading && error ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-          <AlertCircle className="mb-3 h-8 w-8 text-destructive" />
-          <p className="font-medium">{error}</p>
-          <Button type="button" variant="outline" className="mt-3" onClick={handleRefresh}>
-            Retry
-          </Button>
-        </div>
-      ) : null}
-
-      {!loading && !error && pageMeta.total === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center text-muted-foreground">
-            <Wrench className="h-10 w-10" />
-            <div className="space-y-1">
-              <p className="font-medium text-foreground">No services found</p>
-              <p className="text-sm">Adjust your filters or add a new service to get started.</p>
+      {/* Toolbar */}
+      <Card className="glass-card border-border/40 p-4 shadow-sm">
+         <div className="flex flex-col md:flex-row gap-4 md:items-center">
+            <div className="relative flex-1 group">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-blue-500 transition-colors" />
+               <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search service name or category..."
+                  className="w-full h-11 pl-10 pr-4 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+               />
             </div>
-            <Button type="button" onClick={handleOpenAdd}>Add Service</Button>
-          </CardContent>
-        </Card>
-      ) : null}
+            <div className="flex gap-1.5">
+               {["all", "ENABLED", "DISABLED"].map(f => (
+                  <button
+                     key={f}
+                     onClick={() => setStatusFilter(f)}
+                     className={cn(
+                        "whitespace-nowrap rounded-full px-5 py-2 text-[10px] font-black uppercase tracking-widest transition-all border",
+                        statusFilter === f ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-background border-border/60 text-muted-foreground hover:border-blue-500/40"
+                     )}
+                  >
+                     {f === "all" ? "All Services" : f === "ENABLED" ? "Public" : "Hidden"}
+                  </button>
+               ))}
+            </div>
+         </div>
+      </Card>
 
-      {!loading && !error && pageMeta.total > 0 ? (
-        <div className="space-y-4">
-          <ServicesTable
-            services={paginatedServices}
-            onEdit={setEditingService}
-            onToggleVisibility={handleToggleVisibility}
-            onDelete={setDeleteService}
-            togglingServiceId={togglingServiceId}
-          />
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Showing {(pageMeta.page - 1) * pageMeta.limit + 1}-{Math.min(pageMeta.page * pageMeta.limit, pageMeta.total)} of {pageMeta.total} services
-            </p>
+      {/* Table */}
+      <Card className="glass-card border-border/40 overflow-hidden shadow-sm">
+         <CardContent className="p-0">
+            <div className="overflow-x-auto">
+               <table className="w-full text-sm">
+                  <thead>
+                     <tr className="bg-muted/20 border-b border-border/20 text-left">
+                        <th className="px-6 py-4 font-black text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Service Details</th>
+                        <th className="px-6 py-4 font-black text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Billing</th>
+                        <th className="px-6 py-4 font-black text-[10px] text-muted-foreground uppercase tracking-[0.2em] text-center">Visibility</th>
+                        <th className="px-6 py-4 font-black text-[10px] text-muted-foreground uppercase tracking-[0.2em] text-right">Operations</th>
+                     </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                     {loading ? (
+                        [1,2,3].map(i => (
+                           <tr key={i} className="animate-pulse">
+                              <td colSpan={4} className="h-16 px-6 bg-muted/5"></td>
+                           </tr>
+                        ))
+                     ) : paginatedServices.length === 0 ? (
+                        <tr>
+                           <td colSpan={4} className="py-24 text-center">
+                              <LayoutGrid size={48} className="text-muted-foreground/20 mx-auto mb-4" />
+                              <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">No services found in this category</p>
+                           </td>
+                        </tr>
+                     ) : paginatedServices.map(service => (
+                        <tr key={service._id} className="group hover:bg-muted/30 transition-all">
+                           <td className="px-6 py-4">
+                              <div className="flex items-center gap-4">
+                                 <div className="h-12 w-12 rounded-xl border border-border/40 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 group-hover:bg-white transition-colors">
+                                    {service.images?.[0] ? (
+                                       <img src={resolveMediaUrl(service.images[0])} alt={service.name} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                    ) : (
+                                       <Wrench size={20} className="text-muted-foreground/40" />
+                                    )}
+                                 </div>
+                                 <div className="min-w-0">
+                                    <p className="font-bold text-foreground truncate group-hover:text-blue-600 transition-colors">{service.name}</p>
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/60 flex items-center gap-1.5 mt-1">
+                                       <Layers size={10} /> {service.category?.replace("_", " ")}
+                                    </span>
+                                 </div>
+                              </div>
+                           </td>
+                           <td className="px-6 py-4">
+                              <div className="flex flex-col">
+                                 <span className="font-black text-foreground">{formatCurrency(service.price)}</span>
+                                 {service.originalPrice && service.originalPrice > (service.price || 0) && (
+                                    <span className="text-[10px] text-muted-foreground line-through decoration-red-400">LKR {service.originalPrice.toLocaleString()}</span>
+                                 )}
+                              </div>
+                           </td>
+                           <td className="px-6 py-4 text-center">
+                              <Badge className={cn("text-[9px] font-black uppercase tracking-widest border-none px-2.5 py-0.5", service.productStatus === "DISABLED" ? "bg-slate-200 text-slate-600" : "bg-emerald-500 text-white shadow-md shadow-emerald-500/20")}>
+                                 {service.productStatus === "DISABLED" ? "Draft" : "Active"}
+                              </Badge>
+                           </td>
+                           <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                 <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-all" onClick={() => { setEditingService(service); setIsAddOpen(true); }} title="Edit Service">
+                                    <Edit2 size={16} />
+                                 </Button>
+                                 <Button variant="ghost" size="icon" className={cn("h-9 w-9 transition-all", service.productStatus === "DISABLED" ? "text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50" : "text-muted-foreground hover:text-red-600 hover:bg-red-50")} onClick={() => handleToggleVisibility(service)} disabled={togglingServiceId === service._id} title={service.productStatus === "DISABLED" ? "Enable" : "Disable"}>
+                                    {togglingServiceId === service._id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Power size={16} />}
+                                 </Button>
+                                 <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-all" onClick={() => setDeleteService(service)} title="Delete Service">
+                                    <Trash2 size={16} />
+                                 </Button>
+                              </div>
+                           </td>
+                        </tr>
+                     ))}
+                  </tbody>
+               </table>
+            </div>
+         </CardContent>
+      </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+         <div className="flex items-center justify-between px-2">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Page {page} of {totalPages}</p>
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={pageMeta.page <= 1}>Previous</Button>
-              <Button type="button" variant="outline" onClick={() => setPage((current) => Math.min(pageMeta.pages, current + 1))} disabled={pageMeta.page >= pageMeta.pages}>Next</Button>
+               <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="rounded-xl border-border/60">Previous</Button>
+               <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="rounded-xl border-border/60">Next</Button>
             </div>
-          </div>
-        </div>
-      ) : null}
+         </div>
+      )}
 
-      <Dialog
-        open={isAddOpen || Boolean(editingService)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setIsAddOpen(false);
-            setEditingService(null);
-            setSubmitError("");
-          }
-        }}
-      >
-        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-          <DialogHeader className="sr-only">
-            <DialogTitle>{editingService ? "Edit Service" : "Add Service"}</DialogTitle>
-            <DialogDescription>
-              {editingService
-                ? "Update the selected mechanic service."
-                : "Create a new mechanic service."}
-            </DialogDescription>
-          </DialogHeader>
-          <AddServiceSection service={editingService} submitting={submitting} submitError={submitError} onSubmit={handleSubmit} />
-        </DialogContent>
+      {/* Form Dialog */}
+      <Dialog open={isAddOpen} onOpenChange={(v) => { if(!v) { setIsAddOpen(false); setEditingService(null); } }}>
+         <DialogContent className="sm:max-w-3xl p-0 overflow-hidden border-none shadow-2xl">
+            <ScrollArea className="max-h-[90vh]">
+               <div className="bg-blue-600 p-8 text-white relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12 scale-150">
+                     <Wrench size={120} />
+                  </div>
+                  <div className="relative z-10">
+                     <h2 className="text-3xl font-black tracking-tight">{editingService ? "Update Service" : "New Service Listing"}</h2>
+                     <p className="text-blue-100 mt-2 font-medium italic">Enter precise details to attract more workshop bookings.</p>
+                  </div>
+               </div>
+               
+               <form onSubmit={(e) => { e.preventDefault(); handleFormSubmit(getFormValues(editingService)); }} className="p-8 space-y-8 bg-background">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div className="space-y-6">
+                        <div className="space-y-4">
+                           <div className="flex items-center gap-2 mb-2">
+                              <Info size={16} className="text-blue-600" />
+                              <h3 className="text-xs font-black uppercase tracking-widest text-foreground">General Info</h3>
+                           </div>
+                           <div className="space-y-4">
+                              <div className="space-y-2">
+                                 <Label className="text-[10px] font-black uppercase tracking-widest">Service Name *</Label>
+                                 <Input defaultValue={editingService?.name} name="name" required className="bg-muted/10 h-11 rounded-xl" placeholder="Full service, Brake repair, etc." />
+                              </div>
+                              <div className="space-y-2">
+                                 <Label className="text-[10px] font-black uppercase tracking-widest">Category</Label>
+                                 <select name="category" defaultValue={editingService?.category || CATEGORY_OPTIONS[0]} className="w-full h-11 px-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
+                                    {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c.replace("_", " ")}</option>)}
+                                 </select>
+                              </div>
+                           </div>
+                        </div>
+                        
+                        <div className="space-y-4">
+                           <div className="flex items-center gap-2 mb-2">
+                              <Clock size={16} className="text-blue-600" />
+                              <h3 className="text-xs font-black uppercase tracking-widest text-foreground">Pricing & Logic</h3>
+                           </div>
+                           <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                 <Label className="text-[10px] font-black uppercase tracking-widest">Price (LKR) *</Label>
+                                 <Input type="number" name="actualPrice" defaultValue={editingService?.price} required className="bg-muted/10 h-11 rounded-xl" placeholder="0.00" />
+                              </div>
+                              <div className="space-y-2">
+                                 <Label className="text-[10px] font-black uppercase tracking-widest">Status</Label>
+                                 <select name="status" defaultValue={editingService?.productStatus || "ENABLED"} className="w-full h-11 px-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
+                                    <option value="ENABLED">Active Listing</option>
+                                    <option value="DISABLED">Draft / Hidden</option>
+                                 </select>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                     
+                     <div className="space-y-6">
+                        <div className="space-y-4">
+                           <div className="flex items-center gap-2 mb-2">
+                              <ImageIcon size={16} className="text-blue-600" />
+                              <h3 className="text-xs font-black uppercase tracking-widest text-foreground">Visual Presence</h3>
+                           </div>
+                           <div className="p-6 rounded-2xl border-2 border-dashed border-border/60 bg-muted/5 flex flex-col items-center justify-center text-center">
+                              <ImageIcon size={32} className="text-muted-foreground/30 mb-2" />
+                              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">URL Sync Enabled</p>
+                              <p className="text-[9px] text-muted-foreground/60 mt-1">Images are synced from primary media links</p>
+                           </div>
+                        </div>
+                        
+                        <div className="space-y-4">
+                           <div className="flex items-center gap-2 mb-2">
+                              <Info size={16} className="text-blue-600" />
+                              <h3 className="text-xs font-black uppercase tracking-widest text-foreground">Description</h3>
+                           </div>
+                           <Textarea name="description" defaultValue={editingService?.description} className="bg-muted/10 rounded-xl min-h-[120px] resize-none leading-relaxed text-xs" placeholder="Describe the service workflow, parts included, and estimated time..." />
+                        </div>
+                     </div>
+                  </div>
+                  
+                  <Separator className="bg-border/40" />
+                  
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                     <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} className="h-12 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 border-border/60">Cancel</Button>
+                     <Button type="submit" disabled={submitting} className="h-12 font-black uppercase tracking-widest text-[10px] rounded-xl px-12 bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-500/20">
+                        {submitting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                        {editingService ? "Update Service" : "Publish Service"}
+                     </Button>
+                  </div>
+               </form>
+            </ScrollArea>
+         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(deleteService)} onOpenChange={(open) => { if (!open) setDeleteService(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Service</DialogTitle>
-            <DialogDescription>Are you sure you want to delete this service?</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleteService(null)}>No</Button>
-            <Button type="button" onClick={handleDelete}>Yes</Button>
-          </DialogFooter>
-        </DialogContent>
+      {/* Delete Dialog */}
+      <Dialog open={Boolean(deleteService)} onOpenChange={(v) => !v && setDeleteService(null)}>
+         <DialogContent className="sm:max-w-md p-8 text-center rounded-3xl">
+            <div className="h-16 w-16 rounded-full bg-red-50 flex items-center justify-center text-red-600 mx-auto mb-6">
+               <Trash2 size={32} />
+            </div>
+            <DialogTitle className="text-xl font-black uppercase tracking-widest text-foreground mb-2">Confirm Removal</DialogTitle>
+            <p className="text-sm text-muted-foreground font-medium italic mb-8">Are you sure you want to permanently delete this service? This action cannot be reversed.</p>
+            <div className="flex gap-3">
+               <Button variant="outline" onClick={() => setDeleteService(null)} className="flex-1 h-12 rounded-xl font-black uppercase tracking-widest text-[10px]">Keep Service</Button>
+               <Button variant="destructive" onClick={handleDelete} className="flex-1 h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-red-600 hover:bg-red-700">Delete Forever</Button>
+            </div>
+         </DialogContent>
       </Dialog>
     </div>
   );

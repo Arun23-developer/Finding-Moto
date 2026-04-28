@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  AlertCircle,
   Loader2,
   RefreshCw,
   Search,
+  ShoppingBag,
+  Clock,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -157,94 +160,126 @@ export default function OrdersPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8 animate-in fade-in duration-500">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Orders</h1>
-          <p className="text-sm text-muted-foreground">{orders.length} total orders</p>
+          <h1 className="text-3xl font-bold tracking-tight">Order Management</h1>
+          <p className="text-sm text-muted-foreground mt-1">Track, manage and fulfill your customer orders</p>
         </div>
-        <button
-          onClick={() => {
-            fetchOrders();
-          }}
-          className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+        <Button
+          onClick={fetchOrders}
+          variant="outline"
+          className="gap-2 h-10"
         >
-          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} /> Refresh
-        </button>
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          <span>Refresh Orders</span>
+        </Button>
       </div>
 
-      <Card className="glass-card">
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-4 sm:flex-row">
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Card className="glass-card border-border/40 overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600">
+                <ShoppingBag className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Total</p>
+                <p className="text-xl font-black">{statusCounts.all}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass-card border-border/40 overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
+                <Clock className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Pending</p>
+                <p className="text-xl font-black">{statusCounts.pending}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass-card border-border/40 overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Delivered</p>
+                <p className="text-xl font-black">{statusCounts.delivered}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass-card border-border/40 overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-600">
+                <XCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Cancelled</p>
+                <p className="text-xl font-black">{statusCounts.cancelled}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="glass-card border-border/40 shadow-sm overflow-hidden">
+        <div className="border-b border-border/40 bg-muted/20 p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by order ID, buyer, or product..."
-                className="w-full rounded-lg border border-input bg-background py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                placeholder="Search by ID, customer name, or product..."
+                className="w-full h-10 rounded-lg border border-input bg-background pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all"
               />
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 no-scrollbar overflow-x-auto pb-1 lg:pb-0">
               {[
-                "all",
-                "awaiting_seller_confirmation",
-                "confirmed",
-                "ready_for_dispatch",
-                "pickup_assigned",
-                "picked_up",
-                "out_for_delivery",
-                "delivered",
-                "delivery_failed",
-                "cancelled",
-              ].map((status) => (
+                { id: "all", label: "All" },
+                { id: "awaiting_seller_confirmation", label: "New" },
+                { id: "confirmed", label: "Confirmed" },
+                { id: "ready_for_dispatch", label: "Ready" },
+                { id: "pickup_assigned", label: "Assigned" },
+                { id: "picked_up", label: "Picked Up" },
+                { id: "out_for_delivery", label: "Out" },
+                { id: "delivered", label: "Delivered" },
+                { id: "cancelled", label: "Cancelled" },
+              ].map((filter) => (
                 <button
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
+                  key={filter.id}
+                  onClick={() => setStatusFilter(filter.id)}
                   className={cn(
-                    "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                    statusFilter === status
-                      ? "bg-blue-600 text-white"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    "whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-bold transition-all border",
+                    statusFilter === filter.id
+                      ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20"
+                      : "bg-background border-border/60 text-muted-foreground hover:border-blue-500/40 hover:text-blue-600"
                   )}
                 >
-                  {status === "all" && `All (${statusCounts.all})`}
-                  {status === "awaiting_seller_confirmation" && `Placed (${statusCounts.pending})`}
-                  {status === "confirmed" && `Confirmed (${statusCounts.confirmed})`}
-                  {status === "ready_for_dispatch" && `Package Ready (${statusCounts.package_ready})`}
-                  {status === "pickup_assigned" && `Assigned (${statusCounts.assigned})`}
-                  {status === "picked_up" && `Picked Up (${statusCounts.picked_up})`}
-                  {status === "out_for_delivery" && `Out for Delivery (${statusCounts.out_for_delivery})`}
-                  {status === "delivered" && `Delivered (${statusCounts.delivered})`}
-                  {status === "delivery_failed" && `Delivery Failed (${statusCounts.delivery_failed})`}
-                  {status === "cancelled" && `Cancelled (${statusCounts.cancelled})`}
+                  {filter.label}
                 </button>
               ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {error && (
-        <div className="flex items-center gap-3 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-destructive">
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          <p className="text-sm">{error}</p>
-          <button onClick={fetchOrders} className="ml-auto text-sm font-medium underline">
-            Retry
-          </button>
         </div>
-      )}
-
-      {loading && (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      )}
-
-      {!loading && (
-        <Card className="glass-card">
-          <CardContent className="p-0">
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
+              <Loader2 className="h-10 w-10 animate-spin text-blue-600/40" />
+              <p className="text-sm font-medium text-muted-foreground animate-pulse">Syncing orders...</p>
+            </div>
+          ) : (
             <OrdersTable
               orders={filteredOrders}
               allOrdersCount={orders.length}
@@ -254,9 +289,9 @@ export default function OrdersPage() {
               onStatusChange={handleStatusChange}
               updatingOrderId={updatingOrderId}
             />
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <BuyerDetailsModal
         order={selectedOrder}

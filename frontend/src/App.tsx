@@ -71,6 +71,7 @@ const DeliveryAgentLayout = lazy(() => import('./components/DeliveryAgentLayout'
 const BuyerLayout = lazy(() => import('./components/BuyerLayout').then((m) => ({ default: m.BuyerLayout })));
 
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
 const AdminUsersManagement = lazy(() => import('./pages/admin/UsersManagement'));
 const AdminProductsManagement = lazy(() => import('./pages/admin/ProductsManagement'));
 const AdminServicesManagement = lazy(() => import('./pages/admin/ServicesManagement'));
@@ -448,6 +449,13 @@ const AppContent = (): JSX.Element => {
                 <RoleRoute roles={['admin']}>
                   <AdminLayout>
                     <AdminDashboard />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/analytics" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminAnalytics />
                   </AdminLayout>
                 </RoleRoute>
               } />
