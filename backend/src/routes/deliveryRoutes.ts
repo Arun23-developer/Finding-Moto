@@ -5,6 +5,7 @@ import {
   getDeliveryByOrderId,
   getDeliveryAgents,
   getMyDeliveries,
+  getDeliveryDashboard,
   updateDeliveryStatus,
 } from '../controllers/deliveryController';
 
@@ -12,6 +13,7 @@ const router = express.Router();
 
 router.use(protect);
 
+router.get('/dashboard', authorize('delivery_agent'), getDeliveryDashboard);
 router.get('/agents', authorize('seller', 'mechanic', 'admin'), getDeliveryAgents);
 router.get('/by-order/:orderId', authorize('seller', 'mechanic', 'admin'), getDeliveryByOrderId);
 router.post('/assign', authorize('seller', 'mechanic', 'admin'), assignDelivery);

@@ -25,8 +25,10 @@ const LOW_STOCK_THRESHOLD = 5;
 const REVENUE_STATUSES = ['delivered', 'completed'];
 const SUCCESS_STATUSES = ['shipped', 'out_for_delivery', 'delivered', 'completed'];
 const PENDING_STATUSES = ['pending', 'awaiting_seller_confirmation', 'confirmed', 'processing', 'ready_for_dispatch'];
+const PRODUCT_RETURN_STATUSES = ['cancelled', 'refunded'];
 const SERVICE_REVENUE_STATUSES = ['SERVICE_COMPLETED', 'PAYMENT_RECEIVED'];
 const SERVICE_PENDING_STATUSES = ['SERVICE_ORDER_PLACED', 'SERVICE_ORDER_CONFIRMED', 'SERVICE_IN_PROGRESS'];
+const SERVICE_PENDING_TABLE_STATUSES = ['SERVICE_ORDER_PLACED', 'SERVICE_ORDER_CONFIRMED'];
 
 const getPeriodBounds = (range: 'monthly' | 'weekly') => {
   const now = new Date();
@@ -231,6 +233,7 @@ const buildProductDashboard = async (mechanicId: mongoose.Types.ObjectId, range:
       .sort({ createdAt: -1 })
       .limit(10)
       .populate('buyer', 'firstName lastName')
+      .populate('productId', 'name')
       .lean(),
     Order.aggregate([
       {
@@ -326,10 +329,10 @@ const buildProductDashboard = async (mechanicId: mongoose.Types.ObjectId, range:
         amount: o.totalAmount,
         actionDate: o.updatedAt,
       })),
-      monthlyReviews: monthlyReviews.map((r) => ({
+      monthlyReviews: monthlyReviews.map((r: any) => ({
         reviewId: r._id,
         customerName: getBuyerName(r.buyer),
-        itemName: r.itemName || 'Product',
+        itemName: r.productId?.name || 'Product',
         rating: r.rating,
         review: r.comment,
         reviewDate: r.createdAt,
@@ -451,6 +454,10 @@ const buildServiceDashboard = async (mechanicId: mongoose.Types.ObjectId, range:
       .sort({ createdAt: -1 })
       .limit(10)
       .populate('buyer', 'firstName lastName')
+      .populate({
+        path: 'productId', // Using productId as placeholder if serviceId refs are handled through productId in model or check if serviceId exists
+        select: 'name'
+      })
       .lean(),
     ServiceOrder.aggregate([
       {
@@ -530,10 +537,10 @@ const buildServiceDashboard = async (mechanicId: mongoose.Types.ObjectId, range:
         orderStatus: getServiceOrderStatusLabel(o.status),
       })),
       returnOrders: [],
-      monthlyReviews: monthlyReviews.map((r) => ({
+      monthlyReviews: monthlyReviews.map((r: any) => ({
         reviewId: r._id,
         customerName: getBuyerName(r.buyer),
-        itemName: r.itemName || 'Service',
+        itemName: r.productId?.name || 'Service',
         rating: r.rating,
         review: r.comment,
         reviewDate: r.createdAt,

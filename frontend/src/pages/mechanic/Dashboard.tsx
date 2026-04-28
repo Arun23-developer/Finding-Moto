@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AlertCircle,
-  Box,
   Eye,
-  PackageSearch,
   RefreshCw,
   Star,
   Wrench,
@@ -37,7 +35,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 
@@ -300,7 +297,6 @@ const emptyDashboardData = (type: DashboardTab): MechanicDashboardData => ({
 
 export default function MechanicDashboard() {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<DashboardTab>("product");
   const [range, setRange] = useState<"monthly" | "weekly">("monthly");
   const [dashboardByTab, setDashboardByTab] = useState<Record<DashboardTab, MechanicDashboardData | null>>({
