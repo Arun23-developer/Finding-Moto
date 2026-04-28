@@ -5,6 +5,7 @@ import { Footer } from "../components/layout/Footer";
 import { Button } from "../components/ui/button";
 import { Loader2, Store, Star, Package, MapPin, Phone, ArrowLeft } from "lucide-react";
 import api from "../services/api";
+import { formatLkr } from "@/lib/currency";
 import { resolveProductImage, resolveMediaUrl } from "@/lib/imageUrl";
 import { ReportDialog } from "@/components/ReportDialog";
 
@@ -227,7 +228,7 @@ const PublicSellerProfile: React.FC = () => {
                           <span className="text-sm text-muted-foreground">({product.reviewCount})</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-lg font-bold text-foreground">LKR {product.price.toLocaleString()}</span>
+                          <span className="text-lg font-bold text-foreground">{formatLkr(product.price)}</span>
                           <span className={`text-xs font-semibold ${product.inStock ? "text-green-600" : "text-red-600"}`}>
                             {product.inStock ? "In stock" : "Out of stock"}
                           </span>

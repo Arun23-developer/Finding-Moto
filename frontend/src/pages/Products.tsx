@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 import api from "@/services/api";
+import { formatLkr } from "@/lib/currency";
 import { resolveProductImage } from "@/lib/imageUrl";
 
 type PublicProduct = {
@@ -42,7 +43,7 @@ const Products = () => {
         setLoading(true);
         setError("");
         const { data } = await api.get<PublicProductsResponse>("/public/products", {
-          params: { page: 1, limit: 18, sort: "popular" },
+          params: { page: 1, limit: 100, sort: "popular" },
         });
 
         if (!cancelled) {
@@ -131,7 +132,7 @@ const Products = () => {
                       </p>
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-heading font-bold text-primary">
-                          LKR {Number(product.price || 0).toLocaleString()}
+                          {formatLkr(product.price)}
                         </span>
                         <span className="text-sm text-accent font-medium group-hover:underline">View Details →</span>
                       </div>

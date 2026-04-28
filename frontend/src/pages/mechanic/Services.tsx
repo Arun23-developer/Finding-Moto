@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatLkr } from "@/lib/currency";
 import {
   Table,
   TableBody,
@@ -116,12 +117,7 @@ function getServiceStatus(service: Partial<MechanicService>): ServiceStatus {
 }
 
 function formatCurrency(value?: number) {
-  if (typeof value !== "number" || Number.isNaN(value)) return "N/A";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "LKR",
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatLkr(value);
 }
 
 function getFormValues(service: MechanicService | null): ServiceFormValues {

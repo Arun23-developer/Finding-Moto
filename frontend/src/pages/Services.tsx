@@ -16,6 +16,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { formatLkr } from "@/lib/currency";
 import { resolveMediaUrl } from "@/lib/imageUrl";
 
 interface ServiceDetail {
@@ -48,7 +49,7 @@ const Services: React.FC = () => {
   const [serviceTypes, setServiceTypes] = useState<string[]>(["All Services"]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
-  const [visibleCount, setVisibleCount] = useState<number>(6);
+  const [visibleCount, setVisibleCount] = useState<number>(Number.MAX_SAFE_INTEGER);
 
   const fetchMechanics = async () => {
     try {
@@ -243,7 +244,7 @@ const Services: React.FC = () => {
                       {garage.serviceDetails && garage.serviceDetails.length > 0 ? (
                         <>
                           {garage.serviceDetails.slice(0, 3).map((svc) => (
-                            <span key={svc.name} className="tag-chip" title={`LKR ${svc.price.toLocaleString()}`}>
+                            <span key={svc.name} className="tag-chip" title={formatLkr(svc.price)}>
                               {svc.name}
                             </span>
                           ))}

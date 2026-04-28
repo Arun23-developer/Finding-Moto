@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Wrench, Star, Package, Briefcase, MapPin, Phone, ArrowLeft } from "lucide-react";
 import api from "../services/api";
+import { formatLkr } from "@/lib/currency";
 import { resolveProductImage, resolveMediaUrl } from "@/lib/imageUrl";
 import { ReportDialog } from "@/components/ReportDialog";
 
@@ -270,7 +271,7 @@ const PublicMechanicProfile: React.FC = () => {
                         <p className="font-semibold text-foreground">{service.name}</p>
                         <p className="text-xs text-muted-foreground mt-1">{service.category} • {service.duration}</p>
                       </div>
-                      <p className="font-bold text-foreground">LKR {service.price.toLocaleString()}</p>
+                      <p className="font-bold text-foreground">{formatLkr(service.price)}</p>
                     </div>
                     {service.description && (
                       <p className="text-sm text-muted-foreground mt-3 line-clamp-2">{service.description}</p>
@@ -324,7 +325,7 @@ const PublicMechanicProfile: React.FC = () => {
                           <span className="text-sm text-muted-foreground">({product.reviewCount})</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-lg font-bold text-foreground">LKR {product.price.toLocaleString()}</span>
+                          <span className="text-lg font-bold text-foreground">{formatLkr(product.price)}</span>
                           <span className={`text-xs font-semibold ${product.inStock ? "text-green-600" : "text-red-600"}`}>
                             {product.inStock ? "In stock" : "Out of stock"}
                           </span>

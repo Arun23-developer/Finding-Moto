@@ -5,6 +5,7 @@ import { AlertCircle, ArrowLeft, Check, Loader2, ShoppingCart, Star, Zap } from 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import api from "@/services/api";
+import { formatLkr } from "@/lib/currency";
 import { resolveProductImage } from "@/lib/imageUrl";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -225,7 +226,7 @@ const ProductDetail = () => {
                 </span>
               </div>
               <p className="text-2xl font-heading font-bold text-primary mb-6">
-                LKR {Number(product.price || 0).toLocaleString()}
+                {formatLkr(product.price)}
               </p>
 
               <div className="flex items-center gap-2 text-sm text-accent mb-6">

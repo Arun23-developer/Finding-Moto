@@ -6,11 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import { formatLkr } from "@/lib/currency";
 import { resolveMediaUrl } from "@/lib/imageUrl";
 import api from "@/services/api";
 import { useNavigate } from "react-router-dom";
 
-const formatCurrency = (value: number) => `LKR ${value.toLocaleString()}`;
+const formatCurrency = formatLkr;
 
 export default function CartPage() {
   const navigate = useNavigate();

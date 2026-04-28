@@ -10,10 +10,17 @@
     "build": "tsc",
     "seed:admin": "ts-node scripts/seedAdmin.ts",
     "seed:users": "ts-node scripts/seedUsers.ts",
+    "seed:all": "ts-node scripts/seedAllData.ts",
+    "seed:delivery-agents": "ts-node scripts/seedDeliveryAgents.ts",
     "seed:products": "ts-node scripts/seedProducts.ts",
     "seed:mechanic-products": "ts-node scripts/seedMechanicProducts.ts",
     "seed:services": "ts-node scripts/seedServices.ts",
-    "embeddings:backfill": "ts-node scripts/backfillProductEmbeddings.ts"
+    "seed:history": "ts-node scripts/seedHistoricalMarketplace.ts",
+    "embeddings:backfill": "ts-node scripts/backfillProductEmbeddings.ts",
+    "approval:pending": "ts-node scripts/setApprovalPending.ts",
+    "approval:approve": "ts-node scripts/approveAllPending.ts",
+    "approval:pending-agents": "ts-node scripts/setDeliveryAgentsPending.ts",
+    "approval:approve-agents": "ts-node scripts/approveDeliveryAgents.ts"
   },
   "keywords": [
     "express",
@@ -27,6 +34,7 @@
     "@google/generative-ai": "^0.24.1",
     "@types/compression": "^1.8.1",
     "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.10.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
