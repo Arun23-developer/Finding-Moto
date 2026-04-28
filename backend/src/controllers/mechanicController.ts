@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
+import User from '../models/User';
 import Product from '../models/Product';
 import Order from '../models/Order';
 import Review from '../models/Review';
@@ -572,6 +573,108 @@ export const getMechanicDashboard = async (req: AuthRequest, res: Response): Pro
     res.json(payload);
   } catch (err) {
     console.error('getMechanicDashboard error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const getProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const mechanicId = req.user!._id as mongoose.Types.ObjectId;
+    const user = await User.findById(mechanicId).select('-password');
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+    res.json({ success: true, data: user });
+  } catch (err) {
+    console.error('getProfile error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const mechanicId = req.user!._id as mongoose.Types.ObjectId;
+    const { firstName, lastName, phone, address } = req.body;
+    const user = await User.findByIdAndUpdate(
+      mechanicId,
+      { firstName, lastName, phone, address },
+      { new: true }
+    ).select('-password');
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+    res.json({ success: true, data: user });
+  } catch (err) {
+    console.error('updateProfile error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const getMechanicReviews = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const mechanicId = req.user!._id as mongoose.Types.ObjectId;
+    const reviews = await Review.find({ seller: mechanicId })
+      .populate('buyer', 'firstName lastName')
+      .populate('productId', 'name')
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.json({ success: true, data: reviews });
+  } catch (err) {
+    console.error('getMechanicReviews error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const getServices = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const mechanicId = req.user!._id as mongoose.Types.ObjectId;
+    const services = await Service.find({ seller: mechanicId }).sort({ createdAt: -1 });
+    res.json({ success: true, data: services });
+  } catch (err) {
+    console.error('getServices error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const createService = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const mechanicId = req.user!._id as mongoose.Types.ObjectId;
+    const service = await Service.create({ ...req.body, seller: mechanicId });
+    res.status(201).json({ success: true, data: service });
+  } catch (err) {
+    console.error('createService error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const updateService = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const service = await Service.findByIdAndUpdate(id, req.body, { new: true });
+    if (!service) {
+      res.status(404).json({ success: false, message: 'Service not found' });
+      return;
+    }
+    res.json({ success: true, data: service });
+  } catch (err) {
+    console.error('updateService error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const deleteService = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const service = await Service.findByIdAndDelete(id);
+    if (!service) {
+      res.status(404).json({ success: false, message: 'Service not found' });
+      return;
+    }
+    res.json({ success: true, message: 'Service deleted' });
+  } catch (err) {
+    console.error('deleteService error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
