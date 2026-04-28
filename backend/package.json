@@ -20,7 +20,8 @@
     "approval:pending": "ts-node scripts/setApprovalPending.ts",
     "approval:approve": "ts-node scripts/approveAllPending.ts",
     "approval:pending-agents": "ts-node scripts/setDeliveryAgentsPending.ts",
-    "approval:approve-agents": "ts-node scripts/approveDeliveryAgents.ts"
+    "approval:approve-agents": "ts-node scripts/approveDeliveryAgents.ts",
+    "seed:test-users": "ts-node scripts/seedTestUsers.ts"
   },
   "keywords": [
     "express",
