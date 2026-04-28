@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import { resolveMediaUrl, resolveProductImage } from '@/lib/imageUrl';
+import { formatLkr } from '@/lib/currency';
 import { getMyChats } from '../services/chatService';
 import { BuyerLayout } from '@/components/BuyerLayout';
 import { Badge } from '@/components/ui/badge';
@@ -581,7 +582,7 @@ const Dashboard: React.FC = () => {
                         }}>{product.name}</h4>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <span style={{ fontSize: 16, fontWeight: 700, color: '#4F46E5' }}>
-                            Rs.{product.price.toLocaleString()}
+                            {formatLkr(product.price)}
                           </span>
                           {product.rating > 0 && (
                             <span style={{ fontSize: 12, color: '#F59E0B', fontWeight: 600 }}>
@@ -744,7 +745,7 @@ const Dashboard: React.FC = () => {
                                   display: 'flex', alignItems: 'center', gap: 6
                                 }}>
                                   {svc.name}
-                                  <span style={{ color: '#D97706', fontWeight: 700 }}>Rs.{svc.price.toLocaleString()}</span>
+                                  <span style={{ color: '#D97706', fontWeight: 700 }}>{formatLkr(svc.price)}</span>
                                 </span>
                               ))}
                             </div>

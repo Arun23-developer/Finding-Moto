@@ -249,54 +249,174 @@ const buildProductsForMechanic = (mechanic: IUser, indexOffset: number) => {
 const seedServices = async (): Promise<void> => {
   try {
     await mongoose.connect(config.mongoURI);
-    console.log('MongoDB Connected');
+    console.log('✓ MongoDB Connected\n');
 
-    const mechanics = await Promise.all(MECHANICS.map((m) => ensureMechanic(m)));
+    // Get all approved mechanics
+    const mechanics = await User.find({ role: 'mechanic', approvalStatus: 'approved' });
+    console.log(`🔧 Found ${mechanics.length} mechanics\n`);
 
-    const allServices = mechanics.flatMap((mechanic, index) =>
-      buildServicesForMechanic(mechanic, index)
-    );
+    let totalServicesCreated = 0;
 
-    const serviceOps = allServices.map((doc) => ({
-      updateOne: {
-        filter: { mechanic: doc.mechanic, name: doc.name },
-        update: { $set: doc },
-        upsert: true,
-      },
-    }));
+    for (let mechanicIdx = 0; mechanicIdx < mechanics.length; mechanicIdx++) {
+      const mechanic = mechanics[mechanicIdx];
+      console.log(`\n🔧 Adding services for: ${mechanic.workshopName || `Mechanic ${mechanicIdx + 1}`}`);
+      console.log(`   Email: ${mechanic.email}`);
+      console.log('─────────────────────────────────────────────────────');
 
-    const serviceResult = await Service.bulkWrite(serviceOps, { ordered: false });
+      let mechanicServiceCount = 0;
 
-    const allProducts = mechanics.flatMap((mechanic, index) =>
-      buildProductsForMechanic(mechanic, index)
-    );
+      // Add 10 services for each mechanic
+      const realServices = [
+        {
+          name: 'Full Service - 150cc to 250cc',
+          category: 'Periodic Maintenance',
+          duration: '2h 30m',
+          price: 8500,
+          originalPrice: 10500,
+          description: 'Comprehensive periodic service: oil change, filter check, chain clean/lube, fastener inspection, and brake fluid check.'
+        },
+        {
+          name: 'Engine Oil & Oil Filter Replacement',
+          category: 'Engine Care',
+          duration: '45m',
+          price: 3500,
+          originalPrice: 4200,
+          description: 'Premium oil and filter replacement with oil level and engine condition check.'
+        },
+        {
+          name: 'Chain & Sprocket Kit Installation',
+          category: 'Drivetrain',
+          duration: '1h 20m',
+          price: 5200,
+          originalPrice: 6500,
+          description: 'Complete chain and sprocket replacement with proper tension adjustment.'
+        },
+        {
+          name: 'Brake Pad + Brake Fluid Service',
+          category: 'Braking System',
+          duration: '1h 10m',
+          price: 4800,
+          originalPrice: 6000,
+          description: 'Disc pad replacement with DOT4 fluid bleed and brake system inspection.'
+        },
+        {
+          name: 'EFI/ECU Scan & Diagnostics',
+          category: 'Diagnostics',
+          duration: '1h',
+          price: 4200,
+          originalPrice: 5200,
+          description: 'Complete engine diagnostics with OBD scanner to identify and fix fault codes.'
+        },
+        {
+          name: 'Battery & Charging System Test',
+          category: 'Electrical',
+          duration: '40m',
+          price: 2800,
+          originalPrice: 3500,
+          description: 'Battery voltage, alternator output, and charging system health check.'
+        },
+        {
+          name: 'Front Fork Seal & Oil Service',
+          category: 'Suspension',
+          duration: '2h',
+          price: 7200,
+          originalPrice: 9000,
+          description: 'Fork disassembly, seal replacement, and fork oil refill with compression check.'
+        },
+        {
+          name: 'Pre-Trip Safety Inspection',
+          category: 'Inspection',
+          duration: '35m',
+          price: 1800,
+          originalPrice: 2200,
+          description: 'Quick safety check: tires, brakes, lights, chain, coolant, and fluid levels.'
+        },
+        {
+          name: 'Wheel Alignment & Balancing',
+          category: 'Wheels & Tires',
+          duration: '1h 30m',
+          price: 5500,
+          originalPrice: 7000,
+          description: 'Wheel balancing and alignment for smooth ride and extended tire life.'
+        },
+        {
+          name: 'Air Filter & Cabin Filter Replacement',
+          category: 'Engine Care',
+          duration: '25m',
+          price: 2200,
+          originalPrice: 2800,
+          description: 'Engine air filter and cabin filter replacement with engine intake inspection.'
+        }
+      ];
 
-    const productOps = allProducts.map((doc) => ({
-      updateOne: {
-        filter: { seller: doc.seller, sku: doc.sku },
-        update: { $set: doc },
-        upsert: true,
-      },
-    }));
+      for (let serviceIdx = 0; serviceIdx < realServices.length; serviceIdx++) {
+        const serviceTemplate = realServices[serviceIdx];
 
-    const productResult = await Product.bulkWrite(productOps, { ordered: false });
+        const serviceData = {
+          mechanic: mechanic._id,
+          name: `${serviceTemplate.name} - ${mechanic.workshopName}`,
+          description: `${serviceTemplate.description} Available at ${mechanic.workshopName || 'our workshop'} with experienced technician.`,
+          category: serviceTemplate.category,
+          duration: serviceTemplate.duration,
+          price: serviceTemplate.price,
+          originalPrice: serviceTemplate.originalPrice,
+          active: true,
+          productStatus: 'ENABLED' as const,
+          images: [IMAGE_URLS[serviceIdx % IMAGE_URLS.length]]
+        };
 
-    console.log('Seeded/updated mechanic services.');
-    console.log(`Services - Upserted: ${serviceResult.upsertedCount || 0}, Modified: ${serviceResult.modifiedCount || 0}, Matched: ${serviceResult.matchedCount || 0}`);
-    console.log('Seeded/updated mechanic products.');
-    console.log(`Products - Upserted: ${productResult.upsertedCount || 0}, Modified: ${productResult.modifiedCount || 0}, Matched: ${productResult.matchedCount || 0}`);
-    console.log(`Created dataset: ${SERVICE_LIBRARY.length} services + ${PRODUCT_LIBRARY.length} products for each requested mechanic.`);
-    console.log('\nMechanic credentials for testing:');
-    console.log('psaravanappiriyan@gmail.com / mechanic123');
-    console.log('nanthujan0@gmail.com / mechanic123');
+        const existing = await Service.findOne({
+          mechanic: mechanic._id,
+          name: serviceData.name
+        });
+
+        if (!existing) {
+          await Service.create(serviceData);
+          mechanicServiceCount++;
+          totalServicesCreated++;
+        }
+      }
+
+      console.log(`  ✓ Added ${mechanicServiceCount} services`);
+    }
+
+    console.log('\n═══════════════════════════════════════════════════════════════');
+    console.log('                    SERVICES SEEDED SUCCESSFULLY');
+    console.log('═══════════════════════════════════════════════════════════════\n');
+
+    console.log(`✓ Total services created: ${totalServicesCreated}`);
+    console.log(`  • Mechanics: ${mechanics.length}`);
+    console.log(`  • Services per mechanic: 10`);
+    console.log(`  • Total: ${mechanics.length * 10}\n`);
+
+    console.log('📊 SERVICE CATEGORIES:');
+    const categories = new Set<string>();
+    SERVICE_LIBRARY.forEach(s => categories.add(s.category));
+    Array.from(categories).forEach((cat, idx) => {
+      console.log(`  ${idx + 1}. ${cat}`);
+    });
+
+    console.log('\n───────────────────────────────────────────────────────────────');
+    console.log('✅ Services Features:');
+    console.log('  • Real motorcycle service types');
+    console.log('  • Realistic service durations');
+    console.log('  • Sri Lankan Rupee (LKR) pricing');
+    console.log('  • Original prices for discount calculation');
+    console.log('  • Service images from Pexels');
+    console.log('  • Detailed service descriptions');
+    console.log('  • ENABLED status\n');
+
+    console.log('💡 Next: Update image URLs to Cloudinary if needed.\n');
 
     await mongoose.disconnect();
     console.log('Done.');
     process.exit(0);
   } catch (error) {
-    console.error('Error seeding services:', error);
+    console.error('❌ Error seeding services:', error);
     process.exit(1);
   }
 };
+
+seedServices();
 
 seedServices();

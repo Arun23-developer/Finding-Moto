@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Star, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "@/services/api";
+import { formatLkr } from "@/lib/currency";
 import { resolveProductImage } from "@/lib/imageUrl";
 
 type TrendingProduct = {
@@ -106,7 +107,7 @@ const PopularBikes = () => {
                     </p>
                     <div className="flex items-center justify-between">
                       <span className="text-lg font-heading font-bold text-primary">
-                        LKR {Number(product.price || 0).toLocaleString()}
+                        {formatLkr(product.price)}
                       </span>
                       <span className="text-sm text-accent font-medium group-hover:underline">View Details →</span>
                     </div>

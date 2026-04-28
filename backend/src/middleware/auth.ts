@@ -38,6 +38,11 @@ export const protect = async (
         return;
       }
 
+      if (user.active_status === 'DISABLED' || user.isActive === false) {
+        res.status(403).json({ message: 'Your account is disabled. Please contact support.' });
+        return;
+      }
+
       req.user = user;
       next();
     } catch (error) {

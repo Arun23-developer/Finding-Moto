@@ -1,540 +1,933 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  Wrench,
-  ArrowUpRight,
-  Clock,
-  CheckCircle,
-  Activity,
-  AlertTriangle,
-  BarChart3,
-  Package,
+  AlertCircle,
+  Eye,
   RefreshCw,
-  Search,
-  ImageIcon,
-  Edit3,
-  Trash2,
+  Star,
+  Wrench,
+  TrendingUp,
+  ShoppingBag,
+  Clock,
+  CheckCircle2,
+  ArrowUpRight,
+  ArrowDownRight,
+  DollarSign,
+  RotateCcw,
+  BarChart3,
 } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import { cn } from "@/lib/utils";
-import { resolveMediaUrl } from "@/lib/imageUrl";
-import { useEffect, useMemo, useState } from "react";
-import api from "@/services/api";
 import {
-  AreaChart,
   Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  Legend,
 } from "recharts";
+import api from "@/services/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/context/AuthContext";
+import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
-interface ServiceRequest {
-  id: string;
-  customer: string;
-  vehicle: string;
-  issue: string;
-  status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
-  date: string;
-  amount: number;
+type DashboardTab = "product" | "service";
+
+interface DashboardKpis {
+  totalRevenue: number;
+  ordersThisMonth: number;
+  ordersThisMonthAmount: number;
+  pendingOrders: number;
+  avgOrderValue: number;
+  completionRate: number;
+  revenueGrowth: number;
 }
 
-const fmt = (n: number) => `LKR ${n.toLocaleString()}`;
-
-interface WeeklyServiceStat {
-  day: string;
-  jobs: number;
-  revenue: number;
+interface DashboardRow {
+  orderId?: string;
+  reviewId?: string;
+  customerName: string;
+  itemName: string;
+  orderAmount?: number;
+  orderDate?: string;
+  orderStatus?: string;
+  rating?: number;
+  review?: string;
+  reviewDate?: string;
+  reason?: string;
+  actionDate?: string;
+  amount?: number;
 }
 
-const statusColors: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700",
-  accepted: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700",
-  in_progress: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700",
-  completed: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700",
-  cancelled: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700",
-};
-
-const statusLabels: Record<string, string> = {
-  pending: 'Pending', accepted: 'Accepted', in_progress: 'In Progress',
-  completed: 'Completed', cancelled: 'Cancelled',
-};
-
-const statusIcons: Record<string, React.ReactNode> = {
-  pending: <Clock className="h-3 w-3" />,
-  accepted: <CheckCircle className="h-3 w-3" />,
-  in_progress: <Activity className="h-3 w-3" />,
-  completed: <CheckCircle className="h-3 w-3" />,
-  cancelled: <span className="h-3 w-3">✕</span>,
-};
-
-interface DashboardService {
-  _id: string;
-  name: string;
-  price: number;
-  category: string;
-  active: boolean;
+interface LowStockAlert {
+  itemName: string;
+  currentQuantity: number;
+  minimumRequiredQuantity: number;
 }
 
-interface Product {
-  _id: string;
-  name: string;
-  category: string;
-  brand: string;
-  price: number;
-  originalPrice?: number;
-  stock: number;
-  images: string[];
-  status: "active" | "inactive" | "out_of_stock";
-  views: number;
-  sales: number;
-  sku: string;
-  createdAt: string;
+interface TopSellingItem {
+  itemId: string;
+  itemName: string;
+  unitsSold: number;
+  revenueGenerated: number;
 }
 
-interface ServiceCategoryData {
-  category: string;
-  services: number;
-  avgPrice: number;
+interface MechanicDashboardData {
+  type: DashboardTab;
+  filter: "monthly" | "weekly";
+  hasData: boolean;
+  emptyMessage: string;
+  kpis: DashboardKpis;
+  revenueSeries: Array<{ date: string; revenue: number }>;
+  ordersThisMonth: DashboardRow[];
+  pendingOrders: DashboardRow[];
+  returnOrders: DashboardRow[];
+  monthlyReviews: DashboardRow[];
+  lowStockAlerts: LowStockAlert[];
+  topSellingItems: TopSellingItem[];
 }
 
-const productStatusConfig: Record<string, { label: string; color: string }> = {
-  active: { label: "Active", color: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800" },
-  inactive: { label: "Inactive", color: "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700" },
-  out_of_stock: { label: "Out of Stock", color: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800" },
+// --- Formatters -----------------------------------------------------------
+
+const currencyFormatter = new Intl.NumberFormat("en-LK", {
+  style: "decimal",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
+const formatCurrency = (value: number) => `LKR ${currencyFormatter.format(value || 0)}`;
+
+const percentFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 1,
+});
+
+const formatPercent = (value: number) => `${percentFormatter.format(value || 0)}%`;
+
+const formatFullDate = (value?: string) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 };
 
-const categoryIcons: Record<string, string> = {
-  General: '🔧',
-  Engine: '⚙️',
-  Brakes: '🛑',
-  Electrical: '⚡',
-  Tyres: '🛞',
-  Transmission: '🔗',
-  Suspension: '🏍️',
+const formatShortDate = (value?: string) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+  }).format(date);
 };
 
-const statusDonutColors: Record<ServiceRequest['status'], string> = {
-  pending: '#f59e0b',
-  accepted: '#3b82f6',
-  in_progress: '#8b5cf6',
-  completed: '#10b981',
-  cancelled: '#ef4444',
+const getOrderLabel = (orderId?: string) => (orderId ? `#${orderId.slice(-6).toUpperCase()}` : "-");
+
+// --- Status Badge Classes ---------------------------------------------------
+
+function getStatusClasses(status: string) {
+  switch (status.toLowerCase()) {
+    case "accepted":
+    case "confirmed":
+    case "service_order_confirmed":
+      return "border-sky-200 bg-sky-50 text-sky-700 font-bold uppercase tracking-wider";
+    case "processing":
+    case "service_in_progress":
+      return "border-violet-200 bg-violet-50 text-violet-700 font-bold uppercase tracking-wider";
+    case "shipped":
+    case "ready_for_dispatch":
+      return "border-cyan-200 bg-cyan-50 text-cyan-700 font-bold uppercase tracking-wider";
+    case "delivered":
+    case "completed":
+    case "service_completed":
+    case "payment_received":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700 font-bold uppercase tracking-wider";
+    case "cancelled":
+    case "service_order_rejected":
+      return "border-red-200 bg-red-50 text-red-700 font-bold uppercase tracking-wider";
+    default:
+      return "border-amber-200 bg-amber-50 text-amber-700 font-bold uppercase tracking-wider";
+  }
+}
+
+// --- KPI Card Component ------------------------------------------------------
+
+interface KPICardProps {
+  title: string;
+  value: string | number;
+  icon: any;
+  description: string;
+  trend?: {
+    value: number;
+    isPositive: boolean;
+  };
+  color: string;
+}
+
+function KPICard({ title, value, icon: Icon, description, trend, color }: KPICardProps) {
+  return (
+    <Card className="glass-card border border-border/40 overflow-hidden relative group hover:shadow-lg transition-all duration-300">
+      <div className={`absolute top-0 right-0 p-3 opacity-10 text-${color}-600 group-hover:scale-110 transition-transform`}>
+        <Icon size={48} />
+      </div>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] uppercase tracking-widest font-black text-muted-foreground">{title}</p>
+          <div className={`p-2 rounded-lg bg-${color}-500/10 text-${color}-600`}>
+            <Icon className="h-4 w-4" />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col">
+          <h3 className="text-2xl font-black tracking-tight">{value}</h3>
+          <div className="flex items-center gap-2 mt-1">
+            {trend && (
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${trend.isPositive ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}>
+                {trend.isPositive ? <ArrowUpRight className="h-3 w-3 mr-0.5" /> : <ArrowDownRight className="h-3 w-3 mr-0.5" />}
+                {Math.abs(trend.value)}%
+              </span>
+            )}
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">{description}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// --- Dashboard Table Component ------------------------------------------------
+
+interface DashboardTableProps {
+  title: string;
+  description: string;
+  columns: string[];
+  rows: ReactNode[][];
+  emptyTitle: string;
+  emptyDescription: string;
+}
+
+function DashboardTable({
+  title,
+  description,
+  columns,
+  rows,
+  emptyTitle,
+  emptyDescription,
+}: DashboardTableProps) {
+  return (
+    <Card className="glass-card border border-border/40 overflow-hidden">
+      <CardHeader className="pb-4 border-b border-border/30 bg-muted/20">
+        <CardTitle className="text-base font-black uppercase tracking-widest text-foreground">{title}</CardTitle>
+        <p className="text-xs text-muted-foreground mt-1 font-medium">{description}</p>
+      </CardHeader>
+      <CardContent className="p-0">
+        {rows.length === 0 ? (
+          <div className="px-6 py-14 text-center">
+            <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3" />
+            <p className="font-bold text-sm text-foreground uppercase tracking-widest">{emptyTitle}</p>
+            <p className="mt-1 text-xs text-muted-foreground font-medium italic">{emptyDescription}</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-b border-border/30 bg-muted/40 text-left">
+                  {columns.map((column) => (
+                    <th key={column} className="px-5 py-4 font-black text-[10px] text-muted-foreground uppercase tracking-[0.2em]">
+                      {column}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/20">
+                {rows.map((row, index) => (
+                  <tr
+                    key={index}
+                    className="hover:bg-muted/30 transition-colors align-top group"
+                  >
+                    {row.map((cell, cellIndex) => (
+                      <td key={cellIndex} className="px-5 py-4">
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+const emptyKpis: DashboardKpis = {
+  totalRevenue: 0,
+  ordersThisMonth: 0,
+  ordersThisMonthAmount: 0,
+  pendingOrders: 0,
+  avgOrderValue: 0,
+  completionRate: 0,
+  revenueGrowth: 0,
 };
 
-// ─── Dashboard Overview ─────────────────────────────────────────────────────
-const productCategories = ["All", "Bikes", "Brakes", "Lubricants", "Engine Parts", "Drive", "Filters", "Cables", "Electrical", "Accessories"];
+const emptyDashboardData = (type: DashboardTab): MechanicDashboardData => ({
+  type,
+  filter: "monthly",
+  hasData: false,
+  emptyMessage: type === "product" ? "No product sales recorded yet" : "No service bookings found",
+  kpis: emptyKpis,
+  revenueSeries: [],
+  ordersThisMonth: [],
+  pendingOrders: [],
+  returnOrders: [],
+  monthlyReviews: [],
+  lowStockAlerts: [],
+  topSellingItems: [],
+});
 
 export default function MechanicDashboard() {
   const { user } = useAuth();
-  const [dashServices, setDashServices] = useState<DashboardService[]>([]);
-  const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("product");
+  const [range, setRange] = useState<"monthly" | "weekly">("monthly");
+  const [dashboardByTab, setDashboardByTab] = useState<Record<DashboardTab, MechanicDashboardData | null>>({
+    product: null,
+    service: null,
+  });
+  const [loadingByTab, setLoadingByTab] = useState<Record<DashboardTab, boolean>>({
+    product: true,
+    service: false,
+  });
+  const [errorByTab, setErrorByTab] = useState<Record<DashboardTab, string>>({
+    product: "",
+    service: "",
+  });
+
+  const fetchDashboard = useCallback(async (tab: DashboardTab, selectedRange = range, force = false) => {
+    // If not forcing and data already exists for this tab and range, skip
+    if (!force && dashboardByTab[tab] && dashboardByTab[tab]?.filter === selectedRange) return;
+
+    setLoadingByTab((prev) => ({ ...prev, [tab]: true }));
+    setErrorByTab((prev) => ({ ...prev, [tab]: "" }));
+
+    try {
+      const { data } = await api.get("/mechanic/dashboard", { 
+        params: { type: tab, range: selectedRange } 
+      });
+
+      if (data?.success) {
+        setDashboardByTab((prev) => ({
+          ...prev,
+          [tab]: {
+            ...emptyDashboardData(tab),
+            ...data.data,
+            filter: selectedRange,
+            revenueSeries: Array.isArray(data.data?.revenueSeries) ? data.data.revenueSeries : [],
+            ordersThisMonth: Array.isArray(data.data?.ordersThisMonth) ? data.data.ordersThisMonth : [],
+            pendingOrders: Array.isArray(data.data?.pendingOrders) ? data.data.pendingOrders : [],
+            returnOrders: Array.isArray(data.data?.returnOrders) ? data.data.returnOrders : [],
+            monthlyReviews: Array.isArray(data.data?.monthlyReviews) ? data.data.monthlyReviews : [],
+            lowStockAlerts: Array.isArray(data.data?.lowStockAlerts) ? data.data.lowStockAlerts : [],
+            topSellingItems: Array.isArray(data.data?.topSellingItems) ? data.data.topSellingItems : [],
+            kpis: { ...emptyKpis, ...(data.data?.kpis || {}) },
+          },
+        }));
+      } else {
+        setErrorByTab((prev) => ({ ...prev, [tab]: "Unable to connect to service" }));
+      }
+    } catch {
+      setErrorByTab((prev) => ({ ...prev, [tab]: "Connection failed" }));
+    } finally {
+      setLoadingByTab((prev) => ({ ...prev, [tab]: false }));
+    }
+  }, [dashboardByTab, range]);
 
   useEffect(() => {
-    Promise.all([api.get('/mechanic/services'), api.get('/orders'), api.get('/products')])
-      .then(([servicesRes, ordersRes, productsRes]) => {
-        if (servicesRes.data.success) {
-          setDashServices(servicesRes.data.data.filter((s: DashboardService) => s.active).slice(0, 6));
-        }
+    fetchDashboard(activeTab, range);
+  }, [activeTab, range, fetchDashboard]);
 
-        const rawOrders = ordersRes.data?.data || [];
-        const mappedRequests: ServiceRequest[] = rawOrders.map((order: any) => {
-          const buyer = typeof order.buyer === 'string'
-            ? order.buyer
-            : (order.buyer?.name || `${order.buyer?.firstName || ''} ${order.buyer?.lastName || ''}`.trim() || 'Customer');
+  const handleRangeChange = (newRange: "monthly" | "weekly") => {
+    if (newRange === range) return;
+    setRange(newRange);
+  };
 
-          const backendStatus = String(order.status || '').toLowerCase();
-          const statusMap: Record<string, ServiceRequest['status']> = {
-            pending: 'pending',
-            confirmed: 'accepted',
-            shipped: 'in_progress',
-            delivered: 'completed',
-            cancelled: 'cancelled',
-          };
-
-          return {
-            id: order._id,
-            customer: buyer,
-            vehicle: 'Service Request',
-            issue: order.items?.[0]?.name || 'General service',
-            status: statusMap[backendStatus] || 'pending',
-            date: order.createdAt || new Date().toISOString(),
-            amount: Number(order.totalAmount || 0),
-          };
-        });
-
-        setServiceRequests(mappedRequests);
-
-        if (productsRes.data.success) {
-          setProducts(productsRes.data.data || []);
-        }
-      })
-      .catch(() => {
-        setDashServices([]);
-        setServiceRequests([]);
-        setProducts([]);
-      });
-  }, []);
-
-  const completedJobs = serviceRequests.filter((r) => r.status === 'completed').length;
-
-  const weeklyStats = useMemo(() => {
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const days: { key: string; day: string; jobs: number; revenue: number }[] = [];
-
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().split('T')[0];
-      days.push({ key, day: dayNames[d.getDay()], jobs: 0, revenue: 0 });
-    }
-
-    for (const req of serviceRequests) {
-      const dayKey = new Date(req.date).toISOString().split('T')[0];
-      const target = days.find((d) => d.key === dayKey);
-      if (target) {
-        target.jobs += 1;
-        target.revenue += req.amount;
-      }
-    }
-
-    return days.map((d): WeeklyServiceStat => ({ day: d.day, jobs: d.jobs, revenue: d.revenue }));
-  }, [serviceRequests]);
-
-  const requestStatusData = useMemo(
-    () => {
-      const counts: Record<ServiceRequest['status'], number> = {
-        pending: 0,
-        accepted: 0,
-        in_progress: 0,
-        completed: 0,
-        cancelled: 0,
-      };
-
-      for (const req of serviceRequests) {
-        counts[req.status] += 1;
-      }
-
-      return (Object.keys(counts) as ServiceRequest['status'][])
-        .map((status) => ({
-          name: statusLabels[status],
-          value: counts[status],
-          color: statusDonutColors[status],
-        }))
-        .filter((d) => d.value > 0);
-    },
-    [serviceRequests]
+  const dashboard = dashboardByTab[activeTab] || emptyDashboardData(activeTab);
+  const loading = loadingByTab[activeTab];
+  const error = errorByTab[activeTab];
+  
+  const topSellingChartData = useMemo(
+    () =>
+      dashboard.topSellingItems.slice(0, 10).map((item) => ({
+        name: item.itemName.length > 18 ? `${item.itemName.slice(0, 18)}...` : item.itemName,
+        units: item.unitsSold || 0,
+        revenue: Math.round(item.revenueGenerated || 0),
+      })),
+    [dashboard.topSellingItems]
   );
 
-  const serviceCategoryData = useMemo(() => {
-    const map = new Map<string, { total: number; priceSum: number }>();
-    for (const svc of dashServices) {
-      const prev = map.get(svc.category) || { total: 0, priceSum: 0 };
-      map.set(svc.category, {
-        total: prev.total + 1,
-        priceSum: prev.priceSum + svc.price,
-      });
-    }
+  const statusChartData = useMemo(() => {
+    if (!dashboard.ordersThisMonth.length) return [];
+    const counts: Record<string, number> = {};
+    dashboard.ordersThisMonth.forEach((order) => {
+      const status = order.orderStatus || "Other";
+      counts[status] = (counts[status] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [dashboard.ordersThisMonth]);
 
-    return Array.from(map.entries())
-      .map(([category, data]): ServiceCategoryData => ({
-        category: category.length > 14 ? `${category.slice(0, 14)}…` : category,
-        services: data.total,
-        avgPrice: Math.round(data.priceSum / data.total),
-      }))
-      .slice(0, 6);
-  }, [dashServices]);
+  const COLORS = ["#2563eb", "#0f766e", "#8b5cf6", "#f59e0b", "#ef4444", "#0ea5e9"];
 
-  const totalWeeklyRevenue = weeklyStats.reduce((sum, day) => sum + day.revenue, 0);
-  const totalRequestsForPie = requestStatusData.reduce((sum, d) => sum + d.value, 0);
-  const completionRate = serviceRequests.length > 0 ? Math.round((completedJobs / serviceRequests.length) * 100) : 0;
-  const attentionItems = serviceRequests.filter((r) => r.status === 'pending' || r.status === 'accepted');
-  const inProgressJobs = serviceRequests.filter((r) => r.status === 'in_progress').length;
-  const hasWeeklyRevenueData = weeklyStats.some((day) => day.jobs > 0 || day.revenue > 0);
-  const formatDate = (date: string) => new Date(date).toLocaleDateString();
-  const mechanicName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.firstName || 'Mechanic';
-  const workshopLabel = (user as any)?.workshopName || (user as any)?.specialization || 'My Workshop';
+  const workshopLabel =
+    (user as { workshopName?: string } | null)?.workshopName ||
+    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+    "Workshop Dashboard";
+    
+  const sectionItemLabel = activeTab === "product" ? "Product" : "Service";
+
+  if (loading && !dashboardByTab[activeTab]) {
+    return (
+      <div className="space-y-6 p-4 animate-pulse">
+        <div className="h-12 w-64 bg-muted rounded-2xl" />
+        <div className="grid grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-muted rounded-2xl" />)}
+        </div>
+        <div className="h-96 bg-muted rounded-2xl" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="px-1">
-        <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-          {workshopLabel}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Welcome back, {mechanicName}.
-        </p>
-      </div>
-
-      {/* Analytics Row: Weekly Revenue + Request Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="glass-card lg:col-span-2">
-          <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold">Weekly Revenue</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Estimated revenue from service jobs</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-extrabold text-foreground">{fmt(totalWeeklyRevenue)}</p>
-                <p className="text-[11px] font-semibold text-emerald-600">This week</p>
-              </div>
+    <div className="space-y-6 pb-12 animate-in fade-in duration-700">
+      {/* Header with filters */}
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+              <Wrench size={24} />
             </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="h-[280px] w-full">
-              {hasWeeklyRevenueData ? (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
-                  <AreaChart data={weeklyStats} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="mechanicRevenueGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f97316" stopOpacity={0.42} />
-                        <stop offset="95%" stopColor="#f97316" stopOpacity={0.04} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                    <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip
-                      contentStyle={{
-                        background: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 40px rgba(0,0,0,0.12)',
-                        fontSize: '13px',
-                      }}
-                      formatter={(value: number, name: string) => [
-                        name === 'revenue' ? fmt(value) : `${value} jobs`,
-                        name === 'revenue' ? 'Revenue' : 'Jobs',
-                      ]}
-                      labelStyle={{ fontWeight: 700, marginBottom: 4, color: 'hsl(var(--foreground))' }}
-                    />
-                    <Area type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={3} fill="url(#mechanicRevenueGradient)" dot={{ r: 5, fill: '#f97316', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7, fill: '#f97316', strokeWidth: 3, stroke: '#fff' }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center text-center">
-                  <BarChart3 className="mb-3 h-10 w-10 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">No weekly revenue yet</p>
-                  <p className="text-xs text-muted-foreground">Revenue will appear here after service orders come in.</p>
-                </div>
+            {workshopLabel}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-2 font-medium italic">
+            Performance analytics for your workshop's <span className="text-blue-600 font-bold underline decoration-blue-600/30 underline-offset-4">{activeTab}s</span>.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 bg-background/50 backdrop-blur-md p-2 rounded-2xl border border-border/40 shadow-sm">
+          <div className="flex items-center bg-muted/50 rounded-xl p-1 h-11 border border-border/20">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleRangeChange("monthly")}
+              className={cn(
+                "rounded-lg px-6 font-bold text-[10px] uppercase tracking-widest transition-all duration-300",
+                range === "monthly" ? "bg-background shadow-sm text-blue-600" : "opacity-60 hover:opacity-100"
               )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardHeader className="pb-0">
-            <CardTitle className="text-lg font-bold">Request Status</CardTitle>
-            <p className="text-xs text-muted-foreground">Distribution of {totalRequestsForPie} requests</p>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="h-[200px] w-full">
-              {requestStatusData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
-                  <PieChart>
-                    <Pie
-                      data={requestStatusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={85}
-                      paddingAngle={4}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {requestStatusData.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '10px', fontSize: '13px' }}
-                      formatter={(value: number, name: string) => [`${value} requests`, name]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center text-center">
-                  <RefreshCw className="mb-3 h-10 w-10 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">No request status data yet</p>
-                  <p className="text-xs text-muted-foreground">Request analytics will appear once orders are created.</p>
-                </div>
+            >
+              Monthly
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleRangeChange("weekly")}
+              className={cn(
+                "rounded-lg px-6 font-bold text-[10px] uppercase tracking-widest transition-all duration-300",
+                range === "weekly" ? "bg-background shadow-sm text-blue-600" : "opacity-60 hover:opacity-100"
               )}
-            </div>
+            >
+              Weekly
+            </Button>
+          </div>
 
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              {requestStatusData.map((item) => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: item.color }} />
-                  <span className="text-xs text-muted-foreground">{item.name}</span>
-                  <span className="text-xs font-bold ml-auto">{item.value}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 p-3 rounded-xl bg-muted/30 border border-border">
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-xs font-semibold text-muted-foreground">Completion Rate</p>
-                <p className={cn("text-sm font-extrabold", completionRate >= 50 ? 'text-emerald-600' : completionRate > 0 ? 'text-amber-600' : 'text-muted-foreground')}>
-                  {completionRate}%
-                </p>
-              </div>
-              <div className="w-full h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all duration-1000",
-                    completionRate >= 50
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                      : completionRate > 0
-                        ? 'bg-gradient-to-r from-amber-500 to-amber-400'
-                        : ''
-                  )}
-                  style={{ width: `${completionRate}%` }}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Analytics Row 2: Services + Recent Requests */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="glass-card">
-          <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-amber-500" />
-                  Service Categories
-                </CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Service count vs average price</p>
-              </div>
-              <Link to="/mechanic/services" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
-                Manage <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            {serviceCategoryData.length > 0 ? (
-              <div className="h-[280px] w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <BarChart data={serviceCategoryData} margin={{ top: 5, right: 10, left: -10, bottom: 40 }} barGap={4}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                    <XAxis dataKey="category" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} angle={-25} textAnchor="end" interval={0} />
-                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                    <Tooltip
-                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px', boxShadow: '0 10px 40px rgba(0,0,0,0.12)', fontSize: '13px' }}
-                      formatter={(value: number, name: string) => [
-                        name === 'services' ? `${value} services` : fmt(value),
-                        name === 'services' ? 'Services' : 'Avg Price',
-                      ]}
-                      labelStyle={{ fontWeight: 700, color: 'hsl(var(--foreground))' }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
-                    <Bar dataKey="services" name="Services" fill="#f97316" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="avgPrice" name="Avg Price" fill="#fbbf24" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Wrench className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">No services yet</p>
-                <Link to="/mechanic/services" className="text-xs text-amber-600 mt-2 hover:underline font-semibold">Add your first service</Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold">Recent Requests</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Latest customer service requests</p>
-              </div>
-              <Link to="/mechanic/orders" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
-                View All <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="space-y-1">
-              {serviceRequests.slice(0, 5).map((req) => (
-                <div key={req.id} className="flex items-center gap-3 py-3 border-b border-border/40 last:border-0 group hover:bg-muted/20 rounded-lg px-2 -mx-2 transition-colors">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                    <span className="text-sm font-bold text-white">{req.customer.charAt(0)}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{req.customer}</p>
-                    <p className="text-xs text-muted-foreground truncate">{req.vehicle} · {req.issue}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold">{fmt(req.amount)}</p>
-                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border", statusColors[req.status])}>
-                      {statusIcons[req.status]} {statusLabels[req.status]}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Needs Attention */}
-      {attentionItems.length > 0 && (
-        <Card className="glass-card border-l-4 border-l-amber-500">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-500" />
-                <CardTitle className="text-lg font-bold">Needs Attention</CardTitle>
-                <span className="inline-flex items-center justify-center h-6 min-w-[24px] px-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold shadow-md">
-                  {attentionItems.length}
-                </span>
-              </div>
-              <Link to="/mechanic/orders" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
-                View All <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {attentionItems.slice(0, 3).map((item) => (
-              <Link
-                key={item.id}
-                to="/mechanic/orders"
-                className="flex items-center gap-4 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors group"
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DashboardTab)} className="w-full sm:w-auto">
+            <TabsList className="bg-muted/50 rounded-xl p-1 h-11">
+              <TabsTrigger
+                value="product"
+                className="rounded-lg px-6 font-bold text-[10px] uppercase tracking-widest data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg shadow-blue-500/20 transition-all duration-300"
               >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-md">
-                  <span className="text-sm font-bold text-white">{item.customer.charAt(0).toUpperCase()}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold">{item.customer}</p>
-                  <p className="text-xs text-muted-foreground">{item.issue} - {fmt(item.amount)}</p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-xs text-muted-foreground">{formatDate(item.date)}</p>
-                  <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border mt-1", statusColors[item.status])}>
-                    {statusIcons[item.status]} {statusLabels[item.status]}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </CardContent>
+                Products
+              </TabsTrigger>
+              <TabsTrigger
+                value="service"
+                className="rounded-lg px-6 font-bold text-[10px] uppercase tracking-widest data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg shadow-blue-500/20 transition-all duration-300"
+              >
+                Services
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <Button
+            onClick={() => void fetchDashboard(activeTab, range, true)}
+            disabled={loading}
+            variant="outline"
+            className="h-11 rounded-xl gap-2 font-bold text-[10px] uppercase tracking-widest border-border/60 hover:bg-blue-50 hover:text-blue-600 transition-all active:scale-95"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+            Sync Dashboard
+          </Button>
+        </div>
+      </div>
+
+      {error ? (
+        <Card className="rounded-3xl border-red-200 bg-red-50 py-8 text-center flex flex-col items-center">
+          <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-4">
+            <AlertCircle size={28} />
+          </div>
+          <CardTitle className="text-lg font-black uppercase tracking-widest mb-1">Data Sync Failed</CardTitle>
+          <p className="text-sm font-medium italic mb-6">
+            We couldn't retrieve the latest data for your {activeTab}s.
+          </p>
+          <Button onClick={() => void fetchDashboard(activeTab, range, true)} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest rounded-xl px-8 shadow-xl shadow-red-500/20">
+            Retry Connection
+          </Button>
         </Card>
+      ) : (
+        <>
+          {/* KPI Overviews */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <KPICard
+              title="Total Revenue"
+              value={formatCurrency(dashboard.kpis.totalRevenue)}
+              icon={DollarSign}
+              description="Earnings this month"
+              trend={{ value: dashboard.kpis.revenueGrowth, isPositive: dashboard.kpis.revenueGrowth >= 0 }}
+              color="emerald"
+            />
+            <KPICard
+              title={activeTab === "product" ? "Total Orders" : "Total Bookings"}
+              value={dashboard.kpis.ordersThisMonth}
+              icon={activeTab === "product" ? ShoppingBag : CheckCircle2}
+              description={`New ${activeTab}s this month`}
+              color="blue"
+            />
+            <KPICard
+              title="Awaiting Work"
+              value={dashboard.kpis.pendingOrders}
+              icon={Clock}
+              description={`Pending fulfillment`}
+              color="amber"
+            />
+            <KPICard
+              title="Success Rate"
+              value={formatPercent(dashboard.kpis.completionRate)}
+              icon={TrendingUp}
+              description="Order completion %"
+              color="violet"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[2fr_1fr]">
+            {/* Revenue Trend Chart */}
+            <Card className="glass-card border border-border/40 overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between pb-7">
+                <div>
+                  <CardTitle className="text-lg font-black uppercase tracking-widest">Revenue Forecast</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1 font-medium italic">Daily {activeTab} revenue for the current billing cycle</p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-600">
+                  <TrendingUp size={20} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[350px] w-full">
+                  {dashboard.revenueSeries.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={dashboard.revenueSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={formatShortDate}
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                          minTickGap={30}
+                        />
+                        <YAxis
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                          tickFormatter={(value) => `LKR ${value >= 1000 ? (value / 1000).toFixed(0) + "k" : value}`}
+                          width={80}
+                        />
+                        <Tooltip
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="rounded-xl border bg-background p-3 shadow-xl border-border/50">
+                                  <p className="text-[10px] font-black text-muted-foreground mb-1 uppercase tracking-widest">{formatFullDate(String(label))}</p>
+                                  <p className="text-sm font-black text-blue-600">
+                                    {formatCurrency(payload[0].value as number)}
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke="#2563eb"
+                          strokeWidth={3}
+                          fillOpacity={1}
+                          fill="url(#colorRevenue)"
+                          animationDuration={1000}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground bg-muted/5 rounded-2xl border border-dashed border-border/40">
+                      <TrendingUp className="h-12 w-12 opacity-20 mb-3" />
+                      <p className="text-sm font-black uppercase tracking-widest">No trend data found</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Status Distribution */}
+            <Card className="glass-card border border-border/40 overflow-hidden">
+              <CardHeader className="bg-muted/20 pb-4">
+                <CardTitle className="text-base font-black uppercase tracking-widest text-foreground">Status Mix</CardTitle>
+                <p className="text-[10px] text-muted-foreground mt-1 font-bold">Operational breakdown by state</p>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="h-[280px] w-full">
+                  {statusChartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={statusChartData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={65}
+                          outerRadius={85}
+                          paddingAngle={8}
+                          dataKey="value"
+                          animationDuration={1000}
+                        >
+                          {statusChartData.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} className="stroke-background stroke-2" />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="rounded-xl border bg-background p-3 shadow-xl text-xs border-border/50">
+                                  <span className="font-black uppercase tracking-widest text-blue-600">{payload[0].name}:</span>
+                                  <span className="ml-2 font-bold">{payload[0].value}</span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground italic">
+                      <p className="text-[10px] font-bold uppercase tracking-widest">No active orders</p>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-6 space-y-3">
+                  {statusChartData.map((item, index) => (
+                    <div key={item.name} className="flex items-center justify-between group cursor-default">
+                      <div className="flex items-center gap-3">
+                        <div className="h-2.5 w-2.5 rounded-full shadow-sm group-hover:scale-125 transition-transform" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-foreground transition-colors">{item.name}</span>
+                      </div>
+                      <span className="text-xs font-black text-foreground">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
+            {/* Top Items Chart */}
+            <Card className="glass-card border border-border/40 overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/30 bg-muted/20">
+                <div>
+                  <CardTitle className="text-base font-black uppercase tracking-widest">Volume Performance</CardTitle>
+                  <p className="text-[10px] text-muted-foreground mt-1 font-bold italic">Top 10 performing catalog items</p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600">
+                  <BarChart3 size={16} className="text-blue-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="h-[320px] w-full">
+                  {topSellingChartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={topSellingChartData} layout="vertical" margin={{ left: 20, right: 30, top: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(0,0,0,0.05)" />
+                        <XAxis type="number" hide />
+                        <YAxis
+                          dataKey="name"
+                          type="category"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                          width={100}
+                        />
+                        <Tooltip
+                          cursor={{ fill: 'rgba(37, 99, 235, 0.05)' }}
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="rounded-xl border bg-background p-4 shadow-2xl border-border/50">
+                                  <p className="text-[10px] font-black text-muted-foreground mb-2 uppercase tracking-widest">{data.name}</p>
+                                  <div className="space-y-1">
+                                    <p className="text-xs font-bold text-blue-600 flex items-center justify-between gap-4">
+                                      <span>Units Sold:</span> <span>{data.units}</span>
+                                    </p>
+                                    <p className="text-xs font-bold text-emerald-600 flex items-center justify-between gap-4">
+                                      <span>Revenue:</span> <span>{formatCurrency(data.revenue)}</span>
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Bar
+                          dataKey="units"
+                          fill="#2563eb"
+                          radius={[0, 6, 6, 0]}
+                          barSize={24}
+                          animationDuration={1000}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground italic bg-muted/5 rounded-2xl border border-dashed border-border/40">
+                      <p className="text-xs font-black uppercase tracking-widest opacity-30">No volume data available</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Inventory / Alerts */}
+            {activeTab === "product" ? (
+              <Card className="glass-card border border-border/40 overflow-hidden">
+                <CardHeader className="bg-red-500/5 pb-4 border-b border-border/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                      </div>
+                      <CardTitle className="text-base font-black uppercase tracking-widest text-red-600">Stock Alerts</CardTitle>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-bold border-red-200 text-red-500 bg-white">Critical</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <ScrollArea className="h-[320px] pr-4">
+                    <div className="space-y-3 pt-6">
+                      {dashboard.lowStockAlerts.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-20 bg-emerald-500/5 rounded-3xl border border-emerald-100 border-dashed">
+                          <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-3 opacity-40" />
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Inventory Perfect</p>
+                        </div>
+                      ) : (
+                        dashboard.lowStockAlerts.map((product, index) => (
+                          <div
+                            key={`${product.itemName}-${index}`}
+                            className="flex items-center justify-between p-4 rounded-2xl border border-red-100 bg-red-500/[0.03] transition-all hover:bg-red-500/5 group"
+                          >
+                            <div className="min-w-0 pr-4">
+                              <p className="truncate text-sm font-black text-foreground group-hover:text-red-600 transition-colors">{product.itemName}</p>
+                              <p className="mt-1 text-[10px] text-muted-foreground font-bold uppercase tracking-tighter italic">Threshold Alert: {product.minimumRequiredQuantity} Units</p>
+                            </div>
+                            <div className="text-center bg-white rounded-xl px-3 py-1.5 shadow-sm border border-red-200">
+                              <p className="text-base font-black text-red-600 leading-none">{product.currentQuantity}</p>
+                              <p className="text-[8px] uppercase tracking-tighter font-black text-red-400 mt-1">Units</p>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="glass-card border border-border/40 overflow-hidden relative">
+                <CardHeader className="bg-blue-600 pb-12 text-white border-b border-white/10">
+                  <CardTitle className="text-lg font-black uppercase tracking-widest">Service Overview</CardTitle>
+                  <p className="text-xs text-blue-100 font-medium italic mt-1">Workshop service efficiency tracking</p>
+                </CardHeader>
+                <CardContent className="pt-0 -mt-6">
+                   <div className="grid grid-cols-1 gap-4">
+                      <div className="bg-white rounded-3xl p-6 shadow-xl shadow-blue-500/5 border border-border/40">
+                         <div className="flex items-center justify-between mb-6">
+                            <div className="h-10 w-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600">
+                               <CheckCircle2 size={20} />
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">High Priority</span>
+                         </div>
+                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">Success Rate</p>
+                         <div className="flex items-baseline gap-3">
+                            <h4 className="text-4xl font-black text-foreground tracking-tighter">{formatPercent(dashboard.kpis.completionRate)}</h4>
+                            <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                               <TrendingUp size={12} /> +2.4%
+                            </span>
+                         </div>
+                         <div className="mt-6 h-2 rounded-full bg-slate-100 overflow-hidden">
+                            <div className="h-full bg-blue-600 rounded-full transition-all duration-1000" style={{ width: `${dashboard.kpis.completionRate}%` }} />
+                         </div>
+                      </div>
+                      
+                      <div className="bg-white rounded-3xl p-6 shadow-xl shadow-blue-500/5 border border-border/40">
+                         <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
+                               <Clock size={20} />
+                            </div>
+                            <div>
+                               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Pending Work</p>
+                               <p className="text-xl font-black text-foreground">{dashboard.kpis.pendingOrders} Tasks</p>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          <DashboardTable
+            title="Recent Activity"
+            description={`Latest ${activeTab} transactions and status updates`}
+            columns={["Order ID", "Customer", sectionItemLabel, "Amount", "Status", "Date"]}
+            rows={dashboard.ordersThisMonth.slice(0, 8).map((order) => [
+              <span className="font-mono text-xs font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 select-all cursor-copy">
+                {getOrderLabel(order.orderId)}
+              </span>,
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500 border border-border/40">
+                  {order.customerName.charAt(0)}
+                </div>
+                <span className="font-bold text-sm truncate max-w-[120px] text-foreground">{order.customerName}</span>
+              </div>,
+              <span className="text-sm font-medium text-foreground truncate max-w-[180px] block">{order.itemName}</span>,
+              <span className="font-black text-sm text-foreground">{formatCurrency(order.orderAmount || 0)}</span>,
+              <span className={`inline-flex rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-widest ${getStatusClasses(order.orderStatus || "")}`}>
+                {order.orderStatus?.replace(/_/g, ' ')}
+              </span>,
+              <span className="text-[10px] font-bold text-muted-foreground whitespace-nowrap flex items-center gap-1.5 italic">
+                 <Clock size={10} className="text-blue-500" />
+                 {formatFullDate(order.orderDate)}
+              </span>,
+            ])}
+            emptyTitle={`No ${activeTab} data`}
+            emptyDescription={`Your ${activeTab} activity will be displayed here as it happens.`}
+          />
+
+          <div className={`grid grid-cols-1 gap-6 ${activeTab === "product" ? "xl:grid-cols-2" : "xl:grid-cols-1"}`}>
+            {activeTab === "product" && (
+              <DashboardTable
+                title="Return Requests"
+                description="Monitor product return and refund activity"
+                columns={["ID", "Product", "Customer", "Refund", "Status"]}
+                rows={dashboard.returnOrders.slice(0, 5).map((order) => [
+                  <span className="font-mono text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">{getOrderLabel(order.orderId)}</span>,
+                  <span className="text-xs font-black text-foreground truncate max-w-[150px] block">{order.itemName}</span>,
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">{order.customerName}</span>,
+                  <span className="font-black text-sm text-red-600 italic">{formatCurrency(order.amount || 0)}</span>,
+                  <div className="flex items-center gap-1.5 text-red-500">
+                     <RotateCcw size={12} className="animate-spin-slow" />
+                     <span className="text-[9px] font-black uppercase tracking-widest">Pending</span>
+                  </div>
+                ])}
+                emptyTitle="Returns Clear"
+                emptyDescription="No return requests currently active"
+              />
+            )}
+
+            <DashboardTable
+              title="Workshop Reviews"
+              description={`Latest feedback on your ${activeTab} quality`}
+              columns={["Customer", sectionItemLabel, "Rating", "Review", "Date"]}
+              rows={dashboard.monthlyReviews.slice(0, 5).map((review) => [
+                <div className="flex items-center gap-2">
+                   <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[8px] font-black uppercase">
+                      {review.customerName.charAt(0)}
+                   </div>
+                   <span className="text-[10px] font-black uppercase tracking-widest text-foreground">{review.customerName}</span>
+                </div>,
+                <span className="text-xs font-bold text-blue-600 truncate max-w-[150px] block group-hover:underline underline-offset-4 decoration-blue-600/30 transition-all">{review.itemName}</span>,
+                <div className="flex items-center gap-0.5">
+                  {[...Array(5)].map((_, index) => (
+                    <Star
+                      key={index}
+                      className={`h-2.5 w-2.5 ${index < (review.rating || 0) ? "fill-amber-400 text-amber-400" : "text-slate-200"}`}
+                    />
+                  ))}
+                  <span className="ml-1.5 text-[10px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-lg border border-amber-100">{review.rating || 0}</span>
+                </div>,
+                <span className="max-w-[200px] truncate text-[10px] text-muted-foreground font-medium italic">"{review.review || "Excellent service provided"}"</span>,
+                <span className="text-[10px] font-bold text-muted-foreground">{formatShortDate(review.reviewDate)}</span>,
+              ])}
+              emptyTitle="No Reviews"
+              emptyDescription="Constructive feedback helps your workshop grow"
+            />
+          </div>
+
+          <Card className="glass-card border border-border/40 bg-gradient-to-br from-blue-600/5 via-blue-600/[0.02] to-transparent overflow-hidden">
+            <CardContent className="flex flex-col gap-6 p-8 md:flex-row md:items-center md:justify-between relative">
+               <div className="absolute top-0 right-0 p-8 opacity-[0.03] scale-[2.5] -rotate-12">
+                  <Wrench size={100} className="text-blue-600" />
+               </div>
+               
+              <div className="flex items-center gap-6 relative z-10">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-600 shadow-xl shadow-blue-500/30 ring-4 ring-blue-500/10">
+                  <Eye className="h-8 w-8 text-white" />
+                </div>
+                <div>
+                  <p className="text-2xl font-black text-foreground tracking-tight">Growth Overview</p>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-[400px] font-medium leading-relaxed italic">
+                    Your workshop analytics are synced with the <span className="text-blue-600 font-black uppercase tracking-widest text-xs not-italic">Finding Moto Central Network</span>.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap gap-4 relative z-10">
+                <div className="rounded-2xl border border-border/40 bg-white/60 backdrop-blur-md px-6 py-5 min-w-[140px] shadow-sm hover:shadow-md transition-all">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-black mb-1.5">Efficiency</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xl font-black ${dashboard.kpis.revenueGrowth >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {dashboard.kpis.revenueGrowth >= 0 ? '+' : ''}{formatPercent(dashboard.kpis.revenueGrowth)}
+                    </span>
+                    <TrendingUp className={cn("h-4 w-4", dashboard.kpis.revenueGrowth >= 0 ? 'text-emerald-500' : 'text-red-500 rotate-180')} />
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-border/40 bg-white/60 backdrop-blur-md px-6 py-5 min-w-[140px] shadow-sm hover:shadow-md transition-all">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-black mb-1.5">Avg. Ticket</p>
+                  <p className="text-xl font-black text-blue-600">{formatCurrency(dashboard.kpis.avgOrderValue)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );

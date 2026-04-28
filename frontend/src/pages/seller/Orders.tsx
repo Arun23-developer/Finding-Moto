@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  AlertCircle,
-  BarChart3,
-  CalendarDays,
-  CheckCircle,
-  Clock,
-  DollarSign,
   Loader2,
   RefreshCw,
   Search,
-  TrendingDown,
-  TrendingUp,
+  ShoppingBag,
+  Clock,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -27,32 +23,9 @@ import api from "@/services/api";
 import { BuyerDetailsModal } from "./orders/BuyerDetailsModal";
 import { getBuyerName } from "./orders/helpers";
 import { OrdersTable } from "./orders/OrdersTable";
-import type { Order, OrderStats } from "./orders/types";
+import type { Order } from "./orders/types";
 import { useToast } from "@/hooks/use-toast";
 import { createAuthedSocket, type OrderWorkflowSocketEvent } from "@/lib/socket";
-
-const mockOrders: Order[] = [
-  {
-    _id: "mock-order-001",
-    buyer: {
-      firstName: "Thulasi",
-      lastName: "Ram",
-      email: "thulasi@example.com",
-      phone: "0771234567",
-      address: "12 Lake Road",
-      city: "Colombo",
-      postCode: "00500",
-    },
-    items: [
-      { product: "mock-product-1", name: "Brake Pad Set", price: 4500, qty: 1 },
-    ],
-    totalAmount: 4500,
-    status: "pending",
-    shippingAddress: "12 Lake Road, Colombo 00500",
-    paymentMethod: "Cash on Delivery",
-    createdAt: new Date().toISOString(),
-  },
-];
 
 export default function OrdersPage() {
   const { toast } = useToast();
@@ -68,21 +41,7 @@ export default function OrdersPage() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
-  const [stats, setStats] = useState<OrderStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
   const latestEventRef = useRef<string | null>(null);
-
-  const fetchStats = useCallback(async () => {
-    setStatsLoading(true);
-    try {
-      const res = await api.get("/orders/stats");
-      setStats(res.data.data || null);
-    } catch {
-      setStats(null);
-    } finally {
-      setStatsLoading(false);
-    }
-  }, []);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -91,8 +50,8 @@ export default function OrdersPage() {
       const res = await api.get("/orders");
       setOrders(Array.isArray(res.data.data) ? res.data.data : []);
     } catch (err: any) {
-      setOrders(mockOrders);
-      setError(err?.response?.data?.message || "Showing sample orders while live data is unavailable");
+      setOrders([]);
+      setError(err?.response?.data?.message || "Failed to load orders");
     } finally {
       setLoading(false);
     }
@@ -100,8 +59,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders();
-    fetchStats();
-  }, [fetchOrders, fetchStats]);
+  }, [fetchOrders]);
 
   useEffect(() => {
     const socket = createAuthedSocket();
@@ -114,7 +72,6 @@ export default function OrdersPage() {
       latestEventRef.current = eventKey;
 
       fetchOrders();
-      fetchStats();
       toast({
         title: event.title,
         description: event.message,
@@ -124,7 +81,7 @@ export default function OrdersPage() {
     return () => {
       socket.disconnect();
     };
-  }, [fetchOrders, fetchStats, toast]);
+  }, [fetchOrders, toast]);
 
   const handleStatusChange = useCallback(
     async (orderId: string, status: Order["status"]) => {
@@ -132,14 +89,14 @@ export default function OrdersPage() {
       setError(null);
       try {
         await api.patch(`/orders/${orderId}/status`, { status });
-        await Promise.all([fetchOrders(), fetchStats()]);
+        await fetchOrders();
       } catch (err: any) {
         setError(err?.response?.data?.message || "Failed to update order status");
       } finally {
         setUpdatingOrderId(null);
       }
     },
-    [fetchOrders, fetchStats]
+    [fetchOrders]
   );
 
   const openAssignDelivery = useCallback(async (order: Order) => {
@@ -170,7 +127,7 @@ export default function OrdersPage() {
       });
       setAssignOrder(null);
       setSelectedAgentId("");
-      await Promise.all([fetchOrders(), fetchStats()]);
+      await fetchOrders();
     } catch (err: any) {
       setAssignError(err?.response?.data?.message || "Failed to assign delivery");
     } finally {
@@ -203,221 +160,126 @@ export default function OrdersPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8 animate-in fade-in duration-500">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Orders</h1>
-          <p className="text-sm text-muted-foreground">{orders.length} total orders</p>
+          <h1 className="text-3xl font-bold tracking-tight">Order Management</h1>
+          <p className="text-sm text-muted-foreground mt-1">Track, manage and fulfill your customer orders</p>
         </div>
-        <button
-          onClick={() => {
-            fetchOrders();
-            fetchStats();
-          }}
-          className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+        <Button
+          onClick={fetchOrders}
+          variant="outline"
+          className="gap-2 h-10"
         >
-          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} /> Refresh
-        </button>
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          <span>Refresh Orders</span>
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-lg shadow-emerald-500/20">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-emerald-100">Total Revenue</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {statsLoading ? "..." : `LKR ${(stats?.totalRevenue || 0).toLocaleString()}`}
-                </p>
-                {stats && (
-                  <div className="mt-2 flex items-center gap-1">
-                    {stats.revenueGrowth >= 0 ? (
-                      <TrendingUp className="h-3 w-3" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3" />
-                    )}
-                    <span className="text-xs font-medium text-emerald-100">
-                      {stats.revenueGrowth >= 0 ? "+" : ""}
-                      {stats.revenueGrowth}% vs last month
-                    </span>
-                  </div>
-                )}
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Card className="glass-card border-border/40 overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600">
+                <ShoppingBag className="h-5 w-5" />
               </div>
-              <div className="rounded-xl bg-white/15 p-3">
-                <DollarSign className="h-6 w-6" />
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Total</p>
+                <p className="text-xl font-black">{statusCounts.all}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-lg shadow-blue-500/20">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-blue-100">Orders This Month</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {statsLoading ? "..." : stats?.ordersThisMonth || 0}
-                </p>
-                {stats && (
-                  <div className="mt-2 flex items-center gap-1">
-                    {stats.orderGrowth >= 0 ? (
-                      <TrendingUp className="h-3 w-3" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3" />
-                    )}
-                    <span className="text-xs font-medium text-blue-100">
-                      {stats.orderGrowth >= 0 ? "+" : ""}
-                      {stats.orderGrowth}% vs last month
-                    </span>
-                  </div>
-                )}
+        <Card className="glass-card border-border/40 overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
+                <Clock className="h-5 w-5" />
               </div>
-              <div className="rounded-xl bg-white/15 p-3">
-                <CalendarDays className="h-6 w-6" />
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Pending</p>
+                <p className="text-xl font-black">{statusCounts.pending}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-violet-500 to-violet-700 text-white shadow-lg shadow-violet-500/20">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-violet-100">Avg. Order Value</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {statsLoading ? "..." : `LKR ${(stats?.avgOrderValue || 0).toLocaleString()}`}
-                </p>
-                <div className="mt-2 flex items-center gap-1">
-                  <BarChart3 className="h-3 w-3" />
-                  <span className="text-xs font-medium text-violet-100">
-                    {statsLoading ? "..." : `${stats?.totalOrders || 0} total orders`}
-                  </span>
-                </div>
+        <Card className="glass-card border-border/40 overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                <CheckCircle2 className="h-5 w-5" />
               </div>
-              <div className="rounded-xl bg-white/15 p-3">
-                <BarChart3 className="h-6 w-6" />
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Delivered</p>
+                <p className="text-xl font-black">{statusCounts.delivered}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/20">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-amber-100">Completion Rate</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {statsLoading ? "..." : `${stats?.completionRate || 0}%`}
-                </p>
-                <div className="mt-2 flex items-center gap-1">
-                  <CheckCircle className="h-3 w-3" />
-                  <span className="text-xs font-medium text-amber-100">
-                    {statsLoading ? "..." : `${stats?.deliveredOrders || 0} delivered`}
-                  </span>
-                </div>
+        <Card className="glass-card border-border/40 overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-600">
+                <XCircle className="h-5 w-5" />
               </div>
-              <div className="rounded-xl bg-white/15 p-3">
-                <CheckCircle className="h-6 w-6" />
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Cancelled</p>
+                <p className="text-xl font-black">{statusCounts.cancelled}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {stats && stats.pendingOrders > 0 && (
-        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
-          <div className="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/50">
-            <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-              {stats.pendingOrders} order{stats.pendingOrders > 1 ? "s" : ""} awaiting your action
-            </p>
-            <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
-              Confirm or cancel pending orders to keep your customers happy
-            </p>
-          </div>
-          <button
-            onClick={() => setStatusFilter("awaiting_seller_confirmation")}
-            className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
-          >
-            View Pending
-          </button>
-        </div>
-      )}
-
-      <Card className="glass-card">
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-4 sm:flex-row">
+      <Card className="glass-card border-border/40 shadow-sm overflow-hidden">
+        <div className="border-b border-border/40 bg-muted/20 p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by order ID, buyer, or product..."
-                className="w-full rounded-lg border border-input bg-background py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                placeholder="Search by ID, customer name, or product..."
+                className="w-full h-10 rounded-lg border border-input bg-background pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all"
               />
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 no-scrollbar overflow-x-auto pb-1 lg:pb-0">
               {[
-                "all",
-                "awaiting_seller_confirmation",
-                "confirmed",
-                "ready_for_dispatch",
-                "pickup_assigned",
-                "picked_up",
-                "out_for_delivery",
-                "delivered",
-                "delivery_failed",
-                "cancelled",
-              ].map((status) => (
+                { id: "all", label: "All" },
+                { id: "awaiting_seller_confirmation", label: "New" },
+                { id: "confirmed", label: "Confirmed" },
+                { id: "ready_for_dispatch", label: "Ready" },
+                { id: "pickup_assigned", label: "Assigned" },
+                { id: "picked_up", label: "Picked Up" },
+                { id: "out_for_delivery", label: "Out" },
+                { id: "delivered", label: "Delivered" },
+                { id: "cancelled", label: "Cancelled" },
+              ].map((filter) => (
                 <button
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
+                  key={filter.id}
+                  onClick={() => setStatusFilter(filter.id)}
                   className={cn(
-                    "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                    statusFilter === status
-                      ? "bg-blue-600 text-white"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    "whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-bold transition-all border",
+                    statusFilter === filter.id
+                      ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20"
+                      : "bg-background border-border/60 text-muted-foreground hover:border-blue-500/40 hover:text-blue-600"
                   )}
                 >
-                  {status === "all" && `All (${statusCounts.all})`}
-                  {status === "awaiting_seller_confirmation" && `Placed (${statusCounts.pending})`}
-                  {status === "confirmed" && `Confirmed (${statusCounts.confirmed})`}
-                  {status === "ready_for_dispatch" && `Package Ready (${statusCounts.package_ready})`}
-                  {status === "pickup_assigned" && `Assigned (${statusCounts.assigned})`}
-                  {status === "picked_up" && `Picked Up (${statusCounts.picked_up})`}
-                  {status === "out_for_delivery" && `Out for Delivery (${statusCounts.out_for_delivery})`}
-                  {status === "delivered" && `Delivered (${statusCounts.delivered})`}
-                  {status === "delivery_failed" && `Delivery Failed (${statusCounts.delivery_failed})`}
-                  {status === "cancelled" && `Cancelled (${statusCounts.cancelled})`}
+                  {filter.label}
                 </button>
               ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {error && (
-        <div className="flex items-center gap-3 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-destructive">
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          <p className="text-sm">{error}</p>
-          <button onClick={fetchOrders} className="ml-auto text-sm font-medium underline">
-            Retry
-          </button>
         </div>
-      )}
-
-      {loading && (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      )}
-
-      {!loading && (
-        <Card className="glass-card">
-          <CardContent className="p-0">
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
+              <Loader2 className="h-10 w-10 animate-spin text-blue-600/40" />
+              <p className="text-sm font-medium text-muted-foreground animate-pulse">Syncing orders...</p>
+            </div>
+          ) : (
             <OrdersTable
               orders={filteredOrders}
               allOrdersCount={orders.length}
@@ -427,9 +289,9 @@ export default function OrdersPage() {
               onStatusChange={handleStatusChange}
               updatingOrderId={updatingOrderId}
             />
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <BuyerDetailsModal
         order={selectedOrder}

@@ -71,10 +71,13 @@ const DeliveryAgentLayout = lazy(() => import('./components/DeliveryAgentLayout'
 const BuyerLayout = lazy(() => import('./components/BuyerLayout').then((m) => ({ default: m.BuyerLayout })));
 
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
 const AdminUsersManagement = lazy(() => import('./pages/admin/UsersManagement'));
 const AdminProductsManagement = lazy(() => import('./pages/admin/ProductsManagement'));
 const AdminServicesManagement = lazy(() => import('./pages/admin/ServicesManagement'));
 const AdminOrdersManagement = lazy(() => import('./pages/admin/OrdersManagement'));
+const AdminRatingsManagement = lazy(() => import('./pages/admin/RatingsManagement'));
+const AdminReports = lazy(() => import('./pages/admin/Reports'));
 const AdminNotifications = lazy(() => import('./pages/admin/Notifications'));
 const AdminContactManagement = lazy(() => import('./pages/admin/ContactManagement'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
@@ -449,6 +452,13 @@ const AppContent = (): JSX.Element => {
                   </AdminLayout>
                 </RoleRoute>
               } />
+              <Route path="/admin/analytics" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminAnalytics />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
               <Route path="/admin/users" element={
                 <RoleRoute roles={['admin']}>
                   <AdminLayout>
@@ -474,6 +484,20 @@ const AppContent = (): JSX.Element => {
                 <RoleRoute roles={['admin']}>
                   <AdminLayout>
                     <AdminOrdersManagement />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/ratings" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminRatingsManagement />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/reports" element={
+                <RoleRoute roles={["admin"]}>
+                  <AdminLayout>
+                    <AdminReports />
                   </AdminLayout>
                 </RoleRoute>
               } />

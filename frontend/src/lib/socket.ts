@@ -12,7 +12,7 @@ export interface OrderWorkflowSocketEvent {
   statusLabel: string;
   title: string;
   message: string;
-  actorRole: "buyer" | "seller" | "delivery_agent" | "system";
+  actorRole: "buyer" | "seller" | "mechanic" | "delivery_agent" | "system";
   timestamp: string;
 }
 

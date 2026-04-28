@@ -6,69 +6,193 @@ import config from '../src/config';
 
 dotenv.config();
 
-const PRODUCT_CATEGORIES = [
-  'Brakes',
-  'Engine Parts',
-  'Electrical',
-  'Cooling',
-  'Transmission',
-  'Body Parts',
-  'Accessories',
-];
+// Realistic motorcycle parts data for Sri Lanka market (Prices in LKR)
+const partsDatabase = {
+  'Engine Parts': {
+    brands: ['Honda', 'Yamaha', 'Suzuki', 'Kawasaki'],
+    products: [
+      { name: 'Oil Filter', price: 1200, originalPrice: 1500, stock: 50 },
+      { name: 'Air Filter', price: 1800, originalPrice: 2200, stock: 45 },
+      { name: 'Spark Plug (Set of 4)', price: 2400, originalPrice: 3000, stock: 40 },
+      { name: 'Engine Gasket Set', price: 3500, originalPrice: 4500, stock: 25 },
+      { name: 'Piston Ring Set', price: 5800, originalPrice: 7200, stock: 20 }
+    ]
+  },
+  'Suspension & Brakes': {
+    brands: ['Yamaha', 'Suzuki', 'BMW', 'KTM'],
+    products: [
+      { name: 'Front Brake Pads', price: 3200, originalPrice: 4000, stock: 60 },
+      { name: 'Rear Brake Pads', price: 2800, originalPrice: 3500, stock: 55 },
+      { name: 'Brake Disc (Front)', price: 4500, originalPrice: 5500, stock: 35 },
+      { name: 'Shock Absorber (Rear)', price: 8900, originalPrice: 11000, stock: 18 },
+      { name: 'Spring Kit', price: 6200, originalPrice: 7800, stock: 22 }
+    ]
+  },
+  'Transmission & Clutch': {
+    brands: ['Honda', 'Kawasaki', 'Royal Enfield', 'Bajaj'],
+    products: [
+      { name: 'Clutch Cable', price: 1600, originalPrice: 2000, stock: 48 },
+      { name: 'Clutch Plates Set', price: 4200, originalPrice: 5200, stock: 28 },
+      { name: 'Gear Oil 10W40 (1L)', price: 1400, originalPrice: 1700, stock: 65 },
+      { name: 'Chain Sprocket Set', price: 8500, originalPrice: 10500, stock: 15 },
+      { name: 'Drive Chain', price: 6800, originalPrice: 8400, stock: 20 }
+    ]
+  },
+  'Tires & Wheels': {
+    brands: ['Michelin', 'Bridgestone', 'Dunlop', 'MRF'],
+    products: [
+      { name: 'Front Tire (130/80-17)', price: 8500, originalPrice: 10500, stock: 12 },
+      { name: 'Rear Tire (160/60-17)', price: 9200, originalPrice: 11500, stock: 10 },
+      { name: 'Wheel Rim (Front)', price: 5600, originalPrice: 7000, stock: 8 },
+      { name: 'Wheel Rim (Rear)', price: 6200, originalPrice: 7800, stock: 8 },
+      { name: 'Tube Repair Kit', price: 450, originalPrice: 600, stock: 100 }
+    ]
+  },
+  'Electrical & Electronics': {
+    brands: ['Honda', 'Yamaha', 'Suzuki', 'Kawasaki'],
+    products: [
+      { name: 'Battery 12V 7Ah', price: 4800, originalPrice: 6000, stock: 30 },
+      { name: 'Alternator/Generator', price: 12500, originalPrice: 15500, stock: 10 },
+      { name: 'Starter Motor', price: 8200, originalPrice: 10200, stock: 12 },
+      { name: 'Voltage Regulator', price: 2200, originalPrice: 2800, stock: 40 },
+      { name: 'LED Bulb Set', price: 1200, originalPrice: 1500, stock: 55 }
+    ]
+  },
+  'Lighting & Signals': {
+    brands: ['Yamaha', 'Honda', 'KTM', 'Royal Enfield'],
+    products: [
+      { name: 'Headlight Assembly', price: 5400, originalPrice: 6800, stock: 22 },
+      { name: 'Taillight Module', price: 3200, originalPrice: 4000, stock: 28 },
+      { name: 'Turn Signal Set', price: 2600, originalPrice: 3200, stock: 38 },
+      { name: 'Speedometer Instrument', price: 4200, originalPrice: 5200, stock: 15 },
+      { name: 'Headlight Bulb (H4)', price: 850, originalPrice: 1050, stock: 70 }
+    ]
+  },
+  'Air & Fuel Systems': {
+    brands: ['Suzuki', 'Kawasaki', 'Bajaj', 'TVS'],
+    products: [
+      { name: 'Fuel Filter', price: 980, originalPrice: 1200, stock: 48 },
+      { name: 'Air Filter Box', price: 2800, originalPrice: 3500, stock: 20 },
+      { name: 'Carburetor Assembly', price: 6500, originalPrice: 8000, stock: 12 },
+      { name: 'Fuel Pump', price: 8800, originalPrice: 11000, stock: 10 },
+      { name: 'Air Intake Manifold', price: 3600, originalPrice: 4500, stock: 18 }
+    ]
+  },
+  'Cooling Systems': {
+    brands: ['Honda', 'Yamaha', 'BMW', 'KTM'],
+    products: [
+      { name: 'Radiator Fan', price: 4200, originalPrice: 5200, stock: 16 },
+      { name: 'Thermostat', price: 1800, originalPrice: 2200, stock: 35 },
+      { name: 'Coolant 1L', price: 1200, originalPrice: 1500, stock: 50 },
+      { name: 'Water Pump', price: 6800, originalPrice: 8400, stock: 12 },
+      { name: 'Radiator Hose Set', price: 2400, originalPrice: 3000, stock: 28 }
+    ]
+  },
+  'Body & Accessories': {
+    brands: ['Honda', 'Yamaha', 'Suzuki', 'Royal Enfield'],
+    products: [
+      { name: 'Side Mirror Pair', price: 2200, originalPrice: 2800, stock: 32 },
+      { name: 'Seat Cover', price: 1800, originalPrice: 2200, stock: 40 },
+      { name: 'Foot Pegs Pair', price: 1400, originalPrice: 1800, stock: 45 },
+      { name: 'Handlebar Grip Set', price: 1100, originalPrice: 1400, stock: 50 },
+      { name: 'Chain Guard', price: 2000, originalPrice: 2500, stock: 25 }
+    ]
+  },
+  'Exhaust Systems': {
+    brands: ['Kawasaki', 'BMW', 'KTM', 'Harley-Davidson'],
+    products: [
+      { name: 'Exhaust Silencer', price: 9500, originalPrice: 12000, stock: 10 },
+      { name: 'Muffler Pipe', price: 5200, originalPrice: 6500, stock: 14 },
+      { name: 'Exhaust Gasket', price: 680, originalPrice: 850, stock: 60 },
+      { name: 'Heat Shield', price: 2800, originalPrice: 3500, stock: 22 },
+      { name: 'Catalytic Converter', price: 18000, originalPrice: 22500, stock: 6 }
+    ]
+  }
+};
 
-const BRANDS = [
-  'Honda',
-  'Yamaha',
-  'Suzuki',
-  'TVS',
-  'Bajaj',
-  'KTM',
-  'Hero',
-  'Kawasaki',
-  'Castrol',
-  'Bosch',
-];
+// Category-specific motorcycle part images from Pexels
+const CATEGORY_IMAGE_URLS: Record<string, string[]> = {
+  'Engine Parts': [
+    'https://images.pexels.com/photos/30304159/pexels-photo-30304159.jpeg?cs=srgb&dl=pexels-roktim619-30304159.jpg&fm=jpg',
+    'https://images.pexels.com/photos/30866489/pexels-photo-30866489.jpeg?cs=srgb&dl=pexels-jannisr-30866489.jpg&fm=jpg',
+    'https://images.pexels.com/photos/5111324/pexels-photo-5111324.jpeg?cs=srgb&dl=pexels-magda-ehlers-pexels-5111324.jpg&fm=jpg',
+    'https://images.pexels.com/photos/19473077/pexels-photo-19473077.jpeg?cs=srgb&dl=pexels-landsmann-803094805-19473077.jpg&fm=jpg',
+    'https://images.pexels.com/photos/29222062/pexels-photo-29222062.jpeg?cs=srgb&dl=pexels-eduard-kalesnik-2057421638-29222062.jpg&fm=jpg',
+  ],
+  'Suspension & Brakes': [
+    'https://images.pexels.com/photos/1683406/pexels-photo-1683406.jpeg?cs=srgb&dl=pexels-lilartsy-1683406.jpg&fm=jpg',
+    'https://images.pexels.com/photos/17900715/pexels-photo-17900715.jpeg?cs=srgb&dl=pexels-entero-17900715.jpg&fm=jpg',
+    'https://images.pexels.com/photos/9607353/pexels-photo-9607353.jpeg?cs=srgb&dl=pexels-anastasia-shuraeva-9607353.jpg&fm=jpg',
+    'https://images.pexels.com/photos/5184998/pexels-photo-5184998.jpeg?cs=srgb&dl=pexels-cottonbro-5184998.jpg&fm=jpg',
+    'https://images.pexels.com/photos/29279937/pexels-photo-29279937.jpeg?cs=srgb&dl=pexels-vahapdmr-29279937.jpg&fm=jpg',
+  ],
+  'Transmission & Clutch': [
+    'https://images.pexels.com/photos/34240236/pexels-photo-34240236.jpeg?cs=srgb&dl=pexels-photogramary-2154599354-34240236.jpg&fm=jpg',
+    'https://images.pexels.com/photos/9607395/pexels-photo-9607395.jpeg?cs=srgb&dl=pexels-anastasia-shuraeva-9607395.jpg&fm=jpg',
+    'https://images.pexels.com/photos/5111315/pexels-photo-5111315.jpeg?cs=srgb&dl=pexels-magda-ehlers-pexels-5111315.jpg&fm=jpg',
+    'https://images.pexels.com/photos/18074949/pexels-photo-18074949.jpeg?cs=srgb&dl=pexels-michelle-toma-493475475-18074949.jpg&fm=jpg',
+    'https://images.pexels.com/photos/37131862/pexels-photo-37131862.jpeg?cs=srgb&dl=pexels-ayoub-benamor-2160847105-37131862.jpg&fm=jpg',
+  ],
+  'Tires & Wheels': [
+    'https://images.pexels.com/photos/97049/pexels-photo-97049.jpeg?cs=srgb&dl=pexels-markusspiske-97049.jpg&fm=jpg',
+    'https://images.pexels.com/photos/9305129/pexels-photo-9305129.jpeg?cs=srgb&dl=pexels-stephentcandrews-9305129.jpg&fm=jpg',
+    'https://images.pexels.com/photos/36813241/pexels-photo-36813241.jpeg?cs=srgb&dl=pexels-nandish-kumar-1238677-36813241.jpg&fm=jpg',
+    'https://images.pexels.com/photos/16439608/pexels-photo-16439608.jpeg?cs=srgb&dl=pexels-ardit-mbrati-216809103-16439608.jpg&fm=jpg',
+    'https://images.pexels.com/photos/29740729/pexels-photo-29740729.jpeg?cs=srgb&dl=pexels-harveyvillarino-29740729.jpg&fm=jpg',
+  ],
+  'Electrical & Electronics': [
+    'https://images.pexels.com/photos/37177070/pexels-photo-37177070.jpeg?cs=srgb&dl=pexels-ayyeee-ayyeee-434363205-37177070.jpg&fm=jpg',
+    'https://images.pexels.com/photos/115145/pexels-photo-115145.jpeg?cs=srgb&dl=pexels-revac-film-s-photography-10400-115145.jpg&fm=jpg',
+    'https://images.pexels.com/photos/11211294/pexels-photo-11211294.jpeg?cs=srgb&dl=pexels-photobombcars-11211294.jpg&fm=jpg',
+    'https://images.pexels.com/photos/16129881/pexels-photo-16129881.jpeg?cs=srgb&dl=pexels-louitina-palaiologou-37403807-16129881.jpg&fm=jpg',
+    'https://images.pexels.com/photos/35393849/pexels-photo-35393849.jpeg?cs=srgb&dl=pexels-cottonbro-35393849.jpg&fm=jpg',
+  ],
+  'Lighting & Signals': [
+    'https://images.pexels.com/photos/17883731/pexels-photo-17883731.png?cs=srgb&dl=pexels-otaviiow-17883731.jpg&fm=jpg',
+    'https://images.pexels.com/photos/20008574/pexels-photo-20008574.jpeg?cs=srgb&dl=pexels-noren-dl-927912486-20008574.jpg&fm=jpg',
+    'https://images.pexels.com/photos/13023887/pexels-photo-13023887.jpeg?cs=srgb&dl=pexels-image-hunter-281453274-13023887.jpg&fm=jpg',
+    'https://images.pexels.com/photos/13377440/pexels-photo-13377440.jpeg?cs=srgb&dl=pexels-kassiamelox-13377440.jpg&fm=jpg',
+    'https://images.pexels.com/photos/2607073/pexels-photo-2607073.jpeg?cs=srgb&dl=pexels-jamphotography-2607073.jpg&fm=jpg',
+  ],
+  'Air & Fuel Systems': [
+    'https://images.pexels.com/photos/19898110/pexels-photo-19898110.jpeg?cs=srgb&dl=pexels-donald-nicholson-108390307-19898110.jpg&fm=jpg',
+    'https://images.pexels.com/photos/11074558/pexels-photo-11074558.jpeg?cs=srgb&dl=pexels-benjamin-walsham-159059246-11074558.jpg&fm=jpg',
+    'https://images.pexels.com/photos/31292504/pexels-photo-31292504.jpeg?cs=srgb&dl=pexels-nguy-n-ti-n-th-nh-2150376175-31292504.jpg&fm=jpg',
+    'https://images.pexels.com/photos/16033294/pexels-photo-16033294.jpeg?cs=srgb&dl=pexels-entero-16033294.jpg&fm=jpg',
+    'https://images.pexels.com/photos/26655306/pexels-photo-26655306.jpeg?cs=srgb&dl=pexels-couleur-26655306.jpg&fm=jpg',
+  ],
+  'Cooling Systems': [
+    'https://images.pexels.com/photos/9562264/pexels-photo-9562264.jpeg?cs=srgb&dl=pexels-harveyvillarino-9562264.jpg&fm=jpg',
+    'https://images.pexels.com/photos/4577456/pexels-photo-4577456.jpeg?cs=srgb&dl=pexels-rachel-claire-4577456.jpg&fm=jpg',
+    'https://images.pexels.com/photos/11890957/pexels-photo-11890957.jpeg?cs=srgb&dl=pexels-mickhaupt-11890957.jpg&fm=jpg',
+    'https://images.pexels.com/photos/9607050/pexels-photo-9607050.jpeg?cs=srgb&dl=pexels-anastasia-shuraeva-9607050.jpg&fm=jpg',
+    'https://images.pexels.com/photos/17780143/pexels-photo-17780143.jpeg?cs=srgb&dl=pexels-yakup-polat-420882786-17780143.jpg&fm=jpg',
+  ],
+  'Body & Accessories': [
+    'https://images.pexels.com/photos/28051514/pexels-photo-28051514.jpeg?cs=srgb&dl=pexels-pratik-brahmbhatt-1479980869-28051514.jpg&fm=jpg',
+    'https://images.pexels.com/photos/31847540/pexels-photo-31847540.jpeg?cs=srgb&dl=pexels-spolyakov-31847540.jpg&fm=jpg',
+    'https://images.pexels.com/photos/33582592/pexels-photo-33582592.jpeg?cs=srgb&dl=pexels-johanna-2151290000-33582592.jpg&fm=jpg',
+    'https://images.pexels.com/photos/29740637/pexels-photo-29740637.jpeg?cs=srgb&dl=pexels-harveyvillarino-29740637.jpg&fm=jpg',
+    'https://images.pexels.com/photos/33469801/pexels-photo-33469801.jpeg?cs=srgb&dl=pexels-ene-marius-241207761-33469801.jpg&fm=jpg',
+  ],
+  'Exhaust Systems': [
+    'https://images.pexels.com/photos/36885382/pexels-photo-36885382.jpeg?cs=srgb&dl=pexels-baran-karakelle-2160650505-36885382.jpg&fm=jpg',
+    'https://images.pexels.com/photos/16033295/pexels-photo-16033295.jpeg?cs=srgb&dl=pexels-entero-16033295.jpg&fm=jpg',
+    'https://images.pexels.com/photos/14600354/pexels-photo-14600354.jpeg?cs=srgb&dl=pexels-ahrphotography-14600354.jpg&fm=jpg',
+    'https://images.pexels.com/photos/33474404/pexels-photo-33474404.jpeg?cs=srgb&dl=pexels-shndgd-33474404.jpg&fm=jpg',
+    'https://images.pexels.com/photos/35141603/pexels-photo-35141603.jpeg?cs=srgb&dl=pexels-gladin-joseph-2087591411-35141603.jpg&fm=jpg',
+  ],
+};
 
-const PART_NAMES = [
-  'Brake Pad Set',
-  'Chain Sprocket Kit',
-  'Clutch Plate Kit',
-  'Engine Oil Filter',
-  'Headlight Assembly',
-  'Air Filter Element',
-  'Radiator Coolant Hose',
-  'Battery 12V',
-  'Front Fork Seal',
-  'Spark Plug Set',
-  'Rear Shock Absorber',
-  'Fuel Pump Module',
-  'Disc Rotor',
-  'Indicator Lamp Set',
-  'Starter Motor',
-  'Handlebar Grip Set',
-  'Side Mirror Pair',
-  'Throttle Cable',
-  'Brake Fluid DOT4',
-  'Performance Exhaust',
-];
+const getCategoryImage = (category: string, sellerIndex: number, productIndex: number): string => {
+  const images = CATEGORY_IMAGE_URLS[category] ?? [];
 
-const IMAGE_URLS = [
-  'https://images.pexels.com/photos/2116475/pexels-photo-2116475.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/2393821/pexels-photo-2393821.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/1715193/pexels-photo-1715193.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/2549941/pexels-photo-2549941.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/18296/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/1719648/pexels-photo-1719648.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/2116469/pexels-photo-2116469.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/1715192/pexels-photo-1715192.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/163210/motorcycle-race-helmets-pilots-163210.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/2393819/pexels-photo-2393819.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/995301/pexels-photo-995301.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/1119796/pexels-photo-1119796.jpeg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/13861/IMG_3496bfree.jpg?auto=compress&cs=tinysrgb&w=1200',
-  'https://images.pexels.com/photos/1309772/pexels-photo-1309772.jpeg?auto=compress&cs=tinysrgb&w=1200',
-];
+  if (images.length === 0) {
+    return 'https://images.pexels.com/photos/2116475/pexels-photo-2116475.jpeg?auto=compress&cs=tinysrgb&w=1200';
+  }
+
+  return images[(sellerIndex + productIndex) % images.length];
+};
 
 const OTHER_SELLERS = [
   {
@@ -122,151 +246,101 @@ const randomInt = (min: number, max: number): number => {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
-const pick = <T>(items: T[]): T => {
-  return items[randomInt(0, items.length - 1)];
-};
-
-const formatSku = (prefix: string, index: number): string => {
-  return `${prefix}-${String(index + 1).padStart(3, '0')}`;
-};
-
-const ensureSeller = async (data: {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  shopName: string;
-  shopDescription: string;
-  shopLocation: string;
-}): Promise<IUser> => {
-  let seller = await User.findOne({ email: data.email, role: 'seller' });
-
-  if (!seller) {
-    seller = await User.create({
-      ...data,
-      role: 'seller',
-      password: 'seller123',
-      isEmailVerified: true,
-      isActive: true,
-      approvalStatus: 'approved',
-      approvedAt: new Date(),
-    });
-  }
-
-  await User.updateOne(
-    { _id: seller._id },
-    {
-      $set: {
-        isActive: true,
-        isEmailVerified: true,
-        approvalStatus: 'approved',
-        approvedAt: new Date(),
-        shopName: data.shopName,
-        shopDescription: data.shopDescription,
-        shopLocation: data.shopLocation,
-      },
-    }
-  );
-
-  const fresh = await User.findById(seller._id);
-  if (!fresh) {
-    throw new Error(`Failed to load seller account: ${data.email}`);
-  }
-
-  return fresh;
-};
-
-const buildProductDoc = (
-  sellerId: mongoose.Types.ObjectId,
-  sku: string,
-  seedIndex: number,
-  shopLabel: string
-) => {
-  const brand = pick(BRANDS);
-  const part = pick(PART_NAMES);
-  const category = pick(PRODUCT_CATEGORIES);
-  const basePrice = randomInt(2500, 95000);
-  const originalPrice = basePrice + randomInt(500, 12000);
-  const stock = randomInt(3, 80);
-  const imageOne = IMAGE_URLS[seedIndex % IMAGE_URLS.length];
-  const imageTwo = IMAGE_URLS[(seedIndex + 5) % IMAGE_URLS.length];
-  const name = `${brand} ${part}`;
-
-  return {
-    seller: sellerId,
-    name,
-    description: `${name} for motorcycles. Offered by ${shopLabel}. Durable quality, quick delivery, and island-wide availability.`,
-    category,
-    brand,
-    price: basePrice,
-    originalPrice,
-    stock,
-    images: [imageOne, imageTwo],
-    sku,
-    status: 'active' as const,
-    type: 'product' as const,
-    views: randomInt(10, 2500),
-    sales: randomInt(0, 420),
-  };
-};
-
 const seedProducts = async (): Promise<void> => {
   try {
     await mongoose.connect(config.mongoURI);
-    console.log('MongoDB Connected');
+    console.log('✓ MongoDB Connected\n');
 
-    const mainSeller = await ensureSeller({
-      firstName: 'Nanthujan',
-      lastName: 'Sivapalan',
-      email: 'nanthujan0@gmail.com',
-      phone: '+94 77 912 3488',
-      shopName: 'Nanthu Moto Garage Supply',
-      shopDescription: 'Trending motorcycle parts inspired by public online moto catalogs and workshop demand.',
-      shopLocation: 'Stanley Road, Jaffna',
+    // Get all approved sellers
+    const sellers = await User.find({ role: 'seller', approvalStatus: 'approved' });
+    console.log(`📦 Found ${sellers.length} sellers\n`);
+
+    let totalProductsCreated = 0;
+    const categories = Object.keys(partsDatabase);
+
+    for (let sellerIdx = 0; sellerIdx < sellers.length; sellerIdx++) {
+      const seller = sellers[sellerIdx];
+      console.log(`\n📦 Adding products for: ${seller.shopName || `Seller ${sellerIdx + 1}`}`);
+      console.log(`   Email: ${seller.email}`);
+      console.log('─────────────────────────────────────────────────────');
+
+      let sellerProductCount = 0;
+
+      // Each seller gets 20 products across different categories
+      for (let prodIdx = 0; prodIdx < 20; prodIdx++) {
+        const categoryIndex = prodIdx % categories.length;
+        const category = categories[categoryIndex];
+        const categoryData = partsDatabase[category as keyof typeof partsDatabase];
+        const productIndex = Math.floor(prodIdx / categories.length);
+        const product = categoryData.products[productIndex % categoryData.products.length];
+        const brand = categoryData.brands[sellerIdx % categoryData.brands.length];
+
+        const productData = {
+          seller: seller._id,
+          name: `${product.name} - ${brand}`,
+          description: `High quality ${product.name.toLowerCase()} for ${brand} motorcycles. Genuine parts, tested for durability and performance. Fast delivery available.`,
+          category,
+          brand,
+          price: product.price,
+          originalPrice: product.originalPrice,
+          stock: Math.max(5, product.stock - randomInt(0, 30)),
+          images: [getCategoryImage(category, sellerIdx, productIndex)],
+          status: 'active' as const,
+          productStatus: 'ENABLED' as const,
+          sku: `${seller._id.toString().slice(-6)}-${String(prodIdx + 1).padStart(3, '0')}`,
+          type: 'product' as const,
+          views: randomInt(5, 150),
+          sales: randomInt(0, 30),
+          embedding: []
+        };
+
+        const existing = await Product.findOne({
+          seller: seller._id,
+          sku: productData.sku
+        });
+
+        if (!existing) {
+          await Product.create(productData);
+          sellerProductCount++;
+          totalProductsCreated++;
+        }
+      }
+
+      console.log(`  ✓ Added ${sellerProductCount} products`);
+    }
+
+    console.log('\n═══════════════════════════════════════════════════════════════');
+    console.log('                    PRODUCTS SEEDED SUCCESSFULLY');
+    console.log('═══════════════════════════════════════════════════════════════\n');
+
+    console.log(`✓ Total products created: ${totalProductsCreated}`);
+    console.log(`  • Sellers: ${sellers.length}`);
+    console.log(`  • Products per seller: 20`);
+    console.log(`  • Total: ${sellers.length * 20}\n`);
+
+    console.log('📊 PRODUCT CATEGORIES:');
+    categories.forEach((cat, idx) => {
+      console.log(`  ${idx + 1}. ${cat}`);
     });
 
-    const otherSellers = await Promise.all(OTHER_SELLERS.map((s) => ensureSeller(s)));
+    console.log('\n───────────────────────────────────────────────────────────────');
+    console.log('✅ Products Features:');
+    console.log('  • Real motorcycle brands (Honda, Yamaha, Suzuki, etc.)');
+    console.log('  • Real parts categories and names');
+    console.log('  • Sri Lankan Rupee (LKR) pricing');
+    console.log('  • Realistic stock levels');
+    console.log('  • Real motorcycle images (Pexels)');
+    console.log('  • Original prices for discount calculation');
+    console.log('  • SKU codes for each product');
+    console.log('  • Active and ENABLED status\n');
 
-    const primaryProducts = Array.from({ length: 30 }).map((_, index) => {
-      const sku = formatSku('FM-KAMAL', index);
-      return buildProductDoc(mainSeller._id, sku, index, mainSeller.shopName || 'Kamal Auto Parts');
-    });
-
-    const marketplaceProducts = Array.from({ length: 100 }).map((_, index) => {
-      const seller = otherSellers[index % otherSellers.length];
-      const sellerLabel = seller.shopName || `${seller.firstName} ${seller.lastName}`;
-      const sku = formatSku(`FM-SHOP-${(index % otherSellers.length) + 1}`, index);
-      return buildProductDoc(seller._id, sku, index + 100, sellerLabel);
-    });
-
-    const allProducts = [...primaryProducts, ...marketplaceProducts];
-
-    const ops = allProducts.map((doc) => ({
-      updateOne: {
-        filter: { seller: doc.seller, sku: doc.sku },
-        update: { $set: doc },
-        upsert: true,
-      },
-    }));
-
-    const result = await Product.bulkWrite(ops, { ordered: false });
-
-    console.log(`Seeded/updated products for ${mainSeller.email} and marketplace sellers.`);
-    console.log(`Upserted: ${result.upsertedCount || 0}, Modified: ${result.modifiedCount || 0}, Matched: ${result.matchedCount || 0}`);
-    console.log('Created dataset: 30 products for nanthujan0@gmail.com + 100 products across other shops.');
-    console.log('\nSeller credentials for testing:');
-    console.log('nanthujan0@gmail.com / seller123');
-    console.log('seller2@gmail.com / seller123');
-    console.log('seller3@gmail.com / seller123');
-    console.log('seller4@gmail.com / seller123');
-    console.log('seller5@gmail.com / seller123');
-    console.log('seller6@gmail.com / seller123');
+    console.log('💡 Next: Images are from Pexels. To use Cloudinary images, update URLs.\n');
 
     await mongoose.disconnect();
     console.log('Done.');
     process.exit(0);
   } catch (error) {
-    console.error('Error seeding products:', error);
+    console.error('❌ Error seeding products:', error);
     process.exit(1);
   }
 };

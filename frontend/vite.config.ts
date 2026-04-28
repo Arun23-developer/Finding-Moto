@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   const port = env.VITE_PORT ? parseInt(env.VITE_PORT, 10) : 3000;
-  const proxyTarget = (env.VITE_API_PROXY_TARGET || 'http://localhost:5000').trim();
+  const proxyTarget = (env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:5000').trim();
 
   return {
     plugins: [react()],

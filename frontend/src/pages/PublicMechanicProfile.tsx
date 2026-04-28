@@ -3,9 +3,19 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/layout/Header";
 import { Footer } from "../components/layout/Footer";
 import { Button } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Loader2, Wrench, Star, Package, Briefcase, MapPin, Phone, ArrowLeft } from "lucide-react";
 import api from "../services/api";
+import { formatLkr } from "@/lib/currency";
 import { resolveProductImage, resolveMediaUrl } from "@/lib/imageUrl";
+import { ReportDialog } from "@/components/ReportDialog";
 
 interface Mechanic {
   _id: string;
@@ -61,6 +71,12 @@ const PublicMechanicProfile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [profile, setProfile] = useState<MechanicProfileResponse | null>(null);
+  const [bookingService, setBookingService] = useState<Service | null>(null);
+  const [bookingDate, setBookingDate] = useState<string>(new Date(Date.now() + 1000 * 60 * 60 * 2).toISOString().slice(0, 16));
+  const [bookingNotes, setBookingNotes] = useState<string>("");
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingError, setBookingError] = useState("");
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -81,6 +97,51 @@ const PublicMechanicProfile: React.FC = () => {
 
     fetchProfile();
   }, [id]);
+
+  const resetBookingForm = () => {
+    setBookingService(null);
+    setBookingDate(new Date(Date.now() + 1000 * 60 * 60 * 2).toISOString().slice(0, 16));
+    setBookingNotes("");
+    setBookingError("");
+  };
+
+  const openBookingModal = (service: Service) => {
+    setBookingService(service);
+    setBookingDate(new Date(Date.now() + 1000 * 60 * 60 * 2).toISOString().slice(0, 16));
+    setBookingNotes("");
+    setBookingError("");
+    setBookingOpen(true);
+  };
+
+  const closeBookingModal = () => {
+    setBookingOpen(false);
+    resetBookingForm();
+  };
+
+  const handleBookService = async () => {
+    if (!bookingService) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    setBookingLoading(true);
+    setBookingError("");
+    try {
+      await api.post('/service-orders', {
+        serviceId: bookingService._id,
+        bookingDate,
+        notes: bookingNotes,
+      });
+      setBookingLoading(false);
+      setBookingOpen(false);
+      resetBookingForm();
+      navigate('/my-orders');
+    } catch (err: any) {
+      setBookingLoading(false);
+      setBookingError(err?.response?.data?.message || 'Failed to book service.');
+    }
+  };
 
   if (loading) {
     return (
@@ -183,6 +244,15 @@ const PublicMechanicProfile: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            <div className="mt-4 flex justify-end">
+              <ReportDialog
+                category="ACCOUNT"
+                targetId={profile.mechanic._id}
+                title="Report Mechanic Account"
+                triggerLabel="Report Account"
+              />
+            </div>
           </section>
 
           <section className="mb-10">
@@ -201,11 +271,24 @@ const PublicMechanicProfile: React.FC = () => {
                         <p className="font-semibold text-foreground">{service.name}</p>
                         <p className="text-xs text-muted-foreground mt-1">{service.category} • {service.duration}</p>
                       </div>
-                      <p className="font-bold text-foreground">LKR {service.price.toLocaleString()}</p>
+                      <p className="font-bold text-foreground">{formatLkr(service.price)}</p>
                     </div>
                     {service.description && (
                       <p className="text-sm text-muted-foreground mt-3 line-clamp-2">{service.description}</p>
                     )}
+
+                    <div className="mt-3 flex flex-wrap gap-2 justify-end">
+                      <Button size="sm" onClick={() => openBookingModal(service)}>
+                        Book Now
+                      </Button>
+                      <ReportDialog
+                        category="SERVICE"
+                        targetId={service._id}
+                        title="Report Service"
+                        triggerLabel="Report"
+                        triggerSize="sm"
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -242,7 +325,7 @@ const PublicMechanicProfile: React.FC = () => {
                           <span className="text-sm text-muted-foreground">({product.reviewCount})</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-lg font-bold text-foreground">LKR {product.price.toLocaleString()}</span>
+                          <span className="text-lg font-bold text-foreground">{formatLkr(product.price)}</span>
                           <span className={`text-xs font-semibold ${product.inStock ? "text-green-600" : "text-red-600"}`}>
                             {product.inStock ? "In stock" : "Out of stock"}
                           </span>
@@ -256,6 +339,55 @@ const PublicMechanicProfile: React.FC = () => {
           </section>
         </div>
       </main>
+      <Dialog open={bookingOpen} onOpenChange={(open) => !open && closeBookingModal()}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Book {bookingService?.name}</DialogTitle>
+            <DialogDescription>
+              Select a date and time for your booking and confirm the service order.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="block text-sm font-medium mb-2">Service</label>
+              <p className="rounded-xl border border-border bg-background p-3 text-sm text-foreground">
+                {bookingService?.name}
+              </p>
+            </div>
+            <div>
+              <label htmlFor="booking-date" className="block text-sm font-medium mb-2">Booking date & time</label>
+              <input
+                id="booking-date"
+                type="datetime-local"
+                value={bookingDate}
+                onChange={(event) => setBookingDate(event.target.value)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="booking-notes" className="block text-sm font-medium mb-2">Notes (optional)</label>
+              <textarea
+                id="booking-notes"
+                value={bookingNotes}
+                onChange={(event) => setBookingNotes(event.target.value)}
+                className="w-full min-h-[120px] rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Share any special instructions or vehicle details"
+              />
+            </div>
+            {bookingError && (
+              <p className="text-sm text-destructive">{bookingError}</p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={closeBookingModal} disabled={bookingLoading}>
+              Cancel
+            </Button>
+            <Button onClick={handleBookService} disabled={bookingLoading}>
+              {bookingLoading ? 'Booking...' : 'Confirm Booking'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Footer />
     </div>
   );

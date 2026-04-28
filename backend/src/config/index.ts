@@ -14,6 +14,9 @@ interface Config {
   smtpUser: string;
   smtpPass: string;
   geminiApiKey: string;
+  cloudinaryCloudName: string;
+  cloudinaryApiKey: string;
+  cloudinaryApiSecret: string;
 }
 
 const config: Config = {
@@ -27,7 +30,10 @@ const config: Config = {
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
   smtpUser: process.env.SMTP_USER || '',
   smtpPass: process.env.SMTP_PASS || '',
-  geminiApiKey: process.env.GEMINI_API_KEY || ''
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
+  cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+  cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || '',
+  cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET || ''
 };
 
 export default config;

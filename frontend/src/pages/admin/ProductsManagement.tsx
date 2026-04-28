@@ -77,31 +77,45 @@ export default function ProductsManagement() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Total Products", value: totalCount },
-          { label: "In Stock", value: inStockCount },
-          { label: "Out of Stock", value: outOfStockCount },
-          { label: "Categories", value: categoryCount },
-        ].map((s) => (
-          <Card key={s.label} className="glass-card">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className="text-xl font-display font-bold mt-1">{s.value.toLocaleString()}</p>
-            </CardContent>
-          </Card>
-        ))}
+        <Card className="glass-card border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Products</p>
+            <p className="text-3xl font-bold mt-2 text-blue-600">{totalCount.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card className="glass-card border-l-4 border-l-green-500 hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">In Stock</p>
+            <p className="text-3xl font-bold mt-2 text-green-600">{inStockCount.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card className="glass-card border-l-4 border-l-red-500 hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Out of Stock</p>
+            <p className="text-3xl font-bold mt-2 text-red-600">{outOfStockCount.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card className="glass-card border-l-4 border-l-purple-500 hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Categories</p>
+            <p className="text-3xl font-bold mt-2 text-purple-600">{categoryCount.toLocaleString()}</p>
+          </CardContent>
+        </Card>
       </div>
 
-      <Card className="glass-card">
-        <CardHeader className="pb-3">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search products..."
-              className="pl-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+      <Card className="glass-card shadow-sm">
+        <CardHeader className="pb-4 border-b">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Product Inventory</h2>
+            <div className="relative max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search products..."
+                className="pl-9 w-64"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>

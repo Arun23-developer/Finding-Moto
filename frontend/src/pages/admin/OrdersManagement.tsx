@@ -111,19 +111,30 @@ export default function OrdersManagement() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Total Orders", value: totalCount },
-          { label: "Pending", value: pendingCount },
-          { label: "Processing", value: processingCount },
-          { label: "Delivered", value: deliveredCount },
-        ].map((s) => (
-          <Card key={s.label} className="glass-card">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className="text-xl font-display font-bold mt-1">{s.value.toLocaleString()}</p>
-            </CardContent>
-          </Card>
-        ))}
+        <Card className="glass-card border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Orders</p>
+            <p className="text-3xl font-bold mt-2 text-blue-600">{totalCount.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card className="glass-card border-l-4 border-l-yellow-500 hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pending</p>
+            <p className="text-3xl font-bold mt-2 text-yellow-600">{pendingCount.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card className="glass-card border-l-4 border-l-purple-500 hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Processing</p>
+            <p className="text-3xl font-bold mt-2 text-purple-600">{processingCount.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card className="glass-card border-l-4 border-l-green-500 hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Delivered</p>
+            <p className="text-3xl font-bold mt-2 text-green-600">{deliveredCount.toLocaleString()}</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -155,8 +166,8 @@ export default function OrdersManagement() {
         </div>
       </div>
 
-      <Card className="glass-card">
-        <CardContent>
+      <Card className="glass-card shadow-sm">
+        <CardContent className="pt-6">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

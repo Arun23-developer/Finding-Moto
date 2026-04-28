@@ -9,7 +9,7 @@ import { toast } from "@/hooks/use-toast";
 const navLinks = [
   { label: "Home", path: "/" },
   { label: "Products", path: "/products" },
-  { label: "Services", path: "/#services" },
+  { label: "Services", path: "/services" },
   { label: "About", path: "/about" },
   { label: "Contact", path: "/contact" },
 ];
@@ -60,8 +60,8 @@ const Navbar = () => {
     <motion.nav
       initial={{ y: -100 }}
       animate={{ y: 0 }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? "glass shadow-lg" : "bg-transparent"
+      className={`fixed top-0 left-0 right-0 z-50 border-b border-border/50 backdrop-blur-xl transition-all duration-300 ${
+        isScrolled ? "bg-card/90 shadow-lg" : "bg-card/80"
       }`}
     >
       <div className="container mx-auto flex items-center justify-between h-16 md:h-20 px-4">

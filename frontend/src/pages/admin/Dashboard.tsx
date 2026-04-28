@@ -6,7 +6,24 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Package,
+  TrendingUp,
+  Users,
+  DollarSign,
+  Activity,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 import api from "@/services/api";
 
 const statusColors: Record<string, string> = {
@@ -24,6 +41,13 @@ const catColors = [
   "hsl(280, 65%, 60%)",
   "hsl(38, 92%, 50%)",
 ];
+
+const CHART_COLORS = {
+  primary: "hsl(25, 95%, 53%)",
+  secondary: "hsl(217, 91%, 60%)",
+  success: "hsl(142, 71%, 45%)",
+  warning: "hsl(38, 92%, 50%)",
+};
 
 interface OverviewData {
   stats: {
@@ -102,79 +126,198 @@ export default function Dashboard() {
   }
 
   const { stats, recentOrders, categories, monthlyRevenue } = data;
-  const maxRevenue = Math.max(...monthlyRevenue.map((d) => d.revenue), 1);
+
+  // Prepare chart data
+  const revenueChartData = monthlyRevenue.map((item) => ({
+    month: new Date(item._id + "-01").toLocaleString("default", { month: "short" }),
+    revenue: item.revenue,
+  }));
+
+  const categoryPieData = categories.map((cat, idx) => ({
+    name: cat.name,
+    value: cat.value,
+    fill: catColors[idx % catColors.length],
+  }));
 
   return (
     <div className="space-y-6">
+      <div>
+        <h1 className="font-display text-2xl font-bold">Dashboard</h1>
+        <p className="text-sm text-muted-foreground mt-1">System overview and key metrics</p>
+      </div>
+
+      {/* Key Metrics - Top Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="glass-card border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Revenue</p>
+                <p className="text-3xl font-bold mt-2 bg-gradient-to-r from-green-600 to-green-400 bg-clip-text text-transparent">
+                  LKR {(stats.revenue / 1000).toFixed(1)}k
+                </p>
+                <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" />
+                  From completed orders
+                </p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg">
+                <DollarSign className="h-7 w-7 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Orders</p>
+                <p className="text-3xl font-bold mt-2 bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
+                  {stats.totalOrders.toLocaleString()}
+                </p>
+                <p className="text-xs text-blue-600 mt-2">{stats.deliveredOrders} delivered</p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
+                <ShoppingCart className="h-7 w-7 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Products</p>
+                <p className="text-3xl font-bold mt-2 bg-gradient-to-r from-purple-600 to-purple-400 bg-clip-text text-transparent">
+                  {stats.totalProducts.toLocaleString()}
+                </p>
+                <p className="text-xs text-purple-600 mt-2">{stats.activeProducts} active</p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg">
+                <Package className="h-7 w-7 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border-l-4 border-l-orange-500 hover:shadow-lg transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Active Sellers</p>
+                <p className="text-3xl font-bold mt-2 bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent">
+                  {stats.activeSellers.toLocaleString()}
+                </p>
+                <p className="text-xs text-orange-600 mt-2">Approved vendors</p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg">
+                <Users className="h-7 w-7 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Order Status Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="glass-card hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase">Pending Orders</p>
+                <p className="text-4xl font-bold mt-2 text-yellow-600">{stats.pendingOrders}</p>
+              </div>
+              <Activity className="h-10 w-10 text-yellow-600/30" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass-card hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase">Processing Orders</p>
+                <p className="text-4xl font-bold mt-2 text-blue-600">{stats.processingOrders}</p>
+              </div>
+              <Activity className="h-10 w-10 text-blue-600/30" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass-card hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase">Out of Stock Items</p>
+                <p className="text-4xl font-bold mt-2 text-red-600">{stats.outOfStockProducts}</p>
+              </div>
+              <Package className="h-10 w-10 text-red-600/30" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Revenue Chart */}
         <Card className="lg:col-span-2 glass-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Revenue Overview</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Revenue Overview
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {monthlyRevenue.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">No revenue data yet</p>
             ) : (
-              <div className="flex items-end gap-3 h-[250px] pt-4">
-                {monthlyRevenue.map((item) => {
-                  const label = new Date(item._id + "-01").toLocaleString("default", { month: "short" });
-                  return (
-                    <div key={item._id} className="flex-1 flex flex-col items-center gap-2">
-                      <span className="text-xs text-muted-foreground font-medium">
-                        {(item.revenue / 1000).toFixed(1)}k
-                      </span>
-                      <div className="w-full relative flex-1 flex items-end">
-                        <div
-                          className="w-full rounded-t-md bg-primary/80 hover:bg-primary transition-colors duration-200 min-h-[8px]"
-                          style={{ height: `${(item.revenue / maxRevenue) * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-muted-foreground">{label}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={revenueChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="month" stroke="#888" fontSize={12} />
+                  <YAxis stroke="#888" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Bar dataKey="revenue" fill={CHART_COLORS.primary} radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
 
         {/* Categories */}
         <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Top Categories</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-semibold">Top Categories</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col items-center gap-4">
-            <div className="w-full space-y-3 mt-2">
-              {categories.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No data yet</p>
-              ) : (
-                categories.map((cat, i) => (
-                  <div key={cat.name} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-2.5 h-2.5 rounded-full"
-                          style={{ backgroundColor: catColors[i % catColors.length] }}
-                        />
-                        <span className="text-muted-foreground">{cat.name}</span>
-                      </div>
-                      <span className="font-medium">{cat.value}%</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${cat.value}%`,
-                          backgroundColor: catColors[i % catColors.length],
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+          <CardContent className="flex flex-col items-center">
+            {categories.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No data yet</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={categoryPieData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, value }) => `${name}: ${value}%`}
+                    outerRadius={90}
+                    dataKey="value"
+                  >
+                    {categoryPieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>

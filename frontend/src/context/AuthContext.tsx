@@ -28,6 +28,8 @@ interface User {
   experienceYears?: number;
   workshopLocation?: string;
   workshopName?: string;
+  servicesOffered?: string[];
+  mechanicBrands?: string[];
   // Delivery agent fields
   vehicleType?: string;
   vehicleNumber?: string;
