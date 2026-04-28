@@ -34,6 +34,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { ReportDialog } from "@/components/ReportDialog";
 import { cn } from "@/lib/utils";
+import { Phone } from "lucide-react";
 
 type PublicProductDetail = {
   _id: string;
