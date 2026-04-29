@@ -3,6 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "../components/layout/Header";
 import { Footer } from "../components/layout/Footer";
 import { Button } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
@@ -13,6 +21,8 @@ import {
   Loader2,
   MapPin,
   Package,
+  Printer,
+  ReceiptText,
   RotateCcw,
   ShoppingBag,
   Star,
@@ -25,7 +35,12 @@ import api from "../services/api";
 import { resolveMediaUrl } from "@/lib/imageUrl";
 import reviewService from "@/services/reviewService";
 import { useToast } from "@/hooks/use-toast";
-import { createAuthedSocket, type OrderWorkflowSocketEvent } from "@/lib/socket";
+import { createAuthedSocket, type OrderWorkflowSocketEvent, type ReturnWorkflowSocketEvent } from "@/lib/socket";
+import { RETURN_STATUS_LABELS, RETURN_STATUS_STYLES, type ReturnRequest } from "@/lib/returns";
+import { ReturnStatusTimeline } from "@/components/returns/ReturnStatusTimeline";
+
+const returnableProductStatuses = new Set(["delivered", "completed"]);
+const billableProductStatuses = new Set(["delivered", "completed"]);
 
 interface OrderItem {
   product: string;
@@ -179,6 +194,11 @@ function getServiceMechanicName(mechanic?: ServiceOrder["mechanic"]) {
   return mechanic.workshopName || `${mechanic.firstName || ""} ${mechanic.lastName || ""}`.trim() || mechanic.email || "Mechanic";
 }
 
+function getSellerName(seller?: Order["seller"]) {
+  if (!seller) return "Seller";
+  return seller.shopName || `${seller.firstName || ""} ${seller.lastName || ""}`.trim() || "Seller";
+}
+
 function ServiceTrackingFlow({ status }: { status: ServiceOrderStatus }) {
   const isRejected = status === "SERVICE_ORDER_REJECTED";
   const currentRank = serviceStatusRank[status];
@@ -227,7 +247,9 @@ const MyOrders: React.FC = () => {
   const [serviceStatusFilter, setServiceStatusFilter] = useState<string>("all");
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [reviewedProductIds, setReviewedProductIds] = useState<Set<string>>(new Set());
-  const [returnRequestOrderIds, setReturnRequestOrderIds] = useState<Set<string>>(new Set());
+  const [returnRequests, setReturnRequests] = useState<ReturnRequest[]>([]);
+  const [expandedReturnOrderId, setExpandedReturnOrderId] = useState<string | null>(null);
+  const [billOrder, setBillOrder] = useState<Order | null>(null);
   const latestOrdersRequestIdRef = useRef(0);
   const latestServiceOrdersRequestIdRef = useRef(0);
 
@@ -302,15 +324,12 @@ const MyOrders: React.FC = () => {
     }
   }, []);
 
-  const fetchReturnRequestOrderIds = useCallback(async () => {
+  const fetchReturnRequests = useCallback(async () => {
     try {
       const response = await api.get("/returns/my");
-      const orderIds = (Array.isArray(response.data.data) ? response.data.data : [])
-        .map((item: any) => item.order?._id)
-        .filter((id: string | undefined): id is string => Boolean(id));
-      setReturnRequestOrderIds(new Set(orderIds));
+      setReturnRequests(Array.isArray(response.data.data) ? response.data.data : []);
     } catch {
-      setReturnRequestOrderIds(new Set());
+      setReturnRequests([]);
     }
   }, []);
 
@@ -327,8 +346,8 @@ const MyOrders: React.FC = () => {
   }, [fetchReviewedProductIds]);
 
   useEffect(() => {
-    fetchReturnRequestOrderIds();
-  }, [fetchReturnRequestOrderIds]);
+    fetchReturnRequests();
+  }, [fetchReturnRequests]);
 
   useEffect(() => {
     const socket = createAuthedSocket();
@@ -339,7 +358,18 @@ const MyOrders: React.FC = () => {
 
       fetchOrders();
       fetchServiceOrders();
-      fetchReturnRequestOrderIds();
+      fetchReturnRequests();
+      toast({
+        title: event.title,
+        description: event.message,
+      });
+    };
+
+    const handleReturnWorkflowEvent = (event: ReturnWorkflowSocketEvent) => {
+      if (event.audience !== "buyer") return;
+
+      fetchReturnRequests();
+      setExpandedReturnOrderId(event.orderId);
       toast({
         title: event.title,
         description: event.message,
@@ -347,12 +377,14 @@ const MyOrders: React.FC = () => {
     };
 
     socket.on("order:workflow", handleWorkflowEvent);
+    socket.on("return:workflow", handleReturnWorkflowEvent);
 
     return () => {
       socket.off("order:workflow", handleWorkflowEvent);
+      socket.off("return:workflow", handleReturnWorkflowEvent);
       socket.disconnect();
     };
-  }, [fetchOrders, fetchReturnRequestOrderIds, fetchServiceOrders, toast]);
+  }, [fetchOrders, fetchReturnRequests, fetchServiceOrders, toast]);
 
   const handleCancel = async (orderId: string) => {
     if (!confirm("Are you sure you want to cancel this order?")) return;
@@ -402,6 +434,13 @@ const MyOrders: React.FC = () => {
 
   const productOrdersEmpty = !productLoading && !productError && orders.length === 0;
   const serviceOrdersEmpty = !serviceLoading && !serviceError && serviceOrders.length === 0;
+  const billSubtotal = billOrder?.items.reduce((sum, item) => sum + item.price * item.qty, 0) ?? 0;
+  const billBalance = billOrder ? Math.max(0, billOrder.totalAmount - billSubtotal) : 0;
+  const returnRequestByOrderId = new Map(
+    returnRequests
+      .filter((item) => item.order?._id)
+      .map((item) => [item.order._id, item])
+  );
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -479,6 +518,11 @@ const MyOrders: React.FC = () => {
                 <div className="space-y-4">
                   {orders.map((order) => {
                     const sc = productStatusConfig[order.status] || productStatusConfig.pending;
+                    const returnRequest = returnRequestByOrderId.get(order._id);
+                    const hasReturnRequest = Boolean(returnRequest);
+                    const canRequestReturn = returnableProductStatuses.has(order.status);
+                    const canViewBill = billableProductStatuses.has(order.status);
+                    const isReturnExpanded = expandedReturnOrderId === order._id;
                     return (
                       <div key={order._id} className={`p-5 rounded-xl border ${sc.bg} transition-all`}>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -507,7 +551,7 @@ const MyOrders: React.FC = () => {
                                 LKR {item.price.toLocaleString()} x {item.qty}
                               </p>
                               {order.status === "delivered" && (
-                                <div className="mt-2">
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
                                   {reviewedProductIds.has(item.product) ? (
                                     <span className="inline-flex items-center gap-1 text-xs text-green-600">
                                       <Star className="h-3.5 w-3.5 fill-green-600 text-green-600" />
@@ -524,6 +568,30 @@ const MyOrders: React.FC = () => {
                                       Rate & Review
                                     </Button>
                                   )}
+                                  {canViewBill && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs"
+                                      onClick={() => setBillOrder(order)}
+                                    >
+                                      <ReceiptText className="h-3.5 w-3.5 mr-1" />
+                                      View Bill
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                              {order.status === "completed" && canViewBill && (
+                                <div className="mt-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs"
+                                    onClick={() => setBillOrder(order)}
+                                  >
+                                    <ReceiptText className="h-3.5 w-3.5 mr-1" />
+                                    View Bill
+                                  </Button>
                                 </div>
                               )}
                             </div>
@@ -545,6 +613,14 @@ const MyOrders: React.FC = () => {
                               </p>
                             )}
                             <p>Payment: {order.paymentMethod}</p>
+                            {returnRequest && (
+                              <p>
+                                Return:{" "}
+                                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${RETURN_STATUS_STYLES[returnRequest.status] || "border-border bg-background text-foreground"}`}>
+                                  {RETURN_STATUS_LABELS[returnRequest.status] || returnRequest.status}
+                                </span>
+                              </p>
+                            )}
                             <p className="flex items-start gap-1 break-words">
                               <ChevronDown className="h-3 w-3 mt-1 shrink-0" />
                               <span className="break-words">{order.shippingAddress}</span>
@@ -589,7 +665,7 @@ const MyOrders: React.FC = () => {
                                 Confirm Receipt
                               </Button>
                             )}
-                            {order.status === "delivered" && !returnRequestOrderIds.has(order._id) && (
+                            {canRequestReturn && !hasReturnRequest && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -600,19 +676,34 @@ const MyOrders: React.FC = () => {
                                 Return
                               </Button>
                             )}
-                            {order.status === "delivered" && returnRequestOrderIds.has(order._id) && (
+                            {canRequestReturn && hasReturnRequest && (
                               <Button
                                 variant="outline"
                                 size="sm"
                                 className="shrink-0"
-                                onClick={() => navigate("/buyer/returns-claims")}
+                                onClick={() => setExpandedReturnOrderId((current) => (current === order._id ? null : order._id))}
                               >
                                 <RotateCcw className="h-3 w-3 mr-1" />
-                                Track Return
+                                View Return Status
                               </Button>
                             )}
                           </div>
                         </div>
+                        {returnRequest && isReturnExpanded && (
+                          <div className="mt-4 border-t border-border/50 pt-4">
+                            <ReturnStatusTimeline item={returnRequest} compact />
+                            <div className="mt-3 flex justify-end">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => navigate("/buyer/returns-claims")}
+                              >
+                                Open Return & Claims
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -763,6 +854,97 @@ const MyOrders: React.FC = () => {
           </Tabs>
         </div>
       </main>
+      <Dialog open={Boolean(billOrder)} onOpenChange={(open) => !open && setBillOrder(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ReceiptText className="h-5 w-5 text-accent" />
+              Product Bill
+            </DialogTitle>
+            <DialogDescription>
+              Bill is available after the product order is delivered or completed.
+            </DialogDescription>
+          </DialogHeader>
+
+          {billOrder && (
+            <div className="space-y-5 rounded-2xl border border-border bg-background p-4">
+              <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-lg font-bold text-foreground">Finding Moto</p>
+                  <p className="text-sm text-muted-foreground">Product purchase bill</p>
+                </div>
+                <div className="text-sm sm:text-right">
+                  <p className="font-semibold text-foreground">Bill #{billOrder._id.slice(-8).toUpperCase()}</p>
+                  <p className="text-muted-foreground">{orderDateFormatter.format(new Date(billOrder.createdAt))}</p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 text-sm sm:grid-cols-2">
+                <div className="rounded-xl border border-border/70 bg-secondary/40 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Seller</p>
+                  <p className="mt-1 font-semibold text-foreground">{getSellerName(billOrder.seller)}</p>
+                </div>
+                <div className="rounded-xl border border-border/70 bg-secondary/40 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Payment</p>
+                  <p className="mt-1 font-semibold text-foreground">{billOrder.paymentMethod}</p>
+                </div>
+                <div className="rounded-xl border border-border/70 bg-secondary/40 p-3 sm:col-span-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Delivery Address</p>
+                  <p className="mt-1 text-foreground">{billOrder.shippingAddress}</p>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-xl border border-border">
+                <div className="grid grid-cols-[1fr_70px_90px] gap-2 bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:grid-cols-[1fr_90px_90px_110px]">
+                  <span>Product</span>
+                  <span className="text-right hidden sm:block">Price</span>
+                  <span className="text-right">Qty</span>
+                  <span className="text-right">Amount</span>
+                </div>
+                {billOrder.items.map((item, index) => (
+                  <div key={`${item.product}-${index}`} className="grid grid-cols-[1fr_70px_90px] gap-2 border-t border-border px-3 py-3 text-sm sm:grid-cols-[1fr_90px_90px_110px]">
+                    <span className="font-medium text-foreground">{item.name}</span>
+                    <span className="text-right text-muted-foreground hidden sm:block">LKR {item.price.toLocaleString()}</span>
+                    <span className="text-right text-muted-foreground">{item.qty}</span>
+                    <span className="text-right font-semibold text-foreground">LKR {(item.price * item.qty).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="ml-auto w-full max-w-xs space-y-2 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span>LKR {billSubtotal.toLocaleString()}</span>
+                </div>
+                {billBalance > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Other charges</span>
+                    <span>LKR {billBalance.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t border-border pt-2 text-lg font-bold text-foreground">
+                  <span>Total</span>
+                  <span>LKR {billOrder.totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
+                This bill is generated for a delivered product order.
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setBillOrder(null)}>
+              Close
+            </Button>
+            <Button onClick={() => window.print()}>
+              <Printer className="mr-2 h-4 w-4" />
+              Print Bill
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Footer />
     </div>
   );

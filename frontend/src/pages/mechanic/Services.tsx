@@ -67,6 +67,7 @@ interface ServiceFormValues {
   name: string;
   actualPrice: string;
   discountPrice: string;
+  duration: string;
   category: string;
   status: ServiceStatus;
   description: string;
@@ -112,6 +113,7 @@ const DEFAULT_SERVICE_FORM_VALUES: ServiceFormValues = {
   name: "",
   actualPrice: "",
   discountPrice: "",
+  duration: "",
   category: CATEGORY_OPTIONS[0],
   status: "ENABLED",
   description: "",
@@ -127,10 +129,27 @@ function getFormValues(service: MechanicService | null): ServiceFormValues {
     name: service?.name ?? "",
     actualPrice: typeof service?.price === "number" ? String(service.price) : "",
     discountPrice: typeof service?.originalPrice === "number" ? String(service.originalPrice) : "",
+    duration: service?.duration ?? "",
     category: service?.category ?? CATEGORY_OPTIONS[0],
     status: service?.productStatus === "DISABLED" ? "DISABLED" : "ENABLED",
     description: service?.description ?? "",
     images: service?.images ?? [],
+  };
+}
+
+function readServiceForm(form: HTMLFormElement, existingImages: string[] = []): ServiceFormValues {
+  const formData = new FormData(form);
+  const status = formData.get("status") === "DISABLED" ? "DISABLED" : "ENABLED";
+
+  return {
+    name: String(formData.get("name") || "").trim(),
+    actualPrice: String(formData.get("actualPrice") || "").trim(),
+    discountPrice: String(formData.get("discountPrice") || "").trim(),
+    duration: String(formData.get("duration") || "").trim(),
+    category: String(formData.get("category") || CATEGORY_OPTIONS[0]),
+    status,
+    description: String(formData.get("description") || "").trim(),
+    images: existingImages,
   };
 }
 
@@ -151,6 +170,9 @@ export default function MechanicServices() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [reloadKey, setReloadKey] = useState(0);
+  const [formImages, setFormImages] = useState<string[]>([]);
+  const [serviceImageUrlInput, setServiceImageUrlInput] = useState("");
+  const [uploadingServiceImages, setUploadingServiceImages] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -201,6 +223,68 @@ export default function MechanicServices() {
     setReloadKey((c) => c + 1);
   };
 
+  const openAddDialog = () => {
+    setSubmitError("");
+    setEditingService(null);
+    setFormImages([]);
+    setServiceImageUrlInput("");
+    setIsAddOpen(true);
+  };
+
+  const openEditDialog = (service: MechanicService) => {
+    setSubmitError("");
+    setEditingService(service);
+    setFormImages(service.images ?? []);
+    setServiceImageUrlInput("");
+    setIsAddOpen(true);
+  };
+
+  const handleAddServiceImageUrl = () => {
+    const url = serviceImageUrlInput.trim();
+    if (!url) return;
+    if (formImages.length >= MAX_SERVICE_IMAGES) {
+      alert(`Maximum ${MAX_SERVICE_IMAGES} photos allowed`);
+      return;
+    }
+
+    setFormImages((current) => [...current, url].slice(0, MAX_SERVICE_IMAGES));
+    setServiceImageUrlInput("");
+  };
+
+  const handleServiceImageUpload = async (files: FileList | null) => {
+    const selectedFiles = Array.from(files || []);
+    if (selectedFiles.length === 0) return;
+
+    const availableSlots = MAX_SERVICE_IMAGES - formImages.length;
+    if (availableSlots <= 0) {
+      alert(`Maximum ${MAX_SERVICE_IMAGES} photos allowed`);
+      return;
+    }
+
+    setUploadingServiceImages(true);
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (const file of selectedFiles.slice(0, availableSlots)) {
+        const formData = new FormData();
+        formData.append("image", file);
+        const { data } = await api.post("/mechanic/services/upload-image", formData);
+        const url = data?.data?.url;
+        if (url) uploadedUrls.push(url);
+      }
+
+      setFormImages((current) => [...current, ...uploadedUrls].slice(0, MAX_SERVICE_IMAGES));
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Service image upload failed.");
+    } finally {
+      setUploadingServiceImages(false);
+    }
+  };
+
+  const handleRemoveServiceImage = (index: number) => {
+    setFormImages((current) => current.filter((_, i) => i !== index));
+  };
+
   const handleToggleVisibility = async (service: MechanicService) => {
     setTogglingServiceId(service._id);
     try {
@@ -232,10 +316,34 @@ export default function MechanicServices() {
     setSubmitting(true);
     setSubmitError("");
     try {
+      const price = Number(values.actualPrice);
+      const originalPrice = values.discountPrice ? Number(values.discountPrice) : undefined;
+
+      if (!values.name) {
+        setSubmitError("Service name is required.");
+        return;
+      }
+      if (!values.duration) {
+        setSubmitError("Service duration is required.");
+        return;
+      }
+      if (!Number.isFinite(price) || price < 0) {
+        setSubmitError("Service price must be 0 or greater.");
+        return;
+      }
+      if (originalPrice !== undefined && (!Number.isFinite(originalPrice) || originalPrice < 0)) {
+        setSubmitError("Original price must be 0 or greater.");
+        return;
+      }
+
       const payload = {
-        ...values,
-        price: Number(values.actualPrice),
-        originalPrice: values.discountPrice ? Number(values.discountPrice) : undefined,
+        name: values.name,
+        description: values.description,
+        duration: values.duration,
+        category: values.category,
+        images: values.images,
+        price,
+        originalPrice,
         active: values.status === "ENABLED",
         productStatus: values.status,
       };
@@ -271,7 +379,7 @@ export default function MechanicServices() {
               <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
               <span>Refresh</span>
            </Button>
-           <Button onClick={() => { setEditingService(null); setIsAddOpen(true); }} className="h-11 rounded-xl gap-2 font-black text-[10px] uppercase tracking-widest bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20">
+           <Button onClick={openAddDialog} className="h-11 rounded-xl gap-2 font-black text-[10px] uppercase tracking-widest bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20">
               <Plus size={16} />
               <span>New Service</span>
            </Button>
@@ -369,7 +477,7 @@ export default function MechanicServices() {
                            </td>
                            <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-1.5">
-                                 <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-all" onClick={() => { setEditingService(service); setIsAddOpen(true); }} title="Edit Service">
+                                 <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-all" onClick={() => openEditDialog(service)} title="Edit Service">
                                     <Edit2 size={16} />
                                  </Button>
                                  <Button variant="ghost" size="icon" className={cn("h-9 w-9 transition-all", service.productStatus === "DISABLED" ? "text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50" : "text-muted-foreground hover:text-red-600 hover:bg-red-50")} onClick={() => handleToggleVisibility(service)} disabled={togglingServiceId === service._id} title={service.productStatus === "DISABLED" ? "Enable" : "Disable"}>
@@ -400,7 +508,7 @@ export default function MechanicServices() {
       )}
 
       {/* Form Dialog */}
-      <Dialog open={isAddOpen} onOpenChange={(v) => { if(!v) { setIsAddOpen(false); setEditingService(null); } }}>
+      <Dialog open={isAddOpen} onOpenChange={(v) => { if(!v) { setIsAddOpen(false); setEditingService(null); setFormImages([]); setServiceImageUrlInput(""); setSubmitError(""); } }}>
          <DialogContent className="sm:max-w-3xl p-0 overflow-hidden border-none shadow-2xl">
             <ScrollArea className="max-h-[90vh]">
                <div className="bg-blue-600 p-8 text-white relative overflow-hidden">
@@ -413,7 +521,13 @@ export default function MechanicServices() {
                   </div>
                </div>
                
-               <form onSubmit={(e) => { e.preventDefault(); handleFormSubmit(getFormValues(editingService)); }} className="p-8 space-y-8 bg-background">
+               <form
+                  onSubmit={(e) => {
+                     e.preventDefault();
+                     handleFormSubmit(readServiceForm(e.currentTarget, formImages));
+                  }}
+                  className="p-8 space-y-8 bg-background"
+               >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                      <div className="space-y-6">
                         <div className="space-y-4">
@@ -425,6 +539,10 @@ export default function MechanicServices() {
                               <div className="space-y-2">
                                  <Label className="text-[10px] font-black uppercase tracking-widest">Service Name *</Label>
                                  <Input defaultValue={editingService?.name} name="name" required className="bg-muted/10 h-11 rounded-xl" placeholder="Full service, Brake repair, etc." />
+                              </div>
+                              <div className="space-y-2">
+                                 <Label className="text-[10px] font-black uppercase tracking-widest">Duration *</Label>
+                                 <Input defaultValue={editingService?.duration} name="duration" required className="bg-muted/10 h-11 rounded-xl" placeholder="2 hours, 1 day, etc." />
                               </div>
                               <div className="space-y-2">
                                  <Label className="text-[10px] font-black uppercase tracking-widest">Category</Label>
@@ -443,16 +561,25 @@ export default function MechanicServices() {
                            <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-2">
                                  <Label className="text-[10px] font-black uppercase tracking-widest">Price (LKR) *</Label>
-                                 <Input type="number" name="actualPrice" defaultValue={editingService?.price} required className="bg-muted/10 h-11 rounded-xl" placeholder="0.00" />
+                                 <Input type="number" min="0" name="actualPrice" defaultValue={editingService?.price} required className="bg-muted/10 h-11 rounded-xl" placeholder="0.00" />
                               </div>
                               <div className="space-y-2">
-                                 <Label className="text-[10px] font-black uppercase tracking-widest">Status</Label>
-                                 <select name="status" defaultValue={editingService?.productStatus || "ENABLED"} className="w-full h-11 px-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
-                                    <option value="ENABLED">Active Listing</option>
-                                    <option value="DISABLED">Draft / Hidden</option>
-                                 </select>
+                                 <Label className="text-[10px] font-black uppercase tracking-widest">Original Price</Label>
+                                 <Input type="number" min="0" name="discountPrice" defaultValue={editingService?.originalPrice} className="bg-muted/10 h-11 rounded-xl" placeholder="Optional" />
                               </div>
                            </div>
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase tracking-widest">Status</Label>
+                              <select name="status" defaultValue={editingService?.productStatus || "ENABLED"} className="w-full h-11 px-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
+                                 <option value="ENABLED">Active Listing</option>
+                                 <option value="DISABLED">Draft / Hidden</option>
+                              </select>
+                           </div>
+                           {submitError && (
+                              <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                                 {submitError}
+                              </p>
+                           )}
                         </div>
                      </div>
                      
@@ -461,11 +588,73 @@ export default function MechanicServices() {
                            <div className="flex items-center gap-2 mb-2">
                               <ImageIcon size={16} className="text-blue-600" />
                               <h3 className="text-xs font-black uppercase tracking-widest text-foreground">Visual Presence</h3>
+                              <Badge variant="outline" className="ml-auto text-[9px] border-blue-200 text-blue-600 font-black">
+                                 {formImages.length}/{MAX_SERVICE_IMAGES}
+                              </Badge>
                            </div>
-                           <div className="p-6 rounded-2xl border-2 border-dashed border-border/60 bg-muted/5 flex flex-col items-center justify-center text-center">
-                              <ImageIcon size={32} className="text-muted-foreground/30 mb-2" />
-                              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">URL Sync Enabled</p>
-                              <p className="text-[9px] text-muted-foreground/60 mt-1">Images are synced from primary media links</p>
+                           <div className="space-y-3">
+                              <div className="flex flex-col gap-2 sm:flex-row">
+                                 <div className="relative flex-1">
+                                    <ImageIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+                                    <Input
+                                       value={serviceImageUrlInput}
+                                       onChange={(event) => setServiceImageUrlInput(event.target.value)}
+                                       onKeyDown={(event) => event.key === "Enter" && (event.preventDefault(), handleAddServiceImageUrl())}
+                                       className="bg-muted/10 h-11 rounded-xl pl-10"
+                                       placeholder="Paste service image URL..."
+                                    />
+                                 </div>
+                                 <Button type="button" variant="outline" onClick={handleAddServiceImageUrl} className="h-11 rounded-xl font-black text-[10px] uppercase tracking-widest border-blue-200 text-blue-600">
+                                    <Plus className="h-4 w-4 mr-2" /> Add URL
+                                 </Button>
+                              </div>
+
+                              <label className={cn(
+                                 "flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/60 bg-muted/5 p-5 text-center transition-colors hover:border-blue-400 hover:bg-blue-50/40",
+                                 uploadingServiceImages && "pointer-events-none opacity-60"
+                              )}>
+                                 {uploadingServiceImages ? (
+                                    <RefreshCw size={28} className="text-blue-600 mb-2 animate-spin" />
+                                 ) : (
+                                    <Upload size={30} className="text-muted-foreground/40 mb-2" />
+                                 )}
+                                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                    {uploadingServiceImages ? "Uploading images..." : "Upload from device"}
+                                 </p>
+                                 <p className="text-[9px] text-muted-foreground/60 mt-1">PNG, JPG, WEBP up to 5MB each</p>
+                                 <input
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    className="sr-only"
+                                    onChange={(event) => {
+                                       handleServiceImageUpload(event.target.files);
+                                       event.target.value = "";
+                                    }}
+                                 />
+                              </label>
+
+                              {formImages.length > 0 ? (
+                                 <div className="grid grid-cols-5 gap-2">
+                                    {formImages.map((url, index) => (
+                                       <div key={`${url}-${index}`} className="group relative aspect-square overflow-hidden rounded-xl border border-border/50 bg-muted/20">
+                                          <img src={resolveMediaUrl(url)} alt={`Service preview ${index + 1}`} className="h-full w-full object-cover" />
+                                          <button
+                                             type="button"
+                                             onClick={() => handleRemoveServiceImage(index)}
+                                             className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                             aria-label="Remove service image"
+                                          >
+                                             <Trash2 className="h-4 w-4" />
+                                          </button>
+                                       </div>
+                                    ))}
+                                 </div>
+                              ) : (
+                                 <div className="rounded-2xl border border-dashed border-border/50 bg-muted/5 p-4 text-center">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">No service images added yet</p>
+                                 </div>
+                              )}
                            </div>
                         </div>
                         

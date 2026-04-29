@@ -68,7 +68,7 @@ const Navbar = () => {
         <Link to="/" className="flex items-center gap-2">
           <Zap className="h-7 w-7 text-primary" />
           <span className="font-heading font-bold text-xl tracking-tight">
-            Moto<span className="text-primary">Mind</span> AI
+            Finding<span className="text-primary">Moto</span>
           </span>
         </Link>
 

@@ -19,6 +19,11 @@ import {
   adminListReports,
   adminUpdateReportStatus,
 } from '../controllers/reportController';
+import { sendInfoToUsers } from '../controllers/adminInfoController';
+import {
+  listVisitorMessages,
+  markVisitorMessageRead,
+} from '../controllers/visitorMessageController';
 
 const router = express.Router();
 
@@ -47,5 +52,12 @@ router.get('/reports', adminListReports);
 router.get('/reports/:reportId', adminGetReport);
 router.put('/reports/:reportId/status', adminUpdateReportStatus);
 router.put('/reports/:reportId/block', adminBlockReportedAccount);
+
+// Admin information broadcasts
+router.post('/info-to-users', sendInfoToUsers);
+
+// Visitor messages
+router.get('/visitor-messages', listVisitorMessages);
+router.put('/visitor-messages/:messageId/read', markVisitorMessageRead);
 
 export default router;

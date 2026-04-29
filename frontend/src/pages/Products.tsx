@@ -156,8 +156,8 @@ const Products = () => {
 
         <div className="flex flex-col lg:flex-row gap-10">
           {/* Desktop Sidebar Filters */}
-          <aside className="hidden lg:block w-72 shrink-0 space-y-8 sticky top-32 h-fit">
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+          <aside className="hidden lg:block w-72 shrink-0 sticky top-24 h-fit">
+            <div className="max-h-[calc(100vh-7rem)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-6 text-slate-900 font-black uppercase tracking-widest text-xs">
                 <Filter size={14} className="text-blue-600" />
                 <span>Filters</span>
@@ -403,7 +403,7 @@ const Products = () => {
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
-              className="fixed inset-y-0 right-0 w-full max-w-xs bg-white z-[101] shadow-2xl p-6"
+              className="fixed inset-y-0 right-0 z-[101] w-full max-w-xs overflow-y-auto bg-white p-6 shadow-2xl"
             >
               <div className="flex items-center justify-between mb-8">
                 <h3 className="text-xl font-black text-slate-900">Filters</h3>

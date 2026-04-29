@@ -11,10 +11,11 @@ import {
 } from "@/components/ui/dialog";
 import api from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
-import { createAuthedSocket, type OrderWorkflowSocketEvent } from "@/lib/socket";
+import { createAuthedSocket, type OrderWorkflowSocketEvent, type ReturnWorkflowSocketEvent } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 import { formatLkr } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
+import { RETURN_STATUS_LABELS, RETURN_STATUS_STYLES, type ReturnRequest } from "@/lib/returns";
 
 type DeliveryStatus = "ASSIGNED" | "PICKED_UP" | "IN_TRANSIT" | "DELIVERED" | "FAILED";
 
@@ -89,6 +90,12 @@ const inTransitActions: Array<{ status: DeliveryStatus; label: string; color: st
   { status: "FAILED", label: "Mark Failed", color: "red" },
 ];
 
+const returnActionConfig: Record<string, { label: string; nextStatus: string } | null> = {
+  RETURN_PICKUP_ASSIGNED: { label: "Mark Picked Up", nextStatus: "RETURN_PICKED_UP" },
+  RETURN_PICKED_UP: { label: "Mark Returned", nextStatus: "RETURN_DELIVERED" },
+  RETURN_IN_TRANSIT: { label: "Mark Returned", nextStatus: "RETURN_DELIVERED" },
+};
+
 export default function DeliveryAssignedPage() {
   const { toast } = useToast();
   const [deliveries, setDeliveries] = useState<DeliveryRecord[]>([]);
@@ -96,6 +103,8 @@ export default function DeliveryAssignedPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryRecord | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [returnPickups, setReturnPickups] = useState<ReturnRequest[]>([]);
+  const [returnUpdatingId, setReturnUpdatingId] = useState<string | null>(null);
 
   const fetchDeliveries = useCallback(async () => {
     setLoading(true);
@@ -120,9 +129,20 @@ export default function DeliveryAssignedPage() {
     }
   }, []);
 
+  const fetchReturnPickups = useCallback(async () => {
+    try {
+      const res = await api.get("/returns/agent/pickups");
+      setReturnPickups(Array.isArray(res.data?.data) ? res.data.data : []);
+    } catch (err) {
+      console.error("Failed to load return pickups:", err);
+      setReturnPickups([]);
+    }
+  }, []);
+
   useEffect(() => {
     fetchDeliveries();
-  }, [fetchDeliveries]);
+    fetchReturnPickups();
+  }, [fetchDeliveries, fetchReturnPickups]);
 
   useEffect(() => {
     const socket = createAuthedSocket();
@@ -137,10 +157,19 @@ export default function DeliveryAssignedPage() {
       });
     });
 
+    socket.on("return:workflow", (event: ReturnWorkflowSocketEvent) => {
+      if (event.audience !== "delivery_agent") return;
+      fetchReturnPickups();
+      toast({
+        title: event.title,
+        description: event.message,
+      });
+    });
+
     return () => {
       socket.disconnect();
     };
-  }, [fetchDeliveries, toast]);
+  }, [fetchDeliveries, fetchReturnPickups, toast]);
 
   const handleStatusUpdate = useCallback(async (deliveryId: string, nextStatus: DeliveryStatus) => {
     setUpdatingId(deliveryId);
@@ -167,6 +196,11 @@ export default function DeliveryAssignedPage() {
     [deliveries]
   );
 
+  const activeReturnPickups = useMemo(
+    () => returnPickups.filter((item) => item.status !== "RETURN_DELIVERED"),
+    [returnPickups]
+  );
+
   const getBuyerName = (delivery: DeliveryRecord) => {
     const buyer = delivery.order?.buyer;
     if (!buyer) return "Customer";
@@ -182,6 +216,45 @@ export default function DeliveryAssignedPage() {
     return items.map((item) => `${item.name} x${item.qty}`).join(", ");
   };
 
+  const getReturnBuyerName = (item: ReturnRequest) => {
+    const buyer = item.buyer;
+    if (!buyer) return "Customer";
+    return `${buyer.firstName || ""} ${buyer.lastName || ""}`.trim() || buyer.email || "Customer";
+  };
+
+  const getReturnItemsSummary = (item: ReturnRequest) => {
+    const items = item.order?.items || [];
+    if (!items.length) return "Return package";
+    return items.map((orderItem) => `${orderItem.name} x${orderItem.qty}`).join(", ");
+  };
+
+  const getReturnAddress = (item: ReturnRequest) =>
+    `${item.pickupAddress.fullAddress}, ${item.pickupAddress.city}, ${item.pickupAddress.district} ${item.pickupAddress.postalCode}`;
+
+  const handleReturnStatusUpdate = useCallback(async (returnRequestId: string, nextStatus: string) => {
+    setReturnUpdatingId(returnRequestId);
+    setError(null);
+    try {
+      await api.patch(`/returns/${returnRequestId}/agent-status`, { status: nextStatus });
+      setReturnPickups((current) =>
+        current
+          .map((item) => (item._id === returnRequestId ? { ...item, status: nextStatus } : item))
+          .filter((item) => item.status !== "RETURN_DELIVERED")
+      );
+      toast({
+        title: "Return status updated",
+        description:
+          nextStatus === "RETURN_PICKED_UP"
+            ? "Return package marked as picked up."
+            : "Return package marked as returned to seller.",
+      });
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to update return pickup status");
+    } finally {
+      setReturnUpdatingId(null);
+    }
+  }, [toast]);
+
   return (
     <div className="space-y-8 pb-12 animate-in fade-in duration-700">
       {/* Header Section */}
@@ -194,12 +267,15 @@ export default function DeliveryAssignedPage() {
             Active Mission Queue
           </h1>
           <p className="text-sm text-muted-foreground mt-2 font-medium italic">
-            You have <span className="text-blue-600 font-bold underline decoration-blue-600/30 underline-offset-4">{assignedDeliveries.length} active assignments</span> requiring your attention.
+            You have <span className="text-blue-600 font-bold underline decoration-blue-600/30 underline-offset-4">{assignedDeliveries.length + activeReturnPickups.length} active assignments</span> requiring your attention.
           </p>
         </div>
 
         <Button
-          onClick={() => fetchDeliveries()}
+          onClick={() => {
+            fetchDeliveries();
+            fetchReturnPickups();
+          }}
           disabled={loading}
           variant="outline"
           className="h-11 rounded-xl gap-2 font-bold text-[10px] uppercase tracking-widest border-border/60 hover:bg-blue-50 hover:text-blue-600 transition-all active:scale-95 shadow-sm"
@@ -329,9 +405,93 @@ export default function DeliveryAssignedPage() {
         </Card>
       )}
 
+      <Card className="glass-card border border-border/40 overflow-hidden shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <CardTitle className="text-base">Return Pickup Queue</CardTitle>
+          <Badge variant="outline" className="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest">
+            {activeReturnPickups.length} Active
+          </Badge>
+        </CardHeader>
+        <CardContent className="p-0">
+          {activeReturnPickups.length === 0 ? (
+            <div className="px-6 py-14 text-center bg-muted/5">
+              <div className="h-14 w-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4 opacity-50">
+                <Truck size={28} />
+              </div>
+              <p className="font-black text-sm text-foreground uppercase tracking-widest">No Return Pickups</p>
+              <p className="mt-2 text-xs text-muted-foreground font-medium">Assigned return pickups will appear here.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/20 bg-muted/10 text-left">
+                    <th className="px-6 py-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Return</th>
+                    <th className="px-6 py-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Pickup Address</th>
+                    <th className="px-6 py-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Reason</th>
+                    <th className="px-6 py-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/20">
+                  {activeReturnPickups.map((item) => {
+                    const action = returnActionConfig[item.status];
+                    return (
+                      <tr key={item._id} className="hover:bg-muted/20 transition-colors align-top">
+                        <td className="px-6 py-5">
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-[10px] font-black text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-lg border border-cyan-100 uppercase tracking-tighter">#{item._id.slice(-6).toUpperCase()}</span>
+                              <span className="text-xs font-black text-slate-900">{getReturnBuyerName(item)}</span>
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-tight text-slate-400">{getReturnItemsSummary(item)}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="max-w-[280px] flex items-start gap-2 text-slate-400">
+                            <MapPin size={12} className="shrink-0 mt-0.5" />
+                            <span className="text-[10px] font-bold italic line-clamp-2">{getReturnAddress(item)}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5">
+                          <span className="text-xs font-bold text-slate-700">{item.reason}</span>
+                        </td>
+                        <td className="px-6 py-5">
+                          <Badge className={cn("text-[9px] font-black uppercase tracking-[0.1em] border shadow-sm", RETURN_STATUS_STYLES[item.status] || "border-border bg-muted text-foreground")}>
+                            {RETURN_STATUS_LABELS[item.status] || item.status}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-5 text-right">
+                          {action ? (
+                            <Button
+                              size="sm"
+                              disabled={returnUpdatingId === item._id}
+                              onClick={() => handleReturnStatusUpdate(item._id, action.nextStatus)}
+                              className="h-8 px-4 rounded-lg bg-slate-900 hover:bg-cyan-700 text-white font-black uppercase tracking-widest text-[9px] shadow-lg shadow-slate-900/10"
+                            >
+                              {returnUpdatingId === item._id ? "Updating..." : action.label}
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Waiting for seller</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Details Modal */}
       <Dialog open={Boolean(selectedDelivery)} onOpenChange={(open) => !open && setSelectedDelivery(null)}>
         <DialogContent className="sm:max-w-xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Assigned delivery details</DialogTitle>
+            <DialogDescription>Review the selected delivery assignment details.</DialogDescription>
+          </DialogHeader>
           {selectedDelivery && (
              <div className="flex flex-col">
                 <div className="bg-slate-900 p-8 text-white">
@@ -349,10 +509,10 @@ export default function DeliveryAssignedPage() {
                    <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-1.5">
                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer Entity</p>
-                         <p className="text-sm font-black text-slate-900 flex items-center gap-2">
+                         <div className="text-sm font-black text-slate-900 flex items-center gap-2">
                             <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px]">{getBuyerName(selectedDelivery).charAt(0)}</div>
                             {getBuyerName(selectedDelivery)}
-                         </p>
+                         </div>
                       </div>
                       <div className="space-y-1.5">
                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact Phone</p>

@@ -6,7 +6,6 @@ import {
   Package,
   Star,
   RotateCcw,
-  Settings,
   ShoppingCart,
   Store,
 } from "lucide-react";
@@ -21,7 +20,6 @@ const navItems = [
   { title: "Notification", icon: Bell, path: "/seller/notification" },
   { title: "Buyer message center", icon: MessageSquare, path: "/seller/buyer-message-center" },
   { title: "Support / Help Center", icon: LifeBuoy, path: "/seller/support-help-center" },
-  { title: "Settings", icon: Settings, path: "/seller/settings" },
 ];
 
 interface SellerLayoutProps {

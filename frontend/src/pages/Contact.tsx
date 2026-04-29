@@ -4,11 +4,23 @@ import { Mail, Phone, MapPin, Send } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { toast } from "@/hooks/use-toast";
+import api from "@/services/api";
 
 const Contact = () => {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "+94", message: "" });
+  const [sending, setSending] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleNameChange = (value: string) => {
+    setForm((prev) => ({ ...prev, name: value.replace(/[^A-Za-z\s.'-]/g, "") }));
+  };
+
+  const handlePhoneChange = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    const withoutCountry = digits.startsWith("94") ? digits.slice(2) : digits;
+    setForm((prev) => ({ ...prev, phone: `+94${withoutCountry.slice(0, 9)}` }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
@@ -20,8 +32,41 @@ const Contact = () => {
       return;
     }
 
-    toast({ title: "Message sent", description: "We'll get back to you soon." });
-    setForm({ name: "", email: "", phone: "", message: "" });
+    if (!/^[A-Za-z\s.'-]+$/.test(form.name.trim())) {
+      toast({
+        title: "Invalid name",
+        description: "Name can contain only letters and spaces.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (form.phone !== "+94" && !/^\+94\d{9}$/.test(form.phone)) {
+      toast({
+        title: "Invalid phone number",
+        description: "Phone number must start with +94 and contain 9 digits after it.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSending(true);
+    try {
+      await api.post("/public/contact", {
+        ...form,
+        phone: form.phone === "+94" ? "" : form.phone,
+      });
+      toast({ title: "Message sent", description: "Your message has been sent to admin." });
+      setForm({ name: "", email: "", phone: "+94", message: "" });
+    } catch (error: any) {
+      toast({
+        title: "Message not sent",
+        description: error?.response?.data?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -46,7 +91,7 @@ const Contact = () => {
               {[
                 { key: "name", label: "Name *", type: "text", placeholder: "Your name" },
                 { key: "email", label: "Email *", type: "email", placeholder: "your@email.com" },
-                { key: "phone", label: "Phone", type: "tel", placeholder: "+91 9876543210" },
+                { key: "phone", label: "Phone", type: "tel", placeholder: "+94 771234567" },
               ].map((field) => (
                 <div key={field.key}>
                   <label className="block text-sm font-medium mb-2">{field.label}</label>
@@ -54,9 +99,14 @@ const Contact = () => {
                     type={field.type}
                     placeholder={field.placeholder}
                     value={form[field.key as keyof typeof form]}
-                    onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                    onChange={(e) => {
+                      if (field.key === "name") handleNameChange(e.target.value);
+                      else if (field.key === "phone") handlePhoneChange(e.target.value);
+                      else setForm({ ...form, [field.key]: e.target.value });
+                    }}
                     className="w-full px-4 py-3 rounded-lg bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
                     maxLength={field.key === "name" ? 100 : field.key === "email" ? 255 : 20}
+                    inputMode={field.key === "phone" ? "tel" : undefined}
                   />
                 </div>
               ))}
@@ -73,9 +123,10 @@ const Contact = () => {
               </div>
               <button
                 type="submit"
+                disabled={sending}
                 className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-opacity neon-glow-orange"
               >
-                <Send className="h-4 w-4" /> Send Message
+                <Send className="h-4 w-4" /> {sending ? "Sending..." : "Send Message"}
               </button>
             </motion.form>
 
@@ -87,8 +138,8 @@ const Contact = () => {
               <div className="space-y-4">
                 {[
                   { icon: Mail, label: "support@motomindai.com" },
-                  { icon: Phone, label: "+91 98765 43210" },
-                  { icon: MapPin, label: "Chennai, Tamil Nadu, India" },
+                  { icon: Phone, label: "+94 77 123 4567" },
+                  { icon: MapPin, label: "Nallur North, Jaffna" },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center gap-4 p-4 rounded-xl bg-card border border-border">
                     <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
@@ -97,19 +148,6 @@ const Contact = () => {
                     <span className="text-sm">{item.label}</span>
                   </div>
                 ))}
-              </div>
-
-              <div className="rounded-2xl overflow-hidden border border-border h-64">
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d248849.84916296526!2d80.06892!3d13.0827!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a5265ea4f7d3361%3A0x6e61a70b6863d433!2sChennai%2C%20Tamil%20Nadu!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="MotoMind AI Location"
-                />
               </div>
             </motion.div>
           </div>

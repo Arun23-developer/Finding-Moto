@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -26,9 +26,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import api from "@/services/api";
 import { formatLkr } from "@/lib/currency";
-import { resolveProductImage } from "@/lib/imageUrl";
+import { resolveMediaUrl, resolveProductImage } from "@/lib/imageUrl";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -56,9 +57,22 @@ type PublicProductDetail = {
     shopName?: string;
     workshopName?: string;
   };
+  reviews?: ProductReview[];
 };
 
 type PublicProductDetailResponse = { success: boolean; data: PublicProductDetail };
+
+type ProductReview = {
+  _id: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  buyer?: {
+    firstName?: string;
+    lastName?: string;
+    avatar?: string | null;
+  };
+};
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -70,6 +84,9 @@ const ProductDetail = () => {
   const [error, setError] = useState<string>("");
   const [cartBusy, setCartBusy] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -99,13 +116,35 @@ const ProductDetail = () => {
     };
   }, [id]);
 
-  const imgUrl = useMemo(() => {
-    if (!product) return "";
-    return resolveProductImage(product, undefined);
+  const galleryImages = useMemo(() => {
+    if (!product) return [];
+
+    const rawImages = [
+      ...(Array.isArray(product.images) ? product.images : []),
+      product.image || "",
+    ].filter((image): image is string => Boolean(image?.trim()));
+
+    const uniqueImages = Array.from(new Set(rawImages));
+    return uniqueImages.length > 0
+      ? uniqueImages.map((image) => resolveMediaUrl(image))
+      : [resolveProductImage(product, undefined)];
   }, [product]);
 
-  const rating = typeof product?.rating === "number" ? product.rating : 4.8;
-  const reviewCount = typeof product?.reviewCount === "number" ? product.reviewCount : 12;
+  const imgUrl = galleryImages[selectedImage] || galleryImages[0] || "";
+
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [product?._id]);
+
+  useEffect(() => {
+    if (selectedImage >= galleryImages.length) {
+      setSelectedImage(0);
+    }
+  }, [galleryImages.length, selectedImage]);
+
+  const rating = typeof product?.rating === "number" ? product.rating : 0;
+  const reviewCount = typeof product?.reviewCount === "number" ? product.reviewCount : 0;
+  const reviews = Array.isArray(product?.reviews) ? product.reviews : [];
   const categoryLabel = product?.category?.split('/')[0] || "Parts";
   const inStock = product?.inStock !== false && (product?.stock ?? 0) > 0;
 
@@ -165,6 +204,64 @@ const ProductDetail = () => {
       });
     } finally {
       setCartBusy(false);
+    }
+  };
+
+  const refreshProduct = async () => {
+    if (!id) return;
+    const { data } = await api.get<PublicProductDetailResponse>(`/public/products/${id}`);
+    setProduct(data?.data ?? null);
+  };
+
+  const handleSubmitReview = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!product?._id) return;
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Sign in required",
+        description: "Please sign in as a buyer to review this product.",
+      });
+      navigate("/login");
+      return;
+    }
+    if (user.role !== "buyer") {
+      toast({
+        variant: "destructive",
+        title: "Buyer account required",
+        description: "Only buyer accounts can submit reviews.",
+      });
+      return;
+    }
+    if (!reviewComment.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Review comment required",
+        description: "Please write a short comment with your rating.",
+      });
+      return;
+    }
+
+    try {
+      setReviewBusy(true);
+      await api.post(`/reviews/${product._id}`, {
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      });
+      setReviewComment("");
+      await refreshProduct();
+      toast({
+        title: "Review submitted",
+        description: "Thanks for sharing your feedback.",
+      });
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Unable to submit review",
+        description: e?.response?.data?.message || "You can review only delivered purchases.",
+      });
+    } finally {
+      setReviewBusy(false);
     }
   };
 
@@ -259,18 +356,18 @@ const ProductDetail = () => {
               )}
             </motion.div>
 
-            {/* Thumbnail Navigation (Placeholder for now) */}
+            {/* Thumbnail Navigation */}
             <div className="flex gap-4 overflow-x-auto no-scrollbar py-2">
-              {[1, 2, 3, 4].map((_, i) => (
+              {galleryImages.map((imageUrl, i) => (
                 <button 
-                  key={i}
+                  key={`${imageUrl}-${i}`}
                   onClick={() => setSelectedImage(i)}
                   className={cn(
                     "relative shrink-0 w-24 aspect-square rounded-2xl overflow-hidden border-2 transition-all",
                     selectedImage === i ? "border-blue-600 shadow-lg shadow-blue-500/20" : "border-transparent opacity-60 hover:opacity-100"
                   )}
                 >
-                  <img src={imgUrl} className="w-full h-full object-cover" alt={`Thumb ${i}`} />
+                  <img src={imageUrl} className="w-full h-full object-cover" alt={`${product.name} thumbnail ${i + 1}`} />
                 </button>
               ))}
             </div>
@@ -435,19 +532,86 @@ const ProductDetail = () => {
 
               <TabsContent value="reviews" className="mt-0">
                 <div className="space-y-6">
-                  {reviewCount > 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-slate-200">
-                      <div className="flex items-center gap-2 mb-4">
-                        <Star size={24} className="text-amber-400 fill-current" />
-                        <span className="text-4xl font-black text-slate-900">{rating}</span>
+                  <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verified Feedback</p>
+                        <div className="mt-3 flex items-center gap-3">
+                          <Star size={26} className="text-amber-400 fill-current" />
+                          <span className="text-4xl font-black text-slate-900">{rating.toFixed(1)}</span>
+                          <span className="text-sm font-bold text-slate-500">({reviewCount} reviews)</span>
+                        </div>
+                        <p className="mt-3 max-w-md text-sm font-medium text-slate-500">
+                          Buyers can submit a review after their product order is delivered.
+                        </p>
                       </div>
-                      <p className="text-slate-500 font-bold text-sm mb-6">Based on {reviewCount} verified purchases</p>
-                      <Button variant="outline" className="rounded-xl border-slate-200">Read All Feedback</Button>
+
+                      <form className="w-full max-w-md space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4" onSubmit={handleSubmitReview}>
+                        <div>
+                          <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Your Rating</p>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setReviewRating(star)}
+                                className="rounded-lg p-1 transition-colors hover:bg-white"
+                                aria-label={`Rate ${star} star${star === 1 ? "" : "s"}`}
+                              >
+                                <Star
+                                  size={24}
+                                  className={star <= reviewRating ? "fill-amber-400 text-amber-400" : "text-slate-300"}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <Textarea
+                          value={reviewComment}
+                          onChange={(event) => setReviewComment(event.target.value)}
+                          placeholder="Write your review after receiving this product..."
+                          className="min-h-[110px] resize-none rounded-2xl bg-white"
+                        />
+                        <Button type="submit" className="w-full rounded-xl bg-blue-600 font-black uppercase tracking-widest hover:bg-blue-700" disabled={reviewBusy}>
+                          {reviewBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Star className="mr-2 h-4 w-4" />}
+                          Submit Review
+                        </Button>
+                      </form>
                     </div>
-                  ) : (
+                  </div>
+
+                  {reviews.length === 0 ? (
                     <div className="text-center py-20 bg-white rounded-[2rem] border border-slate-200">
                       <MessageCircle size={40} className="mx-auto text-slate-200 mb-4" />
                       <p className="text-slate-500 font-bold italic">No reviews yet for this part.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {reviews.map((review) => {
+                        const customerName = `${review.buyer?.firstName || ""} ${review.buyer?.lastName || ""}`.trim() || "Verified Buyer";
+                        return (
+                          <div key={review._id} className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <p className="font-black text-slate-900">{customerName}</p>
+                                <p className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-400">
+                                  {new Date(review.createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    size={16}
+                                    className={star <= Math.round(review.rating) ? "fill-amber-400 text-amber-400" : "text-slate-200"}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                            <p className="mt-4 text-sm font-medium leading-6 text-slate-600">{review.comment}</p>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

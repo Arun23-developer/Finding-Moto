@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Eye, Loader2, RefreshCw, RotateCcw, XCircle, Truck } from "lucide-react";
+import { Eye, Loader2, RefreshCw, RotateCcw, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,9 +12,9 @@ import {
   NEXT_RETURN_STATUS,
   RETURN_STATUS_LABELS,
   RETURN_STATUS_STYLES,
-  RETURN_TIMELINE,
   type ReturnRequest,
 } from "@/lib/returns";
+import { ReturnStatusTimeline } from "./ReturnStatusTimeline";
 
 interface ReturnsClaimsManagerProps {
   role: "seller" | "mechanic";
@@ -38,6 +38,30 @@ function getBuyerName(buyer?: ReturnRequest["buyer"]) {
   return `${buyer.firstName || ""} ${buyer.lastName || ""}`.trim() || buyer.email || "Buyer";
 }
 
+const returnFilters = [
+  { id: "all", label: "All" },
+  { id: "RETURN_REQUESTED", label: "Requested" },
+  { id: "RETURN_APPROVED", label: "Approved" },
+  { id: "RETURN_PICKUP_ASSIGNED", label: "Pickup Assigned" },
+  { id: "RETURN_PICKED_UP", label: "Picked Up" },
+  { id: "RETURN_DELIVERED", label: "Returned" },
+  { id: "REFUND_INITIATED", label: "Refund Processing" },
+  { id: "REFUND_COMPLETED", label: "Refunded" },
+  { id: "RETURN_REJECTED", label: "Rejected" },
+];
+
+function getNextStepText(status: string) {
+  if (status === "RETURN_REQUESTED") return "Review request";
+  if (status === "RETURN_APPROVED") return "Assign delivery agent";
+  if (status === "RETURN_PICKUP_ASSIGNED") return "Waiting for pickup";
+  if (status === "RETURN_PICKED_UP") return "Waiting for return delivery";
+  if (status === "RETURN_DELIVERED") return "Start refund";
+  if (status === "REFUND_INITIATED") return "Complete refund";
+  if (status === "REFUND_COMPLETED") return "Closed";
+  if (status === "RETURN_REJECTED") return "Closed";
+  return "Track return";
+}
+
 export function ReturnsClaimsManager({ role, title, description }: ReturnsClaimsManagerProps) {
   const { toast } = useToast();
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
@@ -49,6 +73,7 @@ export function ReturnsClaimsManager({ role, title, description }: ReturnsClaims
   const [availableAgents, setAvailableAgents] = useState<DeliveryAgent[]>([]);
   const [loadingAgents, setLoadingAgents] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const fetchReturns = useCallback(async () => {
     setLoading(true);
@@ -100,21 +125,41 @@ export function ReturnsClaimsManager({ role, title, description }: ReturnsClaims
 
   const summary = useMemo(() => ({
     requested: returns.filter((item) => item.status === "RETURN_REQUESTED").length,
-    active: returns.filter((item) => item.status !== "RETURN_REJECTED" && item.status !== "REFUND_COMPLETED").length,
+    active: returns.filter((item) => !["RETURN_REJECTED", "REFUND_COMPLETED"].includes(item.status)).length,
+    awaitingRefund: returns.filter((item) => ["RETURN_DELIVERED", "REFUND_INITIATED"].includes(item.status)).length,
     rejected: returns.filter((item) => item.status === "RETURN_REJECTED").length,
     refunded: returns.filter((item) => item.status === "REFUND_COMPLETED").length,
   }), [returns]);
+
+  const filteredReturns = useMemo(
+    () => returns.filter((item) => statusFilter === "all" || item.status === statusFilter),
+    [returns, statusFilter]
+  );
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: returns.length };
+    returns.forEach((item) => {
+      counts[item.status] = (counts[item.status] || 0) + 1;
+    });
+    return counts;
+  }, [returns]);
 
   const updateStatus = useCallback(
     async (returnRequestId: string, status: string) => {
       try {
         setUpdatingId(returnRequestId);
-        await api.patch(`/returns/${returnRequestId}/status`, { status, note });
+        const response = await api.patch(`/returns/${returnRequestId}/status`, { status, note });
+        const updatedReturn = response.data?.data as ReturnRequest | undefined;
         setNote("");
-        await fetchReturns();
-        setSelectedReturn((current) =>
-          current && current._id === returnRequestId ? { ...current, status } : current
-        );
+        if (updatedReturn?._id) {
+          setReturns((current) => current.map((item) => (item._id === updatedReturn._id ? updatedReturn : item)));
+          setSelectedReturn((current) => (current && current._id === updatedReturn._id ? updatedReturn : current));
+        } else {
+          await fetchReturns();
+          setSelectedReturn((current) =>
+            current && current._id === returnRequestId ? { ...current, status } : current
+          );
+        }
         toast({
           title: "Status updated",
           description: `Return request updated to ${RETURN_STATUS_LABELS[status] || status}`,
@@ -136,11 +181,17 @@ export function ReturnsClaimsManager({ role, title, description }: ReturnsClaims
     async (returnRequestId: string, agentId: string) => {
       try {
         setUpdatingId(returnRequestId);
-        await api.patch(`/returns/${returnRequestId}/assign-agent`, { agentId, note });
+        const response = await api.patch(`/returns/${returnRequestId}/assign-agent`, { agentId, note });
+        const updatedReturn = response.data?.data as ReturnRequest | undefined;
         setNote("");
         setShowAssignAgent(false);
         setSelectedAgent(null);
-        await fetchReturns();
+        if (updatedReturn?._id) {
+          setReturns((current) => current.map((item) => (item._id === updatedReturn._id ? updatedReturn : item)));
+          setSelectedReturn((current) => (current && current._id === updatedReturn._id ? updatedReturn : current));
+        } else {
+          await fetchReturns();
+        }
         toast({
           title: "Delivery agent assigned",
           description: "The delivery agent has been assigned for pickup",
@@ -182,12 +233,13 @@ export function ReturnsClaimsManager({ role, title, description }: ReturnsClaims
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {[
           { label: "Pending Review", value: summary.requested },
           { label: "Active Returns", value: summary.active },
+          { label: "Awaiting Refund", value: summary.awaitingRefund },
           { label: "Rejected", value: summary.rejected },
-          { label: "Refund Completed", value: summary.refunded },
+          { label: "Refunded", value: summary.refunded },
         ].map((item) => (
           <Card key={item.label}>
             <CardContent className="p-5">
@@ -200,7 +252,31 @@ export function ReturnsClaimsManager({ role, title, description }: ReturnsClaims
 
       <Card className="glass-card">
         <CardHeader>
-          <CardTitle className="text-base">Return Requests</CardTitle>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <CardTitle className="text-base">Return Requests</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Manage only the return requests assigned to this {role} account.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {returnFilters.map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setStatusFilter(filter.id)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                    statusFilter === filter.id
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-border bg-background text-muted-foreground hover:border-blue-300 hover:text-foreground"
+                  }`}
+                >
+                  {filter.label}
+                  <span className="ml-1 opacity-75">({statusCounts[filter.id] || 0})</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loading && (
@@ -217,7 +293,15 @@ export function ReturnsClaimsManager({ role, title, description }: ReturnsClaims
             </div>
           )}
 
-          {!loading && returns.length > 0 && (
+          {!loading && returns.length > 0 && filteredReturns.length === 0 && (
+            <div className="rounded-xl border border-dashed border-border p-8 text-center">
+              <RotateCcw className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
+              <p className="font-medium">No returns in this stage</p>
+              <p className="mt-1 text-sm text-muted-foreground">Choose another status filter to view more requests.</p>
+            </div>
+          )}
+
+          {!loading && filteredReturns.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -227,11 +311,12 @@ export function ReturnsClaimsManager({ role, title, description }: ReturnsClaims
                     <th className="px-4 py-3 text-left font-medium">Reason</th>
                     <th className="px-4 py-3 text-left font-medium">Order</th>
                     <th className="px-4 py-3 text-left font-medium">Status</th>
+                    <th className="px-4 py-3 text-left font-medium">Next Step</th>
                     <th className="px-4 py-3 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {returns.map((item) => {
+                  {filteredReturns.map((item) => {
                     const nextAction = NEXT_RETURN_STATUS[item.status];
                     return (
                       <tr key={item._id} className="border-b border-border/50 last:border-0">
@@ -244,6 +329,7 @@ export function ReturnsClaimsManager({ role, title, description }: ReturnsClaims
                             {RETURN_STATUS_LABELS[item.status] || item.status}
                           </span>
                         </td>
+                        <td className="px-4 py-3 text-muted-foreground">{getNextStepText(item.status)}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-2">
                             {item.status === "RETURN_REQUESTED" && (
@@ -337,7 +423,7 @@ export function ReturnsClaimsManager({ role, title, description }: ReturnsClaims
                     </CardContent>
                   </Card>
 
-                  {selectedReturn.status === "RETURN_PICKUP_ASSIGNED" && selectedReturn.assigned_agent && (
+                  {selectedReturn.assigned_agent && selectedReturn.status !== "RETURN_REJECTED" && (
                     <Card className="border-blue-200 bg-blue-50">
                       <CardContent className="p-4 text-sm">
                         <p className="font-medium text-blue-900">Assigned Delivery Agent</p>
@@ -349,31 +435,7 @@ export function ReturnsClaimsManager({ role, title, description }: ReturnsClaims
                     </Card>
                   )}
 
-                  <Card>
-                    <CardContent className="p-4 text-sm">
-                      <p className="font-medium">Tracking Timeline</p>
-                      <div className="mt-4 space-y-3">
-                        {RETURN_TIMELINE.map((status, index) => {
-                          const currentIndex = RETURN_TIMELINE.indexOf(selectedReturn.status as (typeof RETURN_TIMELINE)[number]);
-                          const isComplete = currentIndex >= index;
-                          return (
-                            <div key={status} className="flex items-start gap-3">
-                              <div className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border ${isComplete ? "border-green-600 bg-green-600 text-white" : "border-border bg-background text-muted-foreground"}`}>
-                                {isComplete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <span className="text-[10px]">{index + 1}</span>}
-                              </div>
-                              <p className="text-sm">{RETURN_STATUS_LABELS[status]}</p>
-                            </div>
-                          );
-                        })}
-                        {selectedReturn.status === "RETURN_REJECTED" && (
-                          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                            <XCircle className="h-4 w-4" />
-                            Request rejected
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <ReturnStatusTimeline item={selectedReturn} />
                 </div>
 
                 <div className="space-y-4">

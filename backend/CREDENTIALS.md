@@ -36,7 +36,7 @@ All mechanics are pre-approved and ready to use.
 
 | # | Email | Password | Status |
 |---|-------|----------|--------|
-| 1 | mechanic1@samplemail.com | Mechanic@123 | ✅ Approved |
+| 1 |  | Mechanic@123 | ✅ Approved |
 | 2 | mechanic2@samplemail.com | Mechanic@123 | ✅ Approved |
 | 3 | mechanic3@samplemail.com | Mechanic@123 | ✅ Approved |
 | 4 | mechanic4@samplemail.com | Mechanic@123 | ✅ Approved |
@@ -165,7 +165,7 @@ await User.deleteMany({ email: /samplemail\.com|findingmoto\.com/ });
 
 **"Database connection failed"**
 - Check `.env` file has valid `MONGO_URI`
-- Ensure MongoDB is running
+- Ensure MongoDB is runningmechanic1@samplemail.com
 - Verify MongoDB credentials
 
 **"Duplicate key error"**

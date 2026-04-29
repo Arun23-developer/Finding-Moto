@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { resolveMediaUrl } from "@/lib/imageUrl";
 import { NotificationPanel } from "./NotificationPanel";
+import { useOrderWorkflowNotifications } from "@/context/OrderWorkflowNotificationsContext";
 
 type NotificationRole = "buyer" | "seller" | "mechanic" | "admin" | "delivery_agent";
 
@@ -63,6 +64,7 @@ export function DashboardShell({
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { unreadCount } = useOrderWorkflowNotifications();
 
   const activeItem = useMemo(
     () => {
@@ -257,7 +259,9 @@ export function DashboardShell({
                   className="relative rounded-lg p-2 transition-colors hover:bg-black/5"
                 >
                   <Bell className="h-5 w-5 text-[var(--text-main)]" />
-                  <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-[var(--theme-danger)]" />
+                  {unreadCount > 0 ? (
+                    <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-[var(--theme-danger)]" />
+                  ) : null}
                 </button>
                 <NotificationPanel
                   userRole={notificationRole}

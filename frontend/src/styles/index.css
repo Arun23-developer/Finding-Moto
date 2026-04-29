@@ -2343,46 +2343,6 @@
   background: #E10600;
 }
 
-/* Stats row */
-.login-stats {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  background: rgba(255, 255, 255, 0.10);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 12px;
-  padding: 14px 20px;
-  margin-bottom: 16px;
-}
-
-.login-stat {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.login-stat-num {
-  font-size: 22px;
-  font-weight: 800;
-  color: #E10600;
-}
-
-.login-stat-label {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-  margin-top: 2px;
-  text-align: center;
-}
-
-.login-stat-divider {
-  width: 1px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.15);
-}
-
 /* Section label */
 .login-section-label {
   font-size: 11px;
@@ -2798,7 +2758,6 @@
 
   .login-bike-info,
   .login-slide-dots,
-  .login-stats,
   .login-section-label,
   .login-parts-grid {
     display: none;

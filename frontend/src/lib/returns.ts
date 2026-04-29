@@ -12,7 +12,6 @@ export const RETURN_TIMELINE = [
   "RETURN_APPROVED",
   "RETURN_PICKUP_ASSIGNED",
   "RETURN_PICKED_UP",
-  "RETURN_IN_TRANSIT",
   "RETURN_DELIVERED",
   "REFUND_INITIATED",
   "REFUND_COMPLETED",
@@ -20,13 +19,13 @@ export const RETURN_TIMELINE = [
 
 export const RETURN_STATUS_LABELS: Record<string, string> = {
   RETURN_REQUESTED: "Return Requested",
-  RETURN_APPROVED: "Return Approved",
+  RETURN_APPROVED: "Approved",
   RETURN_REJECTED: "Return Rejected",
-  RETURN_PICKUP_ASSIGNED: "Pickup Assigned",
+  RETURN_PICKUP_ASSIGNED: "Delivery Agent Assigned",
   RETURN_PICKED_UP: "Picked Up",
   RETURN_IN_TRANSIT: "In Transit",
-  RETURN_DELIVERED: "Returned to Seller/Mechanic",
-  REFUND_INITIATED: "Refund Initiated",
+  RETURN_DELIVERED: "Returned to Seller",
+  REFUND_INITIATED: "Refund Processing",
   REFUND_COMPLETED: "Refund Completed",
 };
 
@@ -44,11 +43,10 @@ export const RETURN_STATUS_STYLES: Record<string, string> = {
 
 export const NEXT_RETURN_STATUS: Record<string, { status: string; label: string } | null> = {
   RETURN_REQUESTED: null,
-  RETURN_APPROVED: { status: "RETURN_PICKUP_ASSIGNED", label: "Assign Pickup" },
+  RETURN_APPROVED: null,
   RETURN_REJECTED: null,
-  RETURN_PICKUP_ASSIGNED: { status: "RETURN_PICKED_UP", label: "Mark Picked Up" },
-  RETURN_PICKED_UP: { status: "RETURN_IN_TRANSIT", label: "Mark In Transit" },
-  RETURN_IN_TRANSIT: { status: "RETURN_DELIVERED", label: "Mark Delivered" },
+  RETURN_PICKUP_ASSIGNED: null,
+  RETURN_PICKED_UP: null,
   RETURN_DELIVERED: { status: "REFUND_INITIATED", label: "Initiate Refund" },
   REFUND_INITIATED: { status: "REFUND_COMPLETED", label: "Complete Refund" },
   REFUND_COMPLETED: null,
@@ -83,6 +81,7 @@ export interface ReturnRequest {
     workshopName?: string;
     role?: string;
   };
+  ownerRole?: "seller" | "mechanic";
   assigned_agent_id?: string;
   assigned_agent?: {
     _id?: string;

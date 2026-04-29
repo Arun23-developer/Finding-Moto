@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Loader2, MessageSquare, RefreshCw, Star, Wrench, StarHalf, TrendingUp, CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Clock, MessageSquare, RefreshCw, ShoppingBag, Star, TrendingUp, Wrench } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import api from "@/services/api";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,47 @@ interface MechanicReviewsResponse {
   productRatings: ProductRatingItem[];
   serviceRatings: ServiceRatingItem[];
   customerReviews: CustomerReviewItem[];
+}
+
+const emptyReviewsData: MechanicReviewsResponse = {
+  stats: { average: 0, total: 0 },
+  productRatings: [],
+  serviceRatings: [],
+  customerReviews: [],
+};
+
+function normalizeReviewsData(value: unknown): MechanicReviewsResponse {
+  if (Array.isArray(value)) {
+    const customerReviews = value.map((review: any) => ({
+      _id: String(review?._id || crypto.randomUUID()),
+      itemType: review?.productId ? "product" : "service",
+      itemName: review?.productId?.name || review?.serviceName || "Workshop Service",
+      customerName: `${review?.buyer?.firstName || ""} ${review?.buyer?.lastName || ""}`.trim() || "Customer",
+      rating: Number(review?.rating) || 0,
+      comment: String(review?.comment || ""),
+      reviewDate: String(review?.createdAt || new Date().toISOString()),
+    }));
+    const total = customerReviews.length;
+    const sum = customerReviews.reduce((acc, review) => acc + review.rating, 0);
+    return {
+      ...emptyReviewsData,
+      stats: { average: total > 0 ? Math.round((sum / total) * 10) / 10 : 0, total },
+      customerReviews,
+    };
+  }
+
+  const data = (value || {}) as Partial<MechanicReviewsResponse>;
+  const stats = data.stats || emptyReviewsData.stats;
+
+  return {
+    stats: {
+      average: Number(stats.average) || 0,
+      total: Number(stats.total) || 0,
+    },
+    productRatings: Array.isArray(data.productRatings) ? data.productRatings : [],
+    serviceRatings: Array.isArray(data.serviceRatings) ? data.serviceRatings : [],
+    customerReviews: Array.isArray(data.customerReviews) ? data.customerReviews : [],
+  };
 }
 
 function StarRating({ rating, size = "sm" }: { rating: number; size?: "sm" | "lg" }) {
@@ -127,7 +169,7 @@ export default function MechanicReviews() {
       setLoading(true);
       const response = await api.get("/mechanic/reviews");
       if (response.data?.success) {
-        setData(response.data.data);
+        setData(normalizeReviewsData(response.data.data));
       } else {
         setError("Failed to load your workshop feedback.");
       }

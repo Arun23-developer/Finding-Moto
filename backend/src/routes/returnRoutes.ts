@@ -32,7 +32,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024, files: 5 },
+  limits: { fileSize: 5 * 1024 * 1024, files: 8 },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     const allowedExtensions = new Set(['.jpeg', '.jpg', '.png', '.gif', '.webp', '.jfif', '.avif', '.heic', '.heif']);
@@ -47,7 +47,7 @@ const upload = multer({
 router.use(protect);
 
 // Buyer routes
-router.post('/', authorize('buyer'), upload.array('referencePhotos', 5), createReturnRequest);
+router.post('/', authorize('buyer'), upload.array('referencePhotos', 8), createReturnRequest);
 router.get('/my', authorize('buyer'), getBuyerReturnRequests);
 
 // Seller/Mechanic routes

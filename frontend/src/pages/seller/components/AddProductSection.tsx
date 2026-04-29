@@ -17,6 +17,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import type { ProductFormValues, SellerProduct } from "./productTypes";
+import api from "@/services/api";
+import { resolveMediaUrl } from "@/lib/imageUrl";
+import { PRODUCT_CATEGORIES } from "@/lib/productCategories";
 
 interface AddProductSectionProps {
   product: SellerProduct | null;
@@ -42,6 +45,7 @@ const emptyValues: ProductFormValues = {
 export function AddProductSection({ product, submitting, submitError, onSubmit }: AddProductSectionProps) {
   const [values, setValues] = useState<ProductFormValues>(emptyValues);
   const [imageUrlInput, setImageUrlInput] = useState("");
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof ProductFormValues, string>>>({});
 
   useEffect(() => {
@@ -91,6 +95,39 @@ export function AddProductSection({ product, submitting, submitError, onSubmit }
     setImageUrlInput("");
   };
 
+  const handleImageUpload = async (files: FileList | null) => {
+    const selectedFiles = Array.from(files || []);
+    if (selectedFiles.length === 0) return;
+
+    const availableSlots = 5 - (values.images?.length || 0);
+    if (availableSlots <= 0) {
+      alert("Maximum 5 photos allowed");
+      return;
+    }
+
+    setUploadingImages(true);
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (const file of selectedFiles.slice(0, availableSlots)) {
+        const formData = new FormData();
+        formData.append("image", file);
+        const { data } = await api.post("/products/upload-image", formData);
+        const url = data?.data?.url;
+        if (url) uploadedUrls.push(url);
+      }
+
+      setValues((current) => ({
+        ...current,
+        images: [...(current.images || []), ...uploadedUrls].slice(0, 5),
+      }));
+    } catch (error: any) {
+      alert(error?.response?.data?.message || "Image upload failed.");
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
   const handleRemoveImage = (index: number) => {
     setValues((current) => ({
       ...current,
@@ -103,11 +140,22 @@ export function AddProductSection({ product, submitting, submitError, onSubmit }
 
     if (!values.name.trim()) newErrors.name = "Product name is required";
     if (!values.category.trim()) newErrors.category = "Category is required";
-    if (!values.actualPrice.trim() || isNaN(Number(values.actualPrice))) {
+    const price = Number(values.actualPrice);
+    const stock = Number(values.stock);
+    const originalPrice = values.discountPrice.trim() ? Number(values.discountPrice) : undefined;
+
+    if (!values.actualPrice.trim() || Number.isNaN(price)) {
       newErrors.actualPrice = "Valid price is required";
+    } else if (price < 0) {
+      newErrors.actualPrice = "Product price cannot be negative";
     }
-    if (!values.stock.trim() || isNaN(Number(values.stock))) {
+    if (!values.stock.trim() || Number.isNaN(stock)) {
       newErrors.stock = "Stock quantity is required";
+    } else if (stock < 0) {
+      newErrors.stock = "Product stock cannot be negative";
+    }
+    if (originalPrice !== undefined && (Number.isNaN(originalPrice) || originalPrice < 0)) {
+      newErrors.discountPrice = "Original price cannot be negative";
     }
 
     setErrors(newErrors);
@@ -177,13 +225,21 @@ export function AddProductSection({ product, submitting, submitError, onSubmit }
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category" className="text-xs font-bold uppercase tracking-wider">Category *</Label>
-                  <Input
-                    id="category"
-                    placeholder="e.g. Electrical, Engine"
-                    value={values.category}
-                    onChange={(e) => handleChange("category", e.target.value)}
-                    className={errors.category ? "border-red-500 bg-red-50/10 focus-visible:ring-red-500" : "bg-muted/10"}
-                  />
+                  <Select value={values.category} onValueChange={(v) => handleChange("category", v)}>
+                    <SelectTrigger
+                      id="category"
+                      className={errors.category ? "border-red-500 bg-red-50/10 focus-visible:ring-red-500" : "bg-muted/10"}
+                    >
+                      <SelectValue placeholder="Select product category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRODUCT_CATEGORIES.map((category) => (
+                        <SelectItem key={category} value={category} className="text-xs font-semibold">
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {errors.category && <p className="text-[10px] font-black text-red-500 uppercase italic">{errors.category}</p>}
                 </div>
               </div>
@@ -208,7 +264,7 @@ export function AddProductSection({ product, submitting, submitError, onSubmit }
               <Badge variant="outline" className="ml-auto text-[9px] border-blue-200 text-blue-600 font-black">{values.images?.length || 0}/5</Badge>
             </div>
             <CardContent className="p-6 space-y-4">
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <div className="relative flex-1">
                   <ImageIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
                   <Input
@@ -222,12 +278,29 @@ export function AddProductSection({ product, submitting, submitError, onSubmit }
                 <Button type="button" variant="outline" onClick={handleAddImage} className="font-bold border-blue-200 text-blue-600 hover:bg-blue-50">
                   <Plus className="h-4 w-4 mr-2" /> Add URL
                 </Button>
+                <label className={cn(
+                  "inline-flex h-10 cursor-pointer items-center justify-center rounded-md border border-blue-200 px-4 py-2 text-sm font-bold text-blue-600 transition-colors hover:bg-blue-50",
+                  uploadingImages && "pointer-events-none opacity-60"
+                )}>
+                  {uploadingImages ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageIcon className="mr-2 h-4 w-4" />}
+                  Upload
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    onChange={(event) => {
+                      handleImageUpload(event.target.files);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
               </div>
 
               <div className="grid grid-cols-5 gap-3">
                 {values.images?.map((url, idx) => (
                   <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border-2 border-border/40 bg-muted/20 shadow-inner">
-                    <img src={url} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img src={resolveMediaUrl(url)} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Button 
                         type="button" 
@@ -249,7 +322,7 @@ export function AddProductSection({ product, submitting, submitError, onSubmit }
                 )}
               </div>
               <p className="text-[10px] text-muted-foreground italic flex items-center gap-1.5 px-1">
-                <Info className="h-3 w-3" /> Note: Currently supporting remote URLs for faster synchronization.
+                <Info className="h-3 w-3" /> Add images from your device or paste hosted image URLs. Maximum 5 photos.
               </p>
             </CardContent>
           </Card>
@@ -280,6 +353,7 @@ export function AddProductSection({ product, submitting, submitError, onSubmit }
                   <Input
                     id="stock"
                     type="number"
+                    min="0"
                     placeholder="0"
                     value={values.stock}
                     onChange={(e) => handleChange("stock", e.target.value)}
@@ -332,6 +406,7 @@ export function AddProductSection({ product, submitting, submitError, onSubmit }
                   <Input
                     id="actualPrice"
                     type="number"
+                    min="0"
                     placeholder="0.00"
                     value={values.actualPrice}
                     onChange={(e) => handleChange("actualPrice", e.target.value)}
@@ -348,12 +423,14 @@ export function AddProductSection({ product, submitting, submitError, onSubmit }
                   <Input
                     id="discountPrice"
                     type="number"
+                    min="0"
                     placeholder="0.00"
                     value={values.discountPrice}
                     onChange={(e) => handleChange("discountPrice", e.target.value)}
                     className="pl-11 bg-white/30 border-slate-200 text-slate-500 font-medium"
                   />
                 </div>
+                {errors.discountPrice && <p className="text-[10px] font-black text-red-500 uppercase italic">{errors.discountPrice}</p>}
                 <p className="text-[9px] text-muted-foreground leading-tight px-1 font-medium">Leave blank if there is no discount applied to this item.</p>
               </div>
             </CardContent>

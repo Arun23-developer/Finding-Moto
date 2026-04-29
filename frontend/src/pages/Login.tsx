@@ -250,24 +250,6 @@ const Login: React.FC = () => {
             ))}
           </div>
 
-          {/* Stats row */}
-          <div className="login-stats">
-            <div className="login-stat">
-              <span className="login-stat-num">50K+</span>
-              <span className="login-stat-label">Bikes Listed</span>
-            </div>
-            <div className="login-stat-divider" />
-            <div className="login-stat">
-              <span className="login-stat-num">2L+</span>
-              <span className="login-stat-label">Spare Parts</span>
-            </div>
-            <div className="login-stat-divider" />
-            <div className="login-stat">
-              <span className="login-stat-num">500+</span>
-              <span className="login-stat-label">Cities</span>
-            </div>
-          </div>
-
           {/* Spare Parts */}
           <div className="login-section-label" style={{ marginTop: '16px' }}>Popular Spare Parts</div>
           <div className="login-parts-grid">

@@ -45,7 +45,7 @@ export const checkMongoDBConnection = async (): Promise<MongoHealthStatus> => {
     };
 
     return {
-      connected: readyState === 1,
+      connected: false,
       readyState,
       host,
       message: stateMessages[readyState] || 'Unknown connection state',
@@ -70,7 +70,7 @@ export const getMongoDBDetails = async () => {
   return {
     ...health,
     uri: process.env.MONGO_URI ? 'configured' : 'not configured',
-    database: conn.db?.getName(),
+    database: conn.db?.databaseName,
     timestamp: new Date().toISOString(),
   };
 };

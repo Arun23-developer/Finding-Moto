@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Filter } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 
 interface ProductsToolbarProps {
   search: string;
@@ -20,14 +20,6 @@ export function ProductsToolbar({ search, onSearchChange, onAddProduct }: Produc
         />
       </div>
       <div className="flex items-center gap-2">
-        <Button 
-          type="button" 
-          variant="outline" 
-          className="h-11 rounded-xl gap-2 border-border/60 hover:bg-muted"
-        >
-          <Filter className="h-4 w-4" />
-          <span className="hidden sm:inline">Advanced Filters</span>
-        </Button>
         <Button 
           type="button" 
           onClick={onAddProduct}

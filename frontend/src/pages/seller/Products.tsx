@@ -188,12 +188,33 @@ export default function SellerProducts() {
   };
 
   const handleSubmit = async (values: ProductFormValues) => {
+    const price = Number(values.actualPrice);
+    const stock = Number(values.stock);
+    const originalPrice = values.discountPrice.trim() ? Number(values.discountPrice) : undefined;
+
+    if (!values.name.trim()) {
+      setSubmitError("Product name is required.");
+      return;
+    }
+    if (!Number.isFinite(price) || price < 0) {
+      setSubmitError("Product price must be 0 or greater.");
+      return;
+    }
+    if (!Number.isFinite(stock) || stock < 0) {
+      setSubmitError("Product stock must be 0 or greater.");
+      return;
+    }
+    if (originalPrice !== undefined && (!Number.isFinite(originalPrice) || originalPrice < 0)) {
+      setSubmitError("Original price must be 0 or greater.");
+      return;
+    }
+
     const payload = {
       name: values.name.trim(),
       sku: values.sku.trim(),
-      price: Number(values.actualPrice),
-      originalPrice: values.discountPrice.trim() ? Number(values.discountPrice) : undefined,
-      stock: Number(values.stock),
+      price,
+      originalPrice,
+      stock,
       category: values.category.trim(),
       brand: values.brand.trim(),
       description: values.description.trim(),
@@ -201,11 +222,6 @@ export default function SellerProducts() {
       productStatus: values.visibilityStatus,
       images: values.images ?? [],
     };
-
-    if (!payload.name || Number.isNaN(payload.price) || Number.isNaN(payload.stock)) {
-      setSubmitError("Product name, price, and stock are required.");
-      return;
-    }
 
     setSubmitError("");
     setSubmitting(true);
@@ -221,8 +237,8 @@ export default function SellerProducts() {
       setIsAddOpen(false);
       setRefreshing(true);
       setReloadKey((current) => current + 1);
-    } catch {
-      setSubmitError("Unable to save the product right now.");
+    } catch (err: any) {
+      setSubmitError(err?.response?.data?.message || "Unable to save the product right now.");
     } finally {
       setSubmitting(false);
     }

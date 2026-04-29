@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node dist/src/server.js",
-    "dev": "nodemon --exec ts-node src/server.ts",
+    "dev": "ts-node src/server.ts",
+    "dev:nodemon": "nodemon --exec ts-node src/server.ts",
     "build": "tsc",
     "seed:admin": "ts-node scripts/seedAdmin.ts",
     "seed:users": "ts-node scripts/seedUsers.ts",

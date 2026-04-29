@@ -6,7 +6,6 @@ import {
   Package,
   Star,
   RotateCcw,
-  Settings,
   ShoppingCart,
   Wrench,
 } from "lucide-react";
@@ -22,7 +21,6 @@ const navItems = [
   { title: "Notification", icon: Bell, path: "/mechanic/notification" },
   { title: "Buyer message center", icon: MessageSquare, path: "/mechanic/buyer-message-center" },
   { title: "Support / Help Center", icon: LifeBuoy, path: "/mechanic/support-help-center" },
-  { title: "Settings", icon: Settings, path: "/mechanic/settings" },
 ];
 
 interface MechanicLayoutProps {

@@ -2,8 +2,20 @@ import { Request, Response } from 'express';
 import Review from '../models/Review';
 import Product from '../models/Product';
 import Order from '../models/Order';
+import ServiceOrder from '../models/ServiceOrder';
+import User from '../models/User';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
+
+const parseRating = (value: unknown): number | null => {
+  const rating = Number(value);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return null;
+  return rating;
+};
+
+const hasValidComment = (value: unknown): value is string => (
+  typeof value === 'string' && value.trim().length > 0
+);
 
 // Add Review
 export const addReview = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -17,7 +29,8 @@ export const addReview = async (req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
-    if (!rating || rating < 1 || rating > 5 || !comment?.trim()) {
+    const normalizedRating = parseRating(rating);
+    if (normalizedRating === null || !hasValidComment(comment)) {
       res.status(400).json({ message: 'Rating (1-5) and comment are required' });
       return;
     }
@@ -43,7 +56,7 @@ export const addReview = async (req: AuthRequest, res: Response): Promise<void> 
     const existing = await Review.findOne({ productId, buyer: buyerId });
 
     if (existing) {
-      existing.rating = rating;
+      existing.rating = normalizedRating;
       existing.comment = comment.trim();
       const updated = await existing.save();
       res.json(updated);
@@ -53,7 +66,7 @@ export const addReview = async (req: AuthRequest, res: Response): Promise<void> 
     const newReview = new Review({
       productId,
       buyer: buyerId,
-      rating,
+      rating: normalizedRating,
       comment: comment.trim(),
     });
 
@@ -112,13 +125,17 @@ export const addSellerReview = async (req: AuthRequest, res: Response): Promise<
       return;
     }
 
-    if (!rating || rating < 1 || rating > 5 || !comment?.trim()) {
+    const normalizedRating = parseRating(rating);
+    if (normalizedRating === null || !hasValidComment(comment)) {
       res.status(400).json({ message: 'Rating (1-5) and comment are required' });
       return;
     }
 
     // Check if seller exists
-    const sellerUser = await Order.findOne({ seller: new mongoose.Types.ObjectId(sellerId) }).select('seller');
+    const sellerUser = await User.findOne({
+      _id: new mongoose.Types.ObjectId(sellerId),
+      role: 'seller',
+    }).select('_id');
     if (!sellerUser) {
       res.status(404).json({ message: 'Seller not found' });
       return;
@@ -139,7 +156,7 @@ export const addSellerReview = async (req: AuthRequest, res: Response): Promise<
     const existing = await Review.findOne({ sellerId: new mongoose.Types.ObjectId(sellerId), buyer: buyerId });
 
     if (existing) {
-      existing.rating = rating;
+      existing.rating = normalizedRating;
       existing.comment = comment.trim();
       const updated = await existing.save();
       res.json(updated);
@@ -149,7 +166,7 @@ export const addSellerReview = async (req: AuthRequest, res: Response): Promise<
     const newReview = new Review({
       sellerId: new mongoose.Types.ObjectId(sellerId),
       buyer: buyerId,
-      rating,
+      rating: normalizedRating,
       comment: comment.trim(),
     });
 
@@ -172,34 +189,38 @@ export const addMechanicReview = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
-    if (!rating || rating < 1 || rating > 5 || !comment?.trim()) {
+    const normalizedRating = parseRating(rating);
+    if (normalizedRating === null || !hasValidComment(comment)) {
       res.status(400).json({ message: 'Rating (1-5) and comment are required' });
       return;
     }
 
     // Check if mechanic exists
-    const mechanicUser = await Order.findOne({ seller: new mongoose.Types.ObjectId(mechanicId) }).select('seller');
+    const mechanicUser = await User.findOne({
+      _id: new mongoose.Types.ObjectId(mechanicId),
+      role: 'mechanic',
+    }).select('_id');
     if (!mechanicUser) {
       res.status(404).json({ message: 'Mechanic not found' });
       return;
     }
 
     // Check if buyer has purchased from this mechanic
-    const purchaseFromMechanic = await Order.findOne({
+    const purchaseFromMechanic = await ServiceOrder.findOne({
       buyer: buyerId,
-      seller: new mongoose.Types.ObjectId(mechanicId),
-      status: 'delivered',
+      mechanic: new mongoose.Types.ObjectId(mechanicId),
+      status: { $in: ['SERVICE_COMPLETED', 'PAYMENT_RECEIVED'] },
     }).select('_id');
 
     if (!purchaseFromMechanic) {
-      res.status(403).json({ message: 'You can only review mechanics you have purchased services from' });
+      res.status(403).json({ message: 'You can only review mechanics after a completed service booking' });
       return;
     }
 
     const existing = await Review.findOne({ mechanicId: new mongoose.Types.ObjectId(mechanicId), buyer: buyerId });
 
     if (existing) {
-      existing.rating = rating;
+      existing.rating = normalizedRating;
       existing.comment = comment.trim();
       const updated = await existing.save();
       res.json(updated);
@@ -209,7 +230,7 @@ export const addMechanicReview = async (req: AuthRequest, res: Response): Promis
     const newReview = new Review({
       mechanicId: new mongoose.Types.ObjectId(mechanicId),
       buyer: buyerId,
-      rating,
+      rating: normalizedRating,
       comment: comment.trim(),
     });
 

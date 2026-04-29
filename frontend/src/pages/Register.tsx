@@ -18,6 +18,33 @@ const isValidEmail = (email: string): boolean => {
   return true;
 };
 
+const nameRegex = /^[A-Za-z\s.'-]+$/;
+const sriLankanPhoneRegex = /^\+94\d{9}$/;
+const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+
+const normalizeSriLankanPhone = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  const localDigits = digits.startsWith('94') ? digits.slice(2) : digits;
+  return `+94${localDigits.slice(0, 9)}`;
+};
+
+const validateName = (value: string, label: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return `${label} is required`;
+  if (trimmed.length < 2) return `${label} must be at least 2 characters`;
+  if (!nameRegex.test(trimmed)) return `${label} can contain only letters`;
+  return '';
+};
+
+const validatePassword = (value: string): string => {
+  if (!value) return 'Password is required';
+  if (value.length < 8) return 'Password must be at least 8 characters';
+  if (!strongPasswordRegex.test(value)) {
+    return 'Password must include uppercase, lowercase, number, and special character';
+  }
+  return '';
+};
+
 interface FormData {
   firstName: string;
   lastName: string;
@@ -72,7 +99,7 @@ const Register: React.FC = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    phone: '',
+    phone: '+94',
     role: 'buyer',
     shopName: '',
     shopDescription: '',
@@ -84,6 +111,7 @@ const Register: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [loading, setLoading] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -106,25 +134,53 @@ const Register: React.FC = () => {
     }
   }, [location.state]);
 
+  const validateBasicFields = (): boolean => {
+    const nextErrors: Partial<Record<keyof FormData, string>> = {};
+
+    const firstNameError = validateName(formData.firstName, 'First name');
+    const lastNameError = validateName(formData.lastName, 'Last name');
+    const passwordError = validatePassword(formData.password);
+
+    if (firstNameError) nextErrors.firstName = firstNameError;
+    if (lastNameError) nextErrors.lastName = lastNameError;
+
+    if (!formData.email.trim()) {
+      nextErrors.email = 'Email is required';
+    } else if (!isValidEmail(formData.email)) {
+      nextErrors.email = 'Please enter a valid email address';
+    }
+
+    if (!sriLankanPhoneRegex.test(formData.phone)) {
+      nextErrors.phone = 'Phone number must use +94XXXXXXXXX format';
+    }
+
+    if (passwordError) nextErrors.password = passwordError;
+
+    if (!formData.confirmPassword) {
+      nextErrors.confirmPassword = 'Please confirm your password';
+    } else if (formData.password !== formData.confirmPassword) {
+      nextErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    setFieldErrors(nextErrors);
+    setEmailError(nextErrors.email || '');
+
+    if (Object.keys(nextErrors).length > 0) {
+      setError('Please fix the highlighted fields.');
+      return false;
+    }
+
+    setError('');
+    setEmailError('');
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setEmailError('');
 
-    if (!isValidEmail(formData.email)) {
-      setEmailError('Please enter a valid email address');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
+    if (!validateBasicFields()) return;
 
     // Validate role-specific fields
     if (formData.role === 'seller' && !formData.shopName.trim()) {
@@ -140,11 +196,11 @@ const Register: React.FC = () => {
     setLoading(true);
     try {
       const registerData: any = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
         password: formData.password,
-        phone: formData.phone || undefined,
+        phone: formData.phone,
         role: formData.role
       };
 
@@ -303,10 +359,23 @@ const Register: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    const fieldName = name as keyof FormData;
+    let nextValue = value;
+
+    if (name === 'firstName' || name === 'lastName') {
+      nextValue = value.replace(/[^A-Za-z\s.'-]/g, '');
+    }
+
+    if (name === 'phone') {
+      nextValue = normalizeSriLankanPhone(value);
+    }
+
+    setFormData({ ...formData, [name]: nextValue });
+    setFieldErrors(prev => ({ ...prev, [fieldName]: '' }));
+    setError('');
 
     if (name === 'email') {
-      if (value && !isValidEmail(value)) {
+      if (nextValue && !isValidEmail(nextValue)) {
         setEmailError('Please enter a valid email address');
       } else {
         setEmailError('');
@@ -324,23 +393,7 @@ const Register: React.FC = () => {
       setStep(2);
     } else if (step === 2) {
       // Validate basic fields before moving to step 3
-      if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.confirmPassword) {
-        setError('Please fill in all required fields');
-        return;
-      }
-      if (!isValidEmail(formData.email)) {
-        setEmailError('Please enter a valid email address');
-        return;
-      }
-      if (formData.password !== formData.confirmPassword) {
-        setError('Passwords do not match');
-        return;
-      }
-      if (formData.password.length < 6) {
-        setError('Password must be at least 6 characters');
-        return;
-      }
-      setError('');
+      if (!validateBasicFields()) return;
       if (formData.role !== 'seller' && formData.role !== 'mechanic') {
         return;
       }
@@ -508,12 +561,16 @@ const Register: React.FC = () => {
               <div className="form-group">
                 <label htmlFor="firstName">First Name</label>
                 <input id="firstName" type="text" name="firstName" placeholder="John"
-                  value={formData.firstName} onChange={handleChange} required disabled={loading} />
+                  value={formData.firstName} onChange={handleChange} required minLength={2} disabled={loading}
+                  className={fieldErrors.firstName ? 'input-error' : ''} />
+                {fieldErrors.firstName && <span className="field-error">{fieldErrors.firstName}</span>}
               </div>
               <div className="form-group">
                 <label htmlFor="lastName">Last Name</label>
                 <input id="lastName" type="text" name="lastName" placeholder="Doe"
-                  value={formData.lastName} onChange={handleChange} required disabled={loading} />
+                  value={formData.lastName} onChange={handleChange} required minLength={2} disabled={loading}
+                  className={fieldErrors.lastName ? 'input-error' : ''} />
+                {fieldErrors.lastName && <span className="field-error">{fieldErrors.lastName}</span>}
               </div>
             </div>
             <div className="form-group">
@@ -524,19 +581,25 @@ const Register: React.FC = () => {
               {emailError && <span className="field-error">{emailError}</span>}
             </div>
             <div className="form-group">
-              <label htmlFor="phone">Phone Number <span style={{ color: '#9CA3AF', fontWeight: 400 }}>(optional)</span></label>
-              <input id="phone" type="tel" name="phone" placeholder="+1 234 567 8900"
-                value={formData.phone} onChange={handleChange} disabled={loading} />
+              <label htmlFor="phone">Phone Number</label>
+              <input id="phone" type="tel" name="phone" placeholder="+94771234567"
+                value={formData.phone} onChange={handleChange} required inputMode="tel" maxLength={12}
+                disabled={loading} className={fieldErrors.phone ? 'input-error' : ''} />
+              {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
             </div>
             <div className="form-group">
               <label htmlFor="password">Password</label>
-              <input id="password" type="password" name="password" placeholder="Min. 6 characters"
-                value={formData.password} onChange={handleChange} required minLength={6} disabled={loading} />
+              <input id="password" type="password" name="password" placeholder="Uppercase, lowercase, number, symbol"
+                value={formData.password} onChange={handleChange} required minLength={8} disabled={loading}
+                className={fieldErrors.password ? 'input-error' : ''} />
+              {fieldErrors.password && <span className="field-error">{fieldErrors.password}</span>}
             </div>
             <div className="form-group">
               <label htmlFor="confirmPassword">Confirm Password</label>
               <input id="confirmPassword" type="password" name="confirmPassword" placeholder="Re-enter your password"
-                value={formData.confirmPassword} onChange={handleChange} required disabled={loading} />
+                value={formData.confirmPassword} onChange={handleChange} required disabled={loading}
+                className={fieldErrors.confirmPassword ? 'input-error' : ''} />
+              {fieldErrors.confirmPassword && <span className="field-error">{fieldErrors.confirmPassword}</span>}
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
               <button type="button" className="btn-secondary" onClick={prevStep} style={{ flex: 1 }}>

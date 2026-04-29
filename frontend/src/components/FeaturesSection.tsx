@@ -23,7 +23,7 @@ const FeaturesSection = () => (
         className="text-center mb-16"
       >
         <h2 className="text-3xl md:text-4xl font-heading font-bold mb-4">
-          Why Choose <span className="text-gradient">MotoMind AI</span>?
+          Why Choose <span className="text-gradient">FindingMoto</span>?
         </h2>
         <p className="text-muted-foreground max-w-xl mx-auto">
           Smart features powered by AI to enhance your riding experience.
