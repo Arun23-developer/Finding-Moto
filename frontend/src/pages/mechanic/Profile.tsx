@@ -10,16 +10,11 @@ import {
   Edit3,
   Save,
   Camera,
-  Star,
-  Eye,
   Shield,
   Award,
   Loader2,
-  ShoppingBag,
   CheckCircle2,
   Briefcase,
-  History,
-  TrendingUp
 } from "lucide-react";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
@@ -45,8 +40,6 @@ interface MechanicProfileData {
 }
 
 export default function MechanicProfile() {
-  const defaultBrands = ["Yamaha", "Honda", "Suzuki", "Kawasaki", "KTM", "Bajaj", "TVS", "Royal Enfield"];
-  
   const { user, updateProfile, uploadAvatar } = useAuth();
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -54,7 +47,6 @@ export default function MechanicProfile() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [mechanicBrands] = useState<string[]>(defaultBrands);
 
   const [form, setForm] = useState<MechanicProfileData>({
     workshopName: "",
@@ -120,13 +112,6 @@ export default function MechanicProfile() {
       setSaving(false);
     }
   };
-
-  const workshopStats = [
-    { icon: Wrench, label: "Total Jobs", value: "342", color: "text-blue-600", bg: "bg-blue-600/10" },
-    { icon: ShoppingBag, label: "Active Orders", value: "8", color: "text-emerald-600", bg: "bg-emerald-600/10" },
-    { icon: Star, label: "Average Rating", value: "4.7", color: "text-amber-600", bg: "bg-amber-600/10" },
-    { icon: Eye, label: "Profile Views", value: "1,850", color: "text-purple-600", bg: "bg-purple-600/10" },
-  ];
 
   if (loading) {
     return (
@@ -354,43 +339,6 @@ export default function MechanicProfile() {
               </CardContent>
            </Card>
 
-           {/* Workshop Analytics Sidebar */}
-           <Card className="glass-card border border-border/40 overflow-hidden shadow-sm">
-              <CardHeader className="bg-muted/20 border-b border-border/20 px-8 py-5 flex flex-row items-center justify-between">
-                 <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">Workshop Engine</CardTitle>
-                 <TrendingUp size={16} className="text-blue-500" />
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                 {workshopStats.map((stat) => (
-                    <div key={stat.label} className="flex items-center gap-5 group cursor-default">
-                       <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm group-hover:scale-110", stat.bg)}>
-                          <stat.icon className={cn("h-6 w-6", stat.color)} />
-                       </div>
-                       <div>
-                          <p className="text-2xl font-black text-foreground tracking-tighter leading-none mb-1">{stat.value}</p>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</p>
-                       </div>
-                    </div>
-                 ))}
-              </CardContent>
-           </Card>
-
-           {/* Brand Portfolio */}
-           <Card className="glass-card border border-border/40 overflow-hidden shadow-sm">
-              <CardHeader className="bg-muted/20 border-b border-border/20 px-8 py-5 flex flex-row items-center justify-between">
-                 <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">Expert Portfolio</CardTitle>
-                 <History size={16} className="text-blue-500" />
-              </CardHeader>
-              <CardContent className="p-8">
-                 <div className="flex flex-wrap gap-1.5">
-                    {mechanicBrands.map(b => (
-                       <Badge key={b} className="bg-slate-100 hover:bg-slate-200 border-none text-slate-600 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 transition-colors">
-                          {b}
-                       </Badge>
-                    ))}
-                 </div>
-              </CardContent>
-           </Card>
         </div>
       </div>
     </div>

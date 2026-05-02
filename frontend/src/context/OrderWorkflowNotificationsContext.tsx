@@ -7,98 +7,107 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { createAuthedSocket, type OrderWorkflowSocketEvent } from "@/lib/socket";
+import { createAuthedSocket } from "@/lib/socket";
 import { useAuth } from "./AuthContext";
+import {
+  clearNotifications as clearNotificationsApi,
+  deleteNotification as deleteNotificationApi,
+  getNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type AppNotification,
+} from "@/services/notificationService";
 
-export type WorkflowAudience = "buyer" | "seller" | "delivery_agent";
-
-export interface WorkflowNotification extends OrderWorkflowSocketEvent {
+export interface WorkflowNotification extends AppNotification {
   id: string;
-  read: boolean;
+  timestamp: string;
+  status: string;
+  statusLabel: string;
+  orderId?: string;
 }
 
 interface OrderWorkflowNotificationsContextValue {
   notifications: WorkflowNotification[];
   unreadCount: number;
+  loading: boolean;
+  refreshNotifications: () => Promise<void>;
   markAsRead: (id: string) => void;
   markAllRead: () => void;
   removeNotification: (id: string) => void;
   clearNotifications: () => void;
 }
 
-const STORAGE_KEY_PREFIX = "workflow_notifications";
-
 const OrderWorkflowNotificationsContext =
   createContext<OrderWorkflowNotificationsContextValue | null>(null);
 
-const toWorkflowAudience = (role?: string | null): WorkflowAudience | null => {
-  if (role === "buyer" || role === "seller" || role === "delivery_agent") return role;
-  if (role === "mechanic") return "seller";
-  return null;
-};
+const normalizeNotification = (notification: AppNotification): WorkflowNotification => {
+  const metadata = notification.metadata || {};
+  const status = typeof metadata.status === "string" ? metadata.status : notification.category;
+  const statusLabel = typeof metadata.statusLabel === "string" ? metadata.statusLabel : notification.category.replace(/_/g, " ");
+  const orderId = typeof metadata.orderId === "string" ? metadata.orderId : undefined;
 
-const getStorageKey = (userId?: string | null) =>
-  userId ? `${STORAGE_KEY_PREFIX}:${userId}` : STORAGE_KEY_PREFIX;
+  return {
+    ...notification,
+    id: notification._id,
+    timestamp: notification.createdAt,
+    status,
+    statusLabel,
+    orderId,
+  };
+};
 
 export function OrderWorkflowNotificationsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const audience = toWorkflowAudience(user?.role);
-  const storageKey = getStorageKey(user?._id);
   const [notifications, setNotifications] = useState<WorkflowNotification[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!user?._id || !audience) {
+  const refreshNotifications = useCallback(async () => {
+    if (!user?._id) {
       setNotifications([]);
       return;
     }
 
+    setLoading(true);
     try {
-      const saved = localStorage.getItem(storageKey);
-      if (!saved) {
-        setNotifications([]);
-        return;
-      }
-
-      const parsed = JSON.parse(saved);
-      setNotifications(Array.isArray(parsed) ? parsed : []);
-    } catch {
+      const response = await getNotifications();
+      setNotifications(response.data.map(normalizeNotification));
+    } catch (error) {
+      console.error("Failed to load notifications:", error);
       setNotifications([]);
+    } finally {
+      setLoading(false);
     }
-  }, [audience, storageKey, user?._id]);
+  }, [user?._id]);
 
   useEffect(() => {
-    if (!user?._id || !audience) return;
-    localStorage.setItem(storageKey, JSON.stringify(notifications));
-  }, [audience, notifications, storageKey, user?._id]);
+    void refreshNotifications();
+  }, [refreshNotifications]);
 
   useEffect(() => {
-    if (!user?._id || !audience) return;
+    if (!user?._id) return;
 
     const socket = createAuthedSocket();
     if (!socket) return;
 
-    const handleWorkflowEvent = (event: OrderWorkflowSocketEvent) => {
-      if (event.audience !== audience) return;
-
+    const handleNotification = (notification: AppNotification) => {
       setNotifications((current) => {
-        const nextNotification: WorkflowNotification = {
-          ...event,
-          id: `${event.orderId}:${event.status}:${event.timestamp}`,
-          read: false,
-        };
-
+        const nextNotification = normalizeNotification(notification);
         const deduped = current.filter((item) => item.id !== nextNotification.id);
-        return [nextNotification, ...deduped].slice(0, 50);
+        return [nextNotification, ...deduped].slice(0, 100);
       });
     };
 
-    socket.on("order:workflow", handleWorkflowEvent);
+    socket.on("notification:new", handleNotification);
+    socket.on("order:workflow", refreshNotifications);
+    socket.on("return:workflow", refreshNotifications);
 
     return () => {
-      socket.off("order:workflow", handleWorkflowEvent);
+      socket.off("notification:new", handleNotification);
+      socket.off("order:workflow", refreshNotifications);
+      socket.off("return:workflow", refreshNotifications);
       socket.disconnect();
     };
-  }, [audience, user?._id]);
+  }, [refreshNotifications, user?._id]);
 
   const markAsRead = useCallback((id: string) => {
     setNotifications((current) =>
@@ -106,30 +115,36 @@ export function OrderWorkflowNotificationsProvider({ children }: { children: Rea
         notification.id === id ? { ...notification, read: true } : notification
       )
     );
-  }, []);
+    void markNotificationRead(id).catch(refreshNotifications);
+  }, [refreshNotifications]);
 
   const markAllRead = useCallback(() => {
     setNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
-  }, []);
+    void markAllNotificationsRead().catch(refreshNotifications);
+  }, [refreshNotifications]);
 
   const removeNotification = useCallback((id: string) => {
     setNotifications((current) => current.filter((notification) => notification.id !== id));
-  }, []);
+    void deleteNotificationApi(id).catch(refreshNotifications);
+  }, [refreshNotifications]);
 
   const clearNotifications = useCallback(() => {
     setNotifications([]);
-  }, []);
+    void clearNotificationsApi().catch(refreshNotifications);
+  }, [refreshNotifications]);
 
   const value = useMemo(
     () => ({
       notifications,
       unreadCount: notifications.filter((notification) => !notification.read).length,
+      loading,
+      refreshNotifications,
       markAsRead,
       markAllRead,
       removeNotification,
       clearNotifications,
     }),
-    [clearNotifications, markAllRead, markAsRead, notifications, removeNotification]
+    [clearNotifications, loading, markAllRead, markAsRead, notifications, refreshNotifications, removeNotification]
   );
 
   return (

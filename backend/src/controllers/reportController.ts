@@ -7,6 +7,7 @@ import Product from '../models/Product';
 import Service from '../models/Service';
 import Delivery from '../models/Delivery';
 import Order from '../models/Order';
+import { notifyRole } from '../utils/notifications';
 
 const isObjectId = (value: string): boolean => mongoose.Types.ObjectId.isValid(value);
 
@@ -21,7 +22,7 @@ export const createReport = async (req: AuthRequest, res: Response): Promise<voi
     }
 
     const reporterRole = req.user.role;
-    if (!['buyer', 'seller', 'mechanic'].includes(reporterRole)) {
+    if (!['buyer', 'seller', 'mechanic', 'delivery_agent'].includes(reporterRole)) {
       res.status(403).json({ message: 'Your account is not allowed to submit reports' });
       return;
     }
@@ -55,6 +56,10 @@ export const createReport = async (req: AuthRequest, res: Response): Promise<voi
         return;
       }
     }
+    if (reporterRole === 'delivery_agent' && category !== 'ACCOUNT') {
+      res.status(403).json({ message: 'Delivery agents can only report accounts' });
+      return;
+    }
 
     if (!isObjectId(targetId)) {
       res.status(400).json({ message: 'Invalid targetId' });
@@ -74,18 +79,23 @@ export const createReport = async (req: AuthRequest, res: Response): Promise<voi
         res.status(404).json({ message: 'Reported account not found' });
         return;
       }
-      if (!['seller', 'mechanic', 'delivery_agent'].includes(targetUser.role)) {
-        res.status(400).json({ message: 'Only seller, mechanic, or delivery agent accounts can be reported' });
+      if (!['buyer', 'seller', 'mechanic', 'delivery_agent'].includes(targetUser.role)) {
+        res.status(400).json({ message: 'Only buyer, seller, mechanic, or delivery agent accounts can be reported' });
         return;
       }
 
       // Role-based target enforcement
       if (reporterRole === 'buyer') {
         // buyer can report seller/mechanic/delivery_agent (already checked)
-      } else {
+      } else if (reporterRole === 'seller' || reporterRole === 'mechanic') {
         // seller/mechanic can only report delivery agent accounts
         if (targetUser.role !== 'delivery_agent') {
           res.status(403).json({ message: 'You can only report delivery agent accounts' });
+          return;
+        }
+      } else if (reporterRole === 'delivery_agent') {
+        if (!['buyer', 'seller', 'mechanic'].includes(targetUser.role)) {
+          res.status(403).json({ message: 'Delivery agents can report buyer, seller, or mechanic accounts only' });
           return;
         }
       }
@@ -169,6 +179,20 @@ export const createReport = async (req: AuthRequest, res: Response): Promise<voi
       reportedProduct: reportedProductId,
       reportedService: reportedServiceId,
       reportedDelivery: reportedDeliveryId,
+    });
+
+    await notifyRole('admin', {
+      category: reporterRole === 'buyer' ? 'COMPLAINT' : 'REPORT',
+      title: `New ${category.toLowerCase()} report`,
+      message: `${req.user.role} submitted a report: ${trimmedReason}`,
+      link: '/admin/reports',
+      metadata: {
+        source: 'report',
+        reportId: report._id,
+        category,
+        reporterRole,
+        reportedUserId,
+      },
     });
 
     res.status(201).json({

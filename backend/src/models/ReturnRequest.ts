@@ -50,6 +50,7 @@ export interface IReturnRequest extends Document {
   order: mongoose.Types.ObjectId;
   buyer: mongoose.Types.ObjectId;
   seller: mongoose.Types.ObjectId;
+  ownerRole?: 'seller' | 'mechanic';
   reason: ReturnReason;
   referencePhotos: string[];
   bankDetails: IReturnBankDetails;
@@ -103,6 +104,11 @@ const returnRequestSchema = new Schema<IReturnRequest>(
       required: true,
       index: true,
     },
+    ownerRole: {
+      type: String,
+      enum: ['seller', 'mechanic'],
+      index: true,
+    },
     reason: {
       type: String,
       enum: RETURN_REASONS,
@@ -112,8 +118,8 @@ const returnRequestSchema = new Schema<IReturnRequest>(
       type: [String],
       required: true,
       validate: {
-        validator: (value: string[]) => Array.isArray(value) && value.length > 0,
-        message: 'At least one reference photo is required',
+        validator: (value: string[]) => Array.isArray(value) && value.length >= 5 && value.length <= 8,
+        message: 'Return request must include 5 to 8 reference photos',
       },
     },
     bankDetails: {
@@ -162,6 +168,8 @@ const returnRequestSchema = new Schema<IReturnRequest>(
 );
 
 returnRequestSchema.index({ order: 1, buyer: 1 }, { unique: true });
+returnRequestSchema.index({ seller: 1, status: 1, createdAt: -1 });
+returnRequestSchema.index({ assigned_agent_id: 1, status: 1, createdAt: -1 });
 
 const ReturnRequest: Model<IReturnRequest> = mongoose.model<IReturnRequest>('ReturnRequest', returnRequestSchema);
 

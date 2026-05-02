@@ -79,6 +79,7 @@ const AdminOrdersManagement = lazy(() => import('./pages/admin/OrdersManagement'
 const AdminRatingsManagement = lazy(() => import('./pages/admin/RatingsManagement'));
 const AdminReports = lazy(() => import('./pages/admin/Reports'));
 const AdminNotifications = lazy(() => import('./pages/admin/Notifications'));
+const AdminInfoToUsers = lazy(() => import('./pages/admin/InfoToUsers'));
 const AdminContactManagement = lazy(() => import('./pages/admin/ContactManagement'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AdminNotFound = lazy(() => import('./pages/admin/NotFound'));
@@ -508,7 +509,21 @@ const AppContent = (): JSX.Element => {
                   </AdminLayout>
                 </RoleRoute>
               } />
+              <Route path="/admin/info-to-users" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminInfoToUsers />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
               <Route path="/admin/contacts" element={
+                <RoleRoute roles={['admin']}>
+                  <AdminLayout>
+                    <AdminContactManagement />
+                  </AdminLayout>
+                </RoleRoute>
+              } />
+              <Route path="/admin/visitor-messages" element={
                 <RoleRoute roles={['admin']}>
                   <AdminLayout>
                     <AdminContactManagement />

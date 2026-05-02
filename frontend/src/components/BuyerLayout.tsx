@@ -6,7 +6,6 @@ import {
   RotateCcw,
   ShoppingCart,
   User,
-  UserCircle,
 } from "lucide-react";
 import { DashboardShell } from "./DashboardShell";
 
@@ -17,28 +16,6 @@ const navItems = [
   { title: "Return & Claims", icon: RotateCcw, path: "/buyer/returns-claims" },
   { title: "Chat", icon: MessageSquare, path: "/chat" },
   { title: "Notifications", icon: Bell, path: "/buyer/notifications" },
-  {
-    title: "Account",
-    icon: UserCircle,
-    path: "/buyer/account",
-    isActive: (pathname) => pathname === "/buyer/account",
-    children: [
-      {
-        title: "Profile",
-        icon: UserCircle,
-        path: "/buyer/account?tab=profile",
-        isActive: (pathname, search) =>
-          pathname === "/buyer/account" && new URLSearchParams(search).get("tab") === "profile",
-      },
-      {
-        title: "Settings",
-        icon: UserCircle,
-        path: "/buyer/account?tab=settings",
-        isActive: (pathname, search) =>
-          pathname === "/buyer/account" && new URLSearchParams(search).get("tab") === "settings",
-      },
-    ],
-  },
 ];
 
 interface BuyerLayoutProps {

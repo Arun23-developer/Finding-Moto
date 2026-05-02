@@ -23,6 +23,8 @@ import deliveryRoutes from './routes/deliveryRoutes';
 import cartRoutes from './routes/cartRoutes';
 import returnRoutes from './routes/returnRoutes';
 import reportRoutes from './routes/reportRoutes';
+import notificationRoutes from './routes/notificationRoutes';
+import { createVisitorMessage } from './controllers/visitorMessageController';
 
 const app: Application = express();
 
@@ -72,6 +74,7 @@ app.use('/api', (req: Request, res: Response, next) => {
 });
 
 // Routes
+app.post('/api/public/contact', createVisitorMessage);
 app.use('/api/public', publicRoutes);       // Public â€” No auth required (products/mechanics browsing)
 app.use('/api/auth', authRoutes);          // Raakul â€” User Management
 app.use('/api/seller', sellerRoutes);      // Thulax â€” Seller Dashboard
@@ -87,6 +90,7 @@ app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/returns', returnRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Error handler
 app.use(errorHandler);

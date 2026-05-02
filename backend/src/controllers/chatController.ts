@@ -29,6 +29,18 @@ const canUserChat = (currentUser: any, recipient: any): boolean => {
   return false;
 };
 
+const getOtherParticipant = (chat: any, userId: mongoose.Types.ObjectId) =>
+  chat.participants.find((p: any) => p._id.toString() !== userId.toString());
+
+const getBuyerParticipant = (chat: any) =>
+  chat.participants.find((p: any) => p.role === 'buyer');
+
+const hasBuyerMessage = (chat: any): boolean => {
+  const buyer = getBuyerParticipant(chat);
+  if (!buyer) return false;
+  return chat.messages.some((message: any) => message.sender.toString() === buyer._id.toString());
+};
+
 // Get list of sellers & mechanics that the buyer can chat with
 // OR get buyers who have chatted with the seller/mechanic
 export const getChatUsers = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -55,15 +67,11 @@ export const getChatUsers = async (req: AuthRequest, res: Response): Promise<voi
       // Filter to show only buyers in the chat list
       const users = chats
         .filter((chat) => {
-          const other = chat.participants.find(
-            (p: any) => p._id.toString() !== userId.toString()
-          );
-          return (other as any)?.role === 'buyer';
+          const other = getOtherParticipant(chat, userId);
+          return (other as any)?.role === 'buyer' && hasBuyerMessage(chat);
         })
         .map((chat) => {
-          const other = chat.participants.find(
-            (p: any) => p._id.toString() !== userId.toString()
-          );
+          const other = getOtherParticipant(chat, userId);
           const unreadCount = chat.messages.filter(
             (m) => m.sender.toString() !== userId.toString() && !m.read
           ).length;
@@ -97,7 +105,7 @@ export const getChatUsers = async (req: AuthRequest, res: Response): Promise<voi
   }
 };
 
-// Get or create a chat between two users
+// Get a chat between two users. Buyers may create a new chat; sellers/mechanics may only open existing buyer-started chats.
 export const getOrCreateChat = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!._id;
@@ -124,7 +132,7 @@ export const getOrCreateChat = async (req: AuthRequest, res: Response): Promise<
     // Validate chat permissions
     if (!canUserChat(req.user, recipient)) {
       res.status(403).json({ 
-        message: 'Sellers and mechanics can only chat with buyers. You cannot chat with each other.' 
+        message: 'Messaging is controlled by buyers. Sellers and mechanics can only reply to buyer conversations.' 
       });
       return;
     }
@@ -132,13 +140,26 @@ export const getOrCreateChat = async (req: AuthRequest, res: Response): Promise<
     // Find existing chat
     let chat = await Chat.findOne({
       participants: { $all: [userId, recipientId], $size: 2 },
-    });
+    }).populate('participants', 'firstName lastName role avatar shopName workshopName specialization');
+
+    if (!chat && userRole !== 'buyer') {
+      res.status(403).json({
+        message: 'Only buyers can start a new conversation. You can reply after a buyer messages you.',
+      });
+      return;
+    }
 
     if (!chat) {
       chat = await Chat.create({
         participants: [userId, recipientId],
         messages: [],
       });
+      await chat.populate('participants', 'firstName lastName role avatar shopName workshopName specialization');
+    } else if (userRole !== 'buyer' && !hasBuyerMessage(chat)) {
+      res.status(403).json({
+        message: 'You can reply only after the buyer sends the first message.',
+      });
+      return;
     }
 
     // Mark messages from recipient as read
@@ -202,10 +223,17 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
       const currentUser = { role: userRole };
       if (!canUserChat(currentUser, otherParticipant)) {
         res.status(403).json({ 
-          message: 'Sellers and mechanics can only chat with buyers. You cannot chat with each other.' 
+          message: 'Messaging is controlled by buyers. Sellers and mechanics can only reply to buyer conversations.' 
         });
         return;
       }
+    }
+
+    if (userRole !== 'buyer' && !hasBuyerMessage(chat)) {
+      res.status(403).json({
+        message: 'You can reply only after the buyer sends the first message.',
+      });
+      return;
     }
 
     const message = {
@@ -237,15 +265,20 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
 export const getMyChats = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!._id;
+    const role = req.user!.role;
 
     const chats = await Chat.find({ participants: userId })
       .sort({ updatedAt: -1 })
       .populate('participants', 'firstName lastName role avatar shopName workshopName specialization');
 
-    const result = chats.map((chat) => {
-      const other = chat.participants.find(
-        (p: any) => p._id.toString() !== userId.toString()
-      );
+    const visibleChats = chats.filter((chat) => {
+      if (role === 'buyer' || role === 'admin') return true;
+      const other = getOtherParticipant(chat, userId);
+      return (other as any)?.role === 'buyer' && hasBuyerMessage(chat);
+    });
+
+    const result = visibleChats.map((chat) => {
+      const other = getOtherParticipant(chat, userId);
       const unreadCount = chat.messages.filter(
         (m) => m.sender.toString() !== userId.toString() && !m.read
       ).length;

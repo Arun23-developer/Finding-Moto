@@ -8,7 +8,7 @@ import SparePartsSection from "@/components/SparePartsSection";
 import Footer from "@/components/Footer";
 
 const Home = () => (
-  <div className="min-h-screen bg-background">
+  <div className="min-h-screen bg-[#121212]">
     <Navbar />
     <HeroSlider />
     <FeaturesSection />

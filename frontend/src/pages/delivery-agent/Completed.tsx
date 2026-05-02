@@ -222,6 +222,10 @@ export default function DeliveryCompletedPage() {
       {/* Details Modal */}
       <Dialog open={Boolean(selectedDelivery)} onOpenChange={(open) => !open && setSelectedDelivery(null)}>
         <DialogContent className="sm:max-w-xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Completed delivery details</DialogTitle>
+            <DialogDescription>Review the selected completed delivery details.</DialogDescription>
+          </DialogHeader>
           {selectedDelivery && (
              <div className="flex flex-col">
                 <div className="bg-slate-900 p-8 text-white">

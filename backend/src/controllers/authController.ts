@@ -17,6 +17,9 @@ interface EmailValidationResult {
 }
 
 const normalizeEmail = (value: string): string => value.trim().toLowerCase();
+const nameRegex = /^[A-Za-z\s.'-]+$/;
+const sriLankanPhoneRegex = /^\+94\d{9}$/;
+const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
 
 interface RegisterRequestBody {
   firstName: string;
@@ -162,12 +165,35 @@ export const register = async (
       specialization, experienceYears, workshopLocation, workshopName
     } = req.body as RegisterRequestBody;
 
-    if (!firstName || !lastName || !email || !password) {
+    if (!firstName || !lastName || !email || !password || !phone) {
       res.status(400).json({ message: 'Please fill in all required fields' });
       return;
     }
 
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
     const normalizedEmail = normalizeEmail(email);
+    const normalizedPhone = String(phone).replace(/\s+/g, '').trim();
+
+    if (trimmedFirstName.length < 2 || !nameRegex.test(trimmedFirstName)) {
+      res.status(400).json({ message: 'First name must be at least 2 characters and contain only letters' });
+      return;
+    }
+
+    if (trimmedLastName.length < 2 || !nameRegex.test(trimmedLastName)) {
+      res.status(400).json({ message: 'Last name must be at least 2 characters and contain only letters' });
+      return;
+    }
+
+    if (!sriLankanPhoneRegex.test(normalizedPhone)) {
+      res.status(400).json({ message: 'Phone number must be a valid Sri Lankan number in +94XXXXXXXXX format' });
+      return;
+    }
+
+    if (!strongPasswordRegex.test(password)) {
+      res.status(400).json({ message: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character' });
+      return;
+    }
 
     // Validate role
     const validRoles: UserRole[] = [...USER_ROLES];
@@ -203,11 +229,11 @@ export const register = async (
 
     // Build user data
     const userData: any = {
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
+      firstName: trimmedFirstName,
+      lastName: trimmedLastName,
       email: normalizedEmail,
       password,
-      phone,
+      phone: normalizedPhone,
       role: userRole
     };
 
@@ -238,7 +264,7 @@ export const register = async (
 
     // Send OTP email
     try {
-      await sendOTPEmail(normalizedEmail, otp, firstName.trim());
+      await sendOTPEmail(normalizedEmail, otp, trimmedFirstName);
     } catch (emailError) {
       console.error('Failed to send OTP email:', emailError);
       // Don't fail registration, user can resend OTP

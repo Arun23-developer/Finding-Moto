@@ -12,16 +12,16 @@ import User from '../models/User';
 import { normalizeOrderStatus } from '../utils/orderStatus';
 import { emitReturnWorkflowEvent } from '../utils/returnWorkflowEvents';
 
-const RETURN_STATUS_TRANSITIONS: Record<ReturnRequestStatus, ReturnRequestStatus[]> = {
+const MANAGER_STATUS_TRANSITIONS: Partial<Record<ReturnRequestStatus, ReturnRequestStatus[]>> = {
   RETURN_REQUESTED: ['RETURN_APPROVED', 'RETURN_REJECTED'],
-  RETURN_APPROVED: ['RETURN_PICKUP_ASSIGNED'],
-  RETURN_REJECTED: [],
-  RETURN_PICKUP_ASSIGNED: ['RETURN_PICKED_UP'],
-  RETURN_PICKED_UP: ['RETURN_IN_TRANSIT'],
-  RETURN_IN_TRANSIT: ['RETURN_DELIVERED'],
   RETURN_DELIVERED: ['REFUND_INITIATED'],
   REFUND_INITIATED: ['REFUND_COMPLETED'],
-  REFUND_COMPLETED: [],
+};
+
+const DELIVERY_AGENT_STATUS_TRANSITIONS: Partial<Record<ReturnRequestStatus, ReturnRequestStatus[]>> = {
+  RETURN_PICKUP_ASSIGNED: ['RETURN_PICKED_UP'],
+  RETURN_PICKED_UP: ['RETURN_DELIVERED'],
+  RETURN_IN_TRANSIT: ['RETURN_DELIVERED'],
 };
 
 const formatReturnRequest = (returnRequest: any) => ({
@@ -29,7 +29,21 @@ const formatReturnRequest = (returnRequest: any) => ({
   order: returnRequest.order,
   buyer: returnRequest.buyer,
   seller: returnRequest.seller,
+  ownerRole: returnRequest.ownerRole || returnRequest.seller?.role || null,
   assigned_agent_id: returnRequest.assigned_agent_id || null,
+  assigned_agent:
+    returnRequest.assigned_agent_id &&
+    typeof returnRequest.assigned_agent_id === 'object' &&
+    ('firstName' in returnRequest.assigned_agent_id || 'lastName' in returnRequest.assigned_agent_id)
+      ? {
+          _id: returnRequest.assigned_agent_id._id,
+          firstName: returnRequest.assigned_agent_id.firstName,
+          lastName: returnRequest.assigned_agent_id.lastName,
+          fullName: `${returnRequest.assigned_agent_id.firstName || ''} ${returnRequest.assigned_agent_id.lastName || ''}`.trim(),
+          vehicleType: returnRequest.assigned_agent_id.vehicleType || '',
+          vehicleNumber: returnRequest.assigned_agent_id.vehicleNumber || '',
+        }
+      : null,
   reason: returnRequest.reason,
   referencePhotos: returnRequest.referencePhotos || [],
   bankDetails: returnRequest.bankDetails,
@@ -42,6 +56,20 @@ const formatReturnRequest = (returnRequest: any) => ({
 });
 
 const getActorRole = (role: string): 'seller' | 'mechanic' => (role === 'mechanic' ? 'mechanic' : 'seller');
+
+const populateReturnRequestForResponse = (returnRequest: any) =>
+  returnRequest.populate([
+    { path: 'order', select: 'items totalAmount status shippingAddress paymentMethod createdAt' },
+    { path: 'buyer', select: 'firstName lastName email phone address city postCode' },
+    { path: 'seller', select: 'firstName lastName shopName workshopName role' },
+    { path: 'assigned_agent_id', select: 'firstName lastName vehicleType vehicleNumber' },
+  ]);
+
+const LETTERS_ONLY_PATTERN = /^[A-Za-z\s.'-]+$/;
+const ACCOUNT_NUMBER_PATTERN = /^\d{8,16}$/;
+const RETURNABLE_ORDER_STATUSES = new Set(['delivered', 'completed']);
+
+const normalizeText = (value?: string) => value?.trim() || '';
 
 export const createReturnRequest = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -73,8 +101,8 @@ export const createReturnRequest = async (req: AuthRequest, res: Response): Prom
       return;
     }
 
-    if (!photos.length) {
-      res.status(400).json({ success: false, message: 'At least one reference photo is required' });
+    if (photos.length < 5 || photos.length > 8) {
+      res.status(400).json({ success: false, message: 'Please upload 5 to 8 reference photos' });
       return;
     }
 
@@ -94,6 +122,25 @@ export const createReturnRequest = async (req: AuthRequest, res: Response): Prom
       return;
     }
 
+    const cleanAccountHolderName = normalizeText(accountHolderName);
+    const cleanBankName = normalizeText(bankName);
+    const cleanAccountNumber = normalizeText(accountNumber);
+
+    if (!LETTERS_ONLY_PATTERN.test(cleanAccountHolderName)) {
+      res.status(400).json({ success: false, message: 'Account holder name can contain only letters and spaces' });
+      return;
+    }
+
+    if (!LETTERS_ONLY_PATTERN.test(cleanBankName)) {
+      res.status(400).json({ success: false, message: 'Bank name can contain only letters and spaces' });
+      return;
+    }
+
+    if (!ACCOUNT_NUMBER_PATTERN.test(cleanAccountNumber)) {
+      res.status(400).json({ success: false, message: 'Account number must contain 8 to 16 digits only' });
+      return;
+    }
+
     const [order, existingRequest] = await Promise.all([
       Order.findOne({ _id: orderId, buyer: buyerId }),
       ReturnRequest.findOne({ order: orderId, buyer: buyerId }),
@@ -104,8 +151,8 @@ export const createReturnRequest = async (req: AuthRequest, res: Response): Prom
       return;
     }
 
-    if (normalizeOrderStatus(order.status) !== 'delivered') {
-      res.status(400).json({ success: false, message: 'Only delivered orders can be returned' });
+    if (!RETURNABLE_ORDER_STATUSES.has(normalizeOrderStatus(order.status))) {
+      res.status(400).json({ success: false, message: 'Only delivered or completed orders can be returned.' });
       return;
     }
 
@@ -116,16 +163,20 @@ export const createReturnRequest = async (req: AuthRequest, res: Response): Prom
 
     const referencePhotos = photos.map((file: Express.Multer.File) => `/uploads/returns/${file.filename}`);
 
+    const seller = await User.findById(order.seller).select('role');
+    const sellerAudience = seller?.role === 'mechanic' ? 'mechanic' : 'seller';
+
     const returnRequest = await ReturnRequest.create({
       order: order._id,
       buyer: buyerId,
       seller: order.seller,
+      ownerRole: sellerAudience,
       reason,
       referencePhotos,
       bankDetails: {
-        accountHolderName: accountHolderName!.trim(),
-        bankName: bankName!.trim(),
-        accountNumber: accountNumber!.trim(),
+        accountHolderName: cleanAccountHolderName,
+        bankName: cleanBankName,
+        accountNumber: cleanAccountNumber,
         branchName: branchName?.trim() || '',
         ifscOrSwiftCode: ifscOrSwiftCode?.trim() || '',
       },
@@ -145,9 +196,6 @@ export const createReturnRequest = async (req: AuthRequest, res: Response): Prom
         },
       ],
     });
-
-    const seller = await User.findById(order.seller).select('role');
-    const sellerAudience = seller?.role === 'mechanic' ? 'mechanic' : 'seller';
 
     emitReturnWorkflowEvent({
       userId: String(order.buyer),
@@ -171,6 +219,7 @@ export const createReturnRequest = async (req: AuthRequest, res: Response): Prom
       actorRole: 'buyer',
     });
 
+    await populateReturnRequestForResponse(returnRequest);
     res.status(201).json({ success: true, data: formatReturnRequest(returnRequest) });
   } catch (error: any) {
     if (error?.code === 11000) {
@@ -188,6 +237,7 @@ export const getBuyerReturnRequests = async (req: AuthRequest, res: Response): P
       .sort({ createdAt: -1 })
       .populate('order', 'items totalAmount status createdAt')
       .populate('seller', 'firstName lastName shopName workshopName role')
+      .populate('assigned_agent_id', 'firstName lastName vehicleType vehicleNumber')
       .lean();
 
     res.json({ success: true, data: returns.map(formatReturnRequest) });
@@ -203,6 +253,7 @@ export const getManagedReturnRequests = async (req: AuthRequest, res: Response):
       .sort({ createdAt: -1 })
       .populate('order', 'items totalAmount status shippingAddress paymentMethod createdAt')
       .populate('buyer', 'firstName lastName email phone address city postCode')
+      .populate('assigned_agent_id', 'firstName lastName vehicleType vehicleNumber')
       .lean();
 
     res.json({ success: true, data: returns.map(formatReturnRequest) });
@@ -228,13 +279,17 @@ export const updateReturnRequestStatus = async (req: AuthRequest, res: Response)
       return;
     }
 
-    if (!RETURN_STATUS_TRANSITIONS[returnRequest.status].includes(status)) {
+    if (!MANAGER_STATUS_TRANSITIONS[returnRequest.status]?.includes(status)) {
       res.status(400).json({
         success: false,
-        message: `Cannot transition from ${returnRequest.status} to ${status}`,
+        message: 'Seller or mechanic can only approve/reject returns and process refunds after the item is returned',
       });
       return;
     }
+
+    const buyerId = returnRequest.buyer.toString();
+    const sellerId = returnRequest.seller.toString();
+    const orderId = returnRequest.order.toString();
 
     returnRequest.statusHistory.push({
       status,
@@ -243,14 +298,15 @@ export const updateReturnRequestStatus = async (req: AuthRequest, res: Response)
     });
     returnRequest.status = status;
     await returnRequest.save();
+    await populateReturnRequestForResponse(returnRequest);
 
     const actorRole = getActorRole(req.user!.role);
 
     emitReturnWorkflowEvent({
-      userId: String(returnRequest.buyer),
+      userId: buyerId,
       audience: 'buyer',
       returnRequestId: returnRequest._id.toString(),
-      orderId: returnRequest.order.toString(),
+      orderId,
       status,
       title: 'Return status updated',
       message:
@@ -263,10 +319,10 @@ export const updateReturnRequestStatus = async (req: AuthRequest, res: Response)
     });
 
     emitReturnWorkflowEvent({
-      userId: String(returnRequest.seller),
+      userId: sellerId,
       audience: actorRole,
       returnRequestId: returnRequest._id.toString(),
-      orderId: returnRequest.order.toString(),
+      orderId,
       status,
       title: 'Return status updated',
       message: `Return request updated to ${status.replace(/_/g, ' ')}`,
@@ -363,6 +419,10 @@ export const assignReturnDeliveryAgent = async (req: AuthRequest, res: Response)
       return;
     }
 
+    const buyerId = returnRequest.buyer.toString();
+    const sellerId = returnRequest.seller.toString();
+    const orderId = returnRequest.order.toString();
+
     returnRequest.assigned_agent_id = agent._id as mongoose.Types.ObjectId;
     returnRequest.statusHistory.push({
       status: 'RETURN_PICKUP_ASSIGNED',
@@ -371,14 +431,14 @@ export const assignReturnDeliveryAgent = async (req: AuthRequest, res: Response)
     });
     returnRequest.status = 'RETURN_PICKUP_ASSIGNED';
     await returnRequest.save();
+    await populateReturnRequestForResponse(returnRequest);
 
     const actorRole = getActorRole(req.user!.role);
     const agentName = `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || 'Delivery agent';
     const returnRequestId = returnRequest._id.toString();
-    const orderId = returnRequest.order.toString();
 
     emitReturnWorkflowEvent({
-      userId: String(returnRequest.buyer),
+      userId: buyerId,
       audience: 'buyer',
       returnRequestId,
       orderId,
@@ -476,23 +536,26 @@ export const updateDeliveryAgentReturnStatus = async (req: AuthRequest, res: Res
       return;
     }
 
-    // Delivery agent can only update: PICKED_UP, IN_TRANSIT
-    const allowedStatuses = ['RETURN_PICKED_UP', 'RETURN_IN_TRANSIT'];
+    const allowedStatuses = ['RETURN_PICKED_UP', 'RETURN_DELIVERED'];
     if (!allowedStatuses.includes(status)) {
       res.status(400).json({
         success: false,
-        message: 'Delivery agent can only update to PICKED_UP or IN_TRANSIT status',
+        message: 'Delivery agent can only mark a return as picked up or returned',
       });
       return;
     }
 
-    if (!RETURN_STATUS_TRANSITIONS[returnRequest.status].includes(status)) {
+    if (!DELIVERY_AGENT_STATUS_TRANSITIONS[returnRequest.status]?.includes(status)) {
       res.status(400).json({
         success: false,
         message: `Cannot transition from ${returnRequest.status} to ${status}`,
       });
       return;
     }
+
+    const buyerId = returnRequest.buyer.toString();
+    const sellerId = returnRequest.seller.toString();
+    const orderId = returnRequest.order.toString();
 
     returnRequest.statusHistory.push({
       status,
@@ -501,14 +564,17 @@ export const updateDeliveryAgentReturnStatus = async (req: AuthRequest, res: Res
     });
     returnRequest.status = status;
     await returnRequest.save();
+    await populateReturnRequestForResponse(returnRequest);
 
-    const agent = await User.findById(req.user!._id).select('firstName lastName');
+    const [agent, seller] = await Promise.all([
+      User.findById(req.user!._id).select('firstName lastName'),
+      User.findById(sellerId).select('role'),
+    ]);
     const agentName = `${agent?.firstName || ''} ${agent?.lastName || ''}`.trim() || 'Delivery agent';
     const returnRequestId = returnRequest._id.toString();
-    const orderId = returnRequest.order.toString();
 
     emitReturnWorkflowEvent({
-      userId: String(returnRequest.buyer),
+      userId: buyerId,
       audience: 'buyer',
       returnRequestId,
       orderId,
@@ -519,8 +585,8 @@ export const updateDeliveryAgentReturnStatus = async (req: AuthRequest, res: Res
     });
 
     emitReturnWorkflowEvent({
-      userId: String(returnRequest.seller),
-      audience: getActorRole(returnRequest.seller.toString()),
+      userId: sellerId,
+      audience: getActorRole(seller?.role || 'seller'),
       returnRequestId,
       orderId,
       status,
@@ -551,13 +617,17 @@ export const completeReturnDelivery = async (req: AuthRequest, res: Response): P
       return;
     }
 
-    if (returnRequest.status !== 'RETURN_IN_TRANSIT') {
+    if (!['RETURN_PICKED_UP', 'RETURN_IN_TRANSIT'].includes(returnRequest.status)) {
       res.status(400).json({
         success: false,
-        message: 'Return package must be in transit before marking as delivered',
+        message: 'Return package must be picked up before marking as returned',
       });
       return;
     }
+
+    const buyerId = returnRequest.buyer.toString();
+    const sellerId = returnRequest.seller.toString();
+    const orderId = returnRequest.order.toString();
 
     returnRequest.statusHistory.push({
       status: 'RETURN_DELIVERED',
@@ -566,14 +636,17 @@ export const completeReturnDelivery = async (req: AuthRequest, res: Response): P
     });
     returnRequest.status = 'RETURN_DELIVERED';
     await returnRequest.save();
+    await populateReturnRequestForResponse(returnRequest);
 
-    const agent = await User.findById(req.user!._id).select('firstName lastName');
+    const [agent, seller] = await Promise.all([
+      User.findById(req.user!._id).select('firstName lastName'),
+      User.findById(sellerId).select('role'),
+    ]);
     const agentName = `${agent?.firstName || ''} ${agent?.lastName || ''}`.trim() || 'Delivery agent';
     const returnRequestId = returnRequest._id.toString();
-    const orderId = returnRequest.order.toString();
 
     emitReturnWorkflowEvent({
-      userId: String(returnRequest.buyer),
+      userId: buyerId,
       audience: 'buyer',
       returnRequestId,
       orderId,
@@ -584,8 +657,8 @@ export const completeReturnDelivery = async (req: AuthRequest, res: Response): P
     });
 
     emitReturnWorkflowEvent({
-      userId: String(returnRequest.seller),
-      audience: getActorRole(returnRequest.seller.toString()),
+      userId: sellerId,
+      audience: getActorRole(seller?.role || 'seller'),
       returnRequestId,
       orderId,
       status: 'RETURN_DELIVERED',

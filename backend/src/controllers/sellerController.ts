@@ -1,4 +1,4 @@
-// --- Seller Dashboard Controller � Thulax ----------------------------------
+﻿// --- Seller Dashboard Controller — Thulax ----------------------------------
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import Product from '../models/Product';
@@ -8,7 +8,7 @@ import mongoose from 'mongoose';
 import { getOrderStatusLabel } from '../utils/orderStatus';
 
 const LOW_STOCK_THRESHOLD = 5;
-const REVENUE_STATUSES = ['delivered', 'completed'];
+const REVENUE_STATUSES = ['completed'];
 const SUCCESS_STATUSES = ['shipped', 'out_for_delivery', 'delivered', 'completed'];
 const PENDING_STATUSES = ['pending', 'awaiting_seller_confirmation', 'confirmed', 'processing', 'ready_for_dispatch'];
 
@@ -83,14 +83,16 @@ export const getSellerDashboard = async (req: AuthRequest, res: Response): Promi
       topSellingProductsAgg,
     ] = await Promise.all([
       Order.aggregate([
-        { $match: { seller: sellerId, status: { $in: REVENUE_STATUSES } } },
+        { $match: { seller: sellerId, order_type: 'product', status: { $in: REVENUE_STATUSES } } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } },
       ]),
-      Order.countDocuments({ seller: sellerId, status: { $in: REVENUE_STATUSES } }),
+      Order.countDocuments({ seller: sellerId, order_type: 'product', status: { $in: REVENUE_STATUSES } }),
       Order.aggregate([
         {
           $match: {
             seller: sellerId,
+            order_type: 'product',
+            status: { $in: REVENUE_STATUSES },
             createdAt: { $gte: currentPeriodStart, $lte: now },
           },
         },
@@ -104,6 +106,8 @@ export const getSellerDashboard = async (req: AuthRequest, res: Response): Promi
       ]),
       Order.find({
         seller: sellerId,
+        order_type: 'product',
+        status: { $in: REVENUE_STATUSES },
         createdAt: { $gte: currentPeriodStart, $lte: now },
       })
         .sort({ createdAt: -1 })
@@ -121,6 +125,7 @@ export const getSellerDashboard = async (req: AuthRequest, res: Response): Promi
         {
           $match: {
             seller: sellerId,
+            order_type: 'product',
             status: { $in: REVENUE_STATUSES },
             createdAt: { $gte: startOfMonth, $lte: endOfMonth },
           },
@@ -131,6 +136,7 @@ export const getSellerDashboard = async (req: AuthRequest, res: Response): Promi
         {
           $match: {
             seller: sellerId,
+            order_type: 'product',
             status: { $in: REVENUE_STATUSES },
             createdAt: { $gte: startOfPreviousMonth, $lte: endOfPreviousMonth },
           },
@@ -141,6 +147,7 @@ export const getSellerDashboard = async (req: AuthRequest, res: Response): Promi
         {
           $match: {
             seller: sellerId,
+            order_type: 'product',
             status: { $in: REVENUE_STATUSES },
             createdAt: { $gte: revenuePeriodStart, $lte: revenuePeriodEnd },
           },
@@ -185,6 +192,7 @@ export const getSellerDashboard = async (req: AuthRequest, res: Response): Promi
         {
           $match: {
             seller: sellerId,
+            order_type: 'product',
             status: { $in: REVENUE_STATUSES },
             createdAt: { $gte: currentPeriodStart, $lte: now },
           },
@@ -343,9 +351,9 @@ export const getOverview = async (req: AuthRequest, res: Response): Promise<void
       Product.countDocuments({ seller: sellerId, status: 'active' }),
       Order.countDocuments({ seller: sellerId }),
       Order.countDocuments({ seller: sellerId, status: { $in: PENDING_STATUSES } }),
-      Order.countDocuments({ seller: sellerId, status: { $in: REVENUE_STATUSES } }),
+      Order.countDocuments({ seller: sellerId, order_type: 'product', status: { $in: REVENUE_STATUSES } }),
       Order.aggregate([
-        { $match: { seller: sellerId, status: { $in: REVENUE_STATUSES } } },
+        { $match: { seller: sellerId, order_type: 'product', status: { $in: REVENUE_STATUSES } } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } },
       ]),
       Product.aggregate([
@@ -448,7 +456,7 @@ export const getAnalytics = async (req: AuthRequest, res: Response): Promise<voi
 
     // Top categories by revenue
     const topCategories = await Order.aggregate([
-      { $match: { seller: sellerId, status: { $in: REVENUE_STATUSES } } },
+      { $match: { seller: sellerId, order_type: 'product', status: { $in: REVENUE_STATUSES } } },
       { $unwind: '$items' },
       {
         $lookup: {

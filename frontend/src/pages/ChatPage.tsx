@@ -75,6 +75,7 @@ export default function ChatPage() {
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
@@ -178,6 +179,7 @@ export default function ChatPage() {
 
   async function openChat(recipientId: string) {
     try {
+      setError('');
       const data = await getOrCreateChat(recipientId);
       setActiveChat(data.chat._id);
       setActiveChatMessages(data.chat.messages);
@@ -197,8 +199,9 @@ export default function ChatPage() {
       );
 
       setTimeout(() => inputRef.current?.focus(), 100);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to open chat:', err);
+      setError(err?.response?.data?.message || 'Unable to open this conversation.');
     }
   }
 
@@ -210,6 +213,7 @@ export default function ChatPage() {
     setSending(true);
 
     try {
+      setError('');
       const msg = await sendMessageApi(activeChat, content);
       setActiveChatMessages((prev) => [...prev, msg]);
 
@@ -239,8 +243,9 @@ export default function ChatPage() {
       });
 
       scrollToBottom();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to send message:', err);
+      setError(err?.response?.data?.message || 'Unable to send this message.');
       setMessageInput(content); // restore on failure
     } finally {
       setSending(false);
@@ -269,6 +274,8 @@ export default function ChatPage() {
 
   // Filter users for the sidebar list
   const isBuyer = user?.role === 'buyer';
+  const messageCenterTitle = isBuyer ? 'Messages' : 'Buyer Message Center';
+  const searchPlaceholder = isBuyer ? 'Search conversations or providers...' : 'Search buyer conversations...';
 
   // For buyers: show available sellers/mechanics + existing conversations
   // For sellers/mechanics: show existing conversations
@@ -306,15 +313,27 @@ export default function ChatPage() {
       {/* Sidebar - Conversation List */}
       <div className={`chat-sidebar ${!showSidebar ? 'chat-sidebar-hidden' : ''}`}>
         <div className="chat-sidebar-header">
-          <h2>Messages</h2>
+          <h2>{messageCenterTitle}</h2>
           <MessageSquare className="w-5 h-5" style={{ color: 'hsl(var(--accent))' }} />
         </div>
+
+        {!isBuyer && (
+          <div className="mx-4 mb-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            Buyers start conversations. You can reply to buyers who have already messaged you.
+          </div>
+        )}
+
+        {error && (
+          <div className="mx-4 mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+            {error}
+          </div>
+        )}
 
         <div className="chat-search-wrap">
           <Search className="chat-search-icon" />
           <input
             type="text"
-            placeholder="Search conversations..."
+            placeholder={searchPlaceholder}
             className="chat-search-input"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -412,7 +431,7 @@ export default function ChatPage() {
               <MessageSquare className="w-10 h-10" style={{ color: 'hsl(var(--muted-foreground))' }} />
               <p>{searchQuery ? 'No results found' : 'No conversations yet'}</p>
               {!isBuyer && !searchQuery && (
-                <span>Buyers will appear here once they message you</span>
+                <span>Buyers will appear here once they send you a message</span>
               )}
             </div>
           )}
@@ -542,7 +561,11 @@ export default function ChatPage() {
           <div className="chat-no-selection">
             <MessageSquare className="w-16 h-16" style={{ color: 'hsl(var(--muted-foreground))' }} />
             <h3>Select a conversation</h3>
-            <p>Choose a {isBuyer ? 'seller or mechanic' : 'conversation'} from the list to start chatting</p>
+            <p>
+              {isBuyer
+                ? 'Choose a seller or mechanic to start chatting'
+                : 'Choose an existing buyer conversation to reply'}
+            </p>
           </div>
         )}
       </div>

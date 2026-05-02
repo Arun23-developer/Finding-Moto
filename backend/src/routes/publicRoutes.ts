@@ -1,6 +1,9 @@
 // ─── Public Routes — No authentication required ────────────────────────────
 import express from 'express';
 import {
+  createVisitorMessage,
+} from '../controllers/visitorMessageController';
+import {
   getPublicProducts,
   getPublicProduct,
   getTrendingProducts,
@@ -12,6 +15,9 @@ import {
 } from '../controllers/publicController';
 
 const router = express.Router();
+
+// Visitor contact messages
+router.post('/contact', createVisitorMessage);
 
 // Products (public browsing)
 router.get('/products/trending', getTrendingProducts);

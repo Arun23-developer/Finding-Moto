@@ -18,13 +18,13 @@ export interface OrderWorkflowSocketEvent {
 
 export interface ReturnWorkflowSocketEvent {
   type: "return_workflow";
-  audience: "buyer" | "seller" | "mechanic";
+  audience: "buyer" | "seller" | "mechanic" | "delivery_agent";
   returnRequestId: string;
   orderId: string;
   status: string;
   title: string;
   message: string;
-  actorRole: "buyer" | "seller" | "mechanic" | "system";
+  actorRole: "buyer" | "seller" | "mechanic" | "delivery_agent" | "system";
   timestamp: string;
 }
 

@@ -12,6 +12,7 @@ import {
   Package,
   Star,
   BarChart3,
+  Megaphone,
 } from "lucide-react";
 import { DashboardShell } from "./DashboardShell";
 
@@ -54,9 +55,45 @@ const navItems = [
     isActive: (pathname) => pathname === "/admin/reports",
   },
   { title: "Notifications", icon: Bell, path: "/admin/notifications" },
+  {
+    title: "Info to Users",
+    icon: Megaphone,
+    path: "/admin/info-to-users?role=seller",
+    isActive: (pathname) => pathname === "/admin/info-to-users",
+    children: [
+      {
+        title: "Sellers",
+        icon: Store,
+        path: "/admin/info-to-users?role=seller",
+        isActive: (pathname, search) =>
+          pathname === "/admin/info-to-users" && new URLSearchParams(search).get("role") === "seller",
+      },
+      {
+        title: "Mechanics",
+        icon: Wrench,
+        path: "/admin/info-to-users?role=mechanic",
+        isActive: (pathname, search) =>
+          pathname === "/admin/info-to-users" && new URLSearchParams(search).get("role") === "mechanic",
+      },
+      {
+        title: "Delivery Agents",
+        icon: Truck,
+        path: "/admin/info-to-users?role=delivery_agent",
+        isActive: (pathname, search) =>
+          pathname === "/admin/info-to-users" && new URLSearchParams(search).get("role") === "delivery_agent",
+      },
+      {
+        title: "Buyers",
+        icon: ShoppingCart,
+        path: "/admin/info-to-users?role=buyer",
+        isActive: (pathname, search) =>
+          pathname === "/admin/info-to-users" && new URLSearchParams(search).get("role") === "buyer",
+      },
+    ],
+  },
   
   // Settings Section
-  { title: "Contacts", icon: Mail, path: "/admin/contacts" },
+  { title: "Visitor Messages", icon: Mail, path: "/admin/visitor-messages" },
   { title: "Settings", icon: Settings, path: "/admin/settings" },
 ];
 

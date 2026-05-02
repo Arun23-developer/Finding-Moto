@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
+import User from '../models/User';
 import Product from '../models/Product';
 import Order from '../models/Order';
 import Review from '../models/Review';
@@ -22,13 +23,47 @@ interface DashboardKpis {
 }
 
 const LOW_STOCK_THRESHOLD = 5;
-const REVENUE_STATUSES = ['delivered', 'completed'];
+const REVENUE_STATUSES = ['completed'];
 const SUCCESS_STATUSES = ['shipped', 'out_for_delivery', 'delivered', 'completed'];
 const PENDING_STATUSES = ['pending', 'awaiting_seller_confirmation', 'confirmed', 'processing', 'ready_for_dispatch'];
 const PRODUCT_RETURN_STATUSES = ['cancelled', 'refunded'];
 const SERVICE_REVENUE_STATUSES = ['SERVICE_COMPLETED', 'PAYMENT_RECEIVED'];
 const SERVICE_PENDING_STATUSES = ['SERVICE_ORDER_PLACED', 'SERVICE_ORDER_CONFIRMED', 'SERVICE_IN_PROGRESS'];
 const SERVICE_PENDING_TABLE_STATUSES = ['SERVICE_ORDER_PLACED', 'SERVICE_ORDER_CONFIRMED'];
+
+const toOptionalNumber = (value: unknown): number | undefined => {
+  if (value === undefined || value === null || value === '') return undefined;
+  return Number(value);
+};
+
+const rejectNegativeNumber = (
+  value: unknown,
+  label: string,
+  res: Response,
+  required = false
+): boolean => {
+  const numberValue = toOptionalNumber(value);
+
+  if (numberValue === undefined) {
+    if (required) {
+      res.status(400).json({ success: false, message: `${label} is required.` });
+      return true;
+    }
+    return false;
+  }
+
+  if (!Number.isFinite(numberValue)) {
+    res.status(400).json({ success: false, message: `${label} must be a valid number.` });
+    return true;
+  }
+
+  if (numberValue < 0) {
+    res.status(400).json({ success: false, message: `${label} must be 0 or greater.` });
+    return true;
+  }
+
+  return false;
+};
 
 const getPeriodBounds = (range: 'monthly' | 'weekly') => {
   const now = new Date();
@@ -136,7 +171,7 @@ const buildProductDashboard = async (mechanicId: mongoose.Types.ObjectId, range:
     ]),
     Order.countDocuments({ seller: mechanicId, status: { $in: REVENUE_STATUSES } }),
     Order.aggregate([
-      { $match: { seller: mechanicId, createdAt: { $gte: currentPeriodStart, $lte: now } } },
+      { $match: { seller: mechanicId, status: { $in: REVENUE_STATUSES }, createdAt: { $gte: currentPeriodStart, $lte: now } } },
       ...orderTypeMatchStages,
       {
         $group: {
@@ -154,6 +189,7 @@ const buildProductDashboard = async (mechanicId: mongoose.Types.ObjectId, range:
     ]),
     Order.find({
       seller: mechanicId,
+      status: { $in: REVENUE_STATUSES },
       createdAt: { $gte: currentPeriodStart, $lte: now },
       order_type: 'product',
     })
@@ -360,7 +396,7 @@ const buildServiceDashboard = async (mechanicId: mongoose.Types.ObjectId, range:
   
   const revenueLabels = getPeriodLabels(currentPeriodStart, now);
 
-  const services = await Service.find({ seller: mechanicId }).select('_id name').lean();
+  const services = await Service.find({ mechanic: mechanicId }).select('_id name').lean();
   const serviceIds = services.map((s) => s._id);
   
   const [
@@ -379,12 +415,12 @@ const buildServiceDashboard = async (mechanicId: mongoose.Types.ObjectId, range:
     topPerformingServicesAgg,
   ] = await Promise.all([
     ServiceOrder.aggregate([
-      { $match: { seller: mechanicId, status: { $in: SERVICE_REVENUE_STATUSES } } },
+      { $match: { mechanic: mechanicId, status: { $in: SERVICE_REVENUE_STATUSES } } },
       { $group: { _id: null, total: { $sum: '$servicePrice' } } },
     ]),
-    ServiceOrder.countDocuments({ seller: mechanicId, status: { $in: SERVICE_REVENUE_STATUSES } }),
+    ServiceOrder.countDocuments({ mechanic: mechanicId, status: { $in: SERVICE_REVENUE_STATUSES } }),
     ServiceOrder.aggregate([
-      { $match: { seller: mechanicId, createdAt: { $gte: currentPeriodStart, $lte: now } } },
+      { $match: { mechanic: mechanicId, status: { $in: SERVICE_REVENUE_STATUSES }, createdAt: { $gte: currentPeriodStart, $lte: now } } },
       {
         $group: {
           _id: null,
@@ -394,27 +430,28 @@ const buildServiceDashboard = async (mechanicId: mongoose.Types.ObjectId, range:
       },
     ]),
     ServiceOrder.find({
-      seller: mechanicId,
+      mechanic: mechanicId,
+      status: { $in: SERVICE_REVENUE_STATUSES },
       createdAt: { $gte: currentPeriodStart, $lte: now },
     })
       .sort({ createdAt: -1 })
       .populate('buyer', 'firstName lastName')
       .lean(),
-    ServiceOrder.countDocuments({ seller: mechanicId, status: { $in: SERVICE_PENDING_STATUSES } }),
+    ServiceOrder.countDocuments({ mechanic: mechanicId, status: { $in: SERVICE_PENDING_STATUSES } }),
     ServiceOrder.find({
-      seller: mechanicId,
+      mechanic: mechanicId,
       status: { $in: SERVICE_PENDING_STATUSES },
     })
       .sort({ createdAt: -1 })
       .limit(10)
       .populate('buyer', 'firstName lastName')
       .lean(),
-    ServiceOrder.countDocuments({ seller: mechanicId, status: { $in: SERVICE_REVENUE_STATUSES } }),
-    ServiceOrder.countDocuments({ seller: mechanicId }),
+    ServiceOrder.countDocuments({ mechanic: mechanicId, status: { $in: SERVICE_REVENUE_STATUSES } }),
+    ServiceOrder.countDocuments({ mechanic: mechanicId }),
     ServiceOrder.aggregate([
       {
         $match: {
-          seller: mechanicId,
+          mechanic: mechanicId,
           status: { $in: SERVICE_REVENUE_STATUSES },
           createdAt: { $gte: startOfMonth, $lte: endOfMonth },
         },
@@ -424,7 +461,7 @@ const buildServiceDashboard = async (mechanicId: mongoose.Types.ObjectId, range:
     ServiceOrder.aggregate([
       {
         $match: {
-          seller: mechanicId,
+          mechanic: mechanicId,
           status: { $in: SERVICE_REVENUE_STATUSES },
           createdAt: { $gte: startOfPreviousMonth, $lte: endOfPreviousMonth },
         },
@@ -434,7 +471,7 @@ const buildServiceDashboard = async (mechanicId: mongoose.Types.ObjectId, range:
     ServiceOrder.aggregate([
       {
         $match: {
-          seller: mechanicId,
+          mechanic: mechanicId,
           status: { $in: SERVICE_REVENUE_STATUSES },
           createdAt: { $gte: currentPeriodStart, $lte: now },
         },
@@ -462,7 +499,7 @@ const buildServiceDashboard = async (mechanicId: mongoose.Types.ObjectId, range:
     ServiceOrder.aggregate([
       {
         $match: {
-          seller: mechanicId,
+          mechanic: mechanicId,
           status: { $in: SERVICE_REVENUE_STATUSES },
           createdAt: { $gte: currentPeriodStart, $lte: now },
         },
@@ -576,10 +613,214 @@ export const getMechanicDashboard = async (req: AuthRequest, res: Response): Pro
   }
 };
 
+export const getProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const mechanicId = req.user!._id as mongoose.Types.ObjectId;
+    const user = await User.findById(mechanicId).select('-password');
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+    res.json({ success: true, data: user });
+  } catch (err) {
+    console.error('getProfile error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const mechanicId = req.user!._id as mongoose.Types.ObjectId;
+    const { firstName, lastName, phone, address } = req.body;
+    const user = await User.findByIdAndUpdate(
+      mechanicId,
+      { firstName, lastName, phone, address },
+      { new: true }
+    ).select('-password');
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+    res.json({ success: true, data: user });
+  } catch (err) {
+    console.error('updateProfile error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const getMechanicReviews = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const mechanicId = req.user!._id as mongoose.Types.ObjectId;
+    const [products, services] = await Promise.all([
+      Product.find({ seller: mechanicId, type: 'product' }).select('_id name').lean(),
+      Service.find({ mechanic: mechanicId }).select('_id name').lean(),
+    ]);
+
+    const productIds = products.map((product) => product._id);
+    const productMap = new Map(products.map((product) => [product._id.toString(), product.name]));
+
+    const [productReviews, mechanicReviews] = await Promise.all([
+      productIds.length > 0
+        ? Review.find({ productId: { $in: productIds } })
+            .sort({ createdAt: -1 })
+            .populate('buyer', 'firstName lastName')
+            .lean()
+        : [],
+      Review.find({ mechanicId })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .populate('buyer', 'firstName lastName')
+        .lean(),
+    ]);
+
+    const reviews = [...productReviews, ...mechanicReviews].sort(
+      (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const total = reviews.length;
+    const sum = reviews.reduce((acc: number, review: any) => acc + (review.rating || 0), 0);
+    const average = total > 0 ? Math.round((sum / total) * 10) / 10 : 0;
+
+    const productRatings = products.map((product) => {
+      const productReviewSet = productReviews.filter(
+        (review: any) => review.productId?.toString() === product._id.toString()
+      );
+      const reviewCount = productReviewSet.length;
+      const averageRating = reviewCount > 0
+        ? Math.round((productReviewSet.reduce((acc: number, review: any) => acc + (review.rating || 0), 0) / reviewCount) * 10) / 10
+        : 0;
+
+      return {
+        productId: product._id,
+        productName: product.name,
+        averageRating,
+        totalReviewCount: reviewCount,
+      };
+    }).sort((a, b) => {
+      if (b.totalReviewCount !== a.totalReviewCount) return b.totalReviewCount - a.totalReviewCount;
+      return b.averageRating - a.averageRating;
+    });
+
+    const serviceReviewCount = mechanicReviews.length;
+    const serviceAverageRating = serviceReviewCount > 0
+      ? Math.round((mechanicReviews.reduce((acc: number, review: any) => acc + (review.rating || 0), 0) / serviceReviewCount) * 10) / 10
+      : 0;
+
+    const serviceRatings = services.map((service) => ({
+      serviceId: service._id,
+      serviceName: service.name,
+      averageRating: serviceAverageRating,
+      totalReviewCount: serviceReviewCount,
+    }));
+
+    const getBuyerName = (buyer: any) =>
+      `${buyer?.firstName || ''} ${buyer?.lastName || ''}`.trim() || 'Customer';
+
+    const customerReviews = reviews.slice(0, 50).map((review: any) => {
+      const isProductReview = Boolean(review.productId);
+      return {
+        _id: review._id,
+        itemType: isProductReview ? 'product' : 'service',
+        itemName: isProductReview
+          ? productMap.get(review.productId?.toString()) || 'Unknown Product'
+          : 'Workshop Service',
+        customerName: getBuyerName(review.buyer),
+        rating: review.rating || 0,
+        comment: review.comment || '',
+        reviewDate: review.createdAt,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        stats: { average, total },
+        productRatings,
+        serviceRatings,
+        customerReviews,
+      },
+    });
+  } catch (err) {
+    console.error('getMechanicReviews error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const getServices = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const mechanicId = req.user!._id as mongoose.Types.ObjectId;
+    const services = await Service.find({ mechanic: mechanicId }).sort({ createdAt: -1 });
+    res.json({ success: true, data: services });
+  } catch (err) {
+    console.error('getServices error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const createService = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const mechanicId = req.user!._id as mongoose.Types.ObjectId;
+
+    if (rejectNegativeNumber(req.body.price, 'Service price', res, true)) return;
+    if (rejectNegativeNumber(req.body.originalPrice, 'Original price', res)) return;
+
+    const service = await Service.create({ ...req.body, mechanic: mechanicId });
+    res.status(201).json({ success: true, data: service });
+  } catch (err: any) {
+    console.error('createService error:', err);
+    if (err?.name === 'ValidationError') {
+      res.status(400).json({ success: false, message: err.message });
+      return;
+    }
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const updateService = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (req.body.price !== undefined && rejectNegativeNumber(req.body.price, 'Service price', res)) return;
+    if (req.body.originalPrice !== undefined && rejectNegativeNumber(req.body.originalPrice, 'Original price', res)) return;
+
+    const service = await Service.findOneAndUpdate(
+      { _id: id, mechanic: req.user!._id },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!service) {
+      res.status(404).json({ success: false, message: 'Service not found' });
+      return;
+    }
+    res.json({ success: true, data: service });
+  } catch (err: any) {
+    console.error('updateService error:', err);
+    if (err?.name === 'ValidationError') {
+      res.status(400).json({ success: false, message: err.message });
+      return;
+    }
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const deleteService = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const service = await Service.findOneAndDelete({ _id: id, mechanic: req.user!._id });
+    if (!service) {
+      res.status(404).json({ success: false, message: 'Service not found' });
+      return;
+    }
+    res.json({ success: true, message: 'Service deleted' });
+  } catch (err) {
+    console.error('deleteService error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 export const getMechanicServices = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const mechanicId = req.user!._id as mongoose.Types.ObjectId;
-    const services = await Service.find({ seller: mechanicId }).sort({ createdAt: -1 });
+    const services = await Service.find({ mechanic: mechanicId }).sort({ createdAt: -1 });
     res.json({ success: true, data: services });
   } catch (err) {
     console.error('getMechanicServices error:', err);
@@ -599,20 +840,20 @@ export const getOverview = async (req: AuthRequest, res: Response): Promise<void
       completedBookings,
       revenueResult,
     ] = await Promise.all([
-      Service.countDocuments({ seller: mechanicId }),
-      Service.countDocuments({ seller: mechanicId, active: true }),
-      ServiceOrder.countDocuments({ seller: mechanicId }),
-      ServiceOrder.countDocuments({ seller: mechanicId, status: { $in: SERVICE_PENDING_STATUSES } }),
-      ServiceOrder.countDocuments({ seller: mechanicId, status: { $in: SERVICE_REVENUE_STATUSES } }),
+      Service.countDocuments({ mechanic: mechanicId }),
+      Service.countDocuments({ mechanic: mechanicId, active: true }),
+      ServiceOrder.countDocuments({ mechanic: mechanicId }),
+      ServiceOrder.countDocuments({ mechanic: mechanicId, status: { $in: SERVICE_PENDING_STATUSES } }),
+      ServiceOrder.countDocuments({ mechanic: mechanicId, status: { $in: SERVICE_REVENUE_STATUSES } }),
       ServiceOrder.aggregate([
-        { $match: { seller: mechanicId, status: { $in: SERVICE_REVENUE_STATUSES } } },
+        { $match: { mechanic: mechanicId, status: { $in: SERVICE_REVENUE_STATUSES } } },
         { $group: { _id: null, total: { $sum: '$servicePrice' } } },
       ]),
     ]);
 
     const revenue = revenueResult[0]?.total ?? 0;
 
-    const recentBookings = await ServiceOrder.find({ seller: mechanicId })
+    const recentBookings = await ServiceOrder.find({ mechanic: mechanicId })
       .sort({ createdAt: -1 })
       .limit(5)
       .populate('buyer', 'firstName lastName email')
